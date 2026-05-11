@@ -18,6 +18,7 @@
     "expo-image": "~55.0.10",
     "expo-linear-gradient": "~55.0.13",
     "expo-secure-store": "~55.0.13",
+    "expo-splash-screen": "~55.0.20",
     "expo-status-bar": "~55.0.6",
     "expo-system-ui": "~55.0.17",
     "expo-web-browser": "~55.0.15",

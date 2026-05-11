@@ -7,11 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "wavelength",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "blog.micro.wavelength",
@@ -36,7 +31,16 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-font",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 100,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true
