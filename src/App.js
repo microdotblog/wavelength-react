@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Linking, StyleSheet, useColorScheme, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import * as WebBrowser from 'expo-web-browser';
 import { observer } from 'mobx-react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -22,6 +23,10 @@ function App() {
     React.useState(false);
   const is_signed_in = Auth.is_signed_in();
   const is_loading = !did_complete_initial_hydration || Auth.is_hydrating;
+
+  React.useEffect(() => {
+    SystemUI.setBackgroundColorAsync(theme.colors.canvas);
+  }, [theme.colors.canvas]);
 
   React.useEffect(() => {
     let is_cancelled = false;

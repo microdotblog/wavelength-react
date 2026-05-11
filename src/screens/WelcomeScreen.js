@@ -165,7 +165,12 @@ function PrimaryButton({
       ]}
     >
       {should_show_leading_icon ? (
-        <View style={[styles.primaryButtonIcon, { backgroundColor: theme.colors.accent_soft }]}>
+        <View
+          style={[
+            styles.primaryButtonIcon,
+            { backgroundColor: theme.colors.button_icon_background },
+          ]}
+        >
           {disabled ? (
             <ActivityIndicator color={theme.colors.accent_strong} size="small" />
           ) : (
@@ -176,7 +181,7 @@ function PrimaryButton({
       <Text
         style={[
           styles.primaryButtonLabel,
-          { color: disabled ? theme.colors.ink_soft : '#ffffff' },
+          { color: disabled ? theme.colors.ink_soft : theme.colors.button_text },
         ]}
       >
         {label}
@@ -246,6 +251,7 @@ function TokenSignInModal({
               autoFocus={visible}
               onChangeText={onChangeTokenValue}
               onSubmitEditing={onSubmit}
+              keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
               placeholder="Micro.blog token"
               placeholderTextColor={theme.colors.ink_soft}
               returnKeyType="done"
