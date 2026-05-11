@@ -38,6 +38,10 @@ function App() {
     });
 
     const subscription = Linking.addEventListener('url', event => {
+      if (Auth.is_signing_in && Auth.can_handle_open_url(event?.url)) {
+        return;
+      }
+
       Auth.handle_open_url(event?.url);
     });
 

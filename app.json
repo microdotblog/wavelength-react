@@ -41,9 +41,6 @@
           "resizeMode": "contain"
         }
       ]
-    ],
-    "experiments": {
-      "reactCompiler": true
-    }
+    ]
   }
 }

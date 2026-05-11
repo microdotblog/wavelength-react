@@ -139,6 +139,7 @@ const Auth = types
     handle_open_url: flow(function* (raw_url = '') {
       if (is_legacy_wavelength_token_url(raw_url)) {
         const callback_token = extract_legacy_wavelength_token(raw_url);
+        yield Tokens.clear_pending_oauth_state();
         return yield self.sign_in_with_token(callback_token, {
           allow_while_hydrating: true,
         });
@@ -183,7 +184,15 @@ const Auth = types
         const auth_result = yield WebBrowser.openAuthSessionAsync(auth_url, redirect_uri);
 
         if (auth_result?.type === 'success' && auth_result?.url) {
-          return yield self.complete_sign_in_callback(auth_result.url);
+          const did_handle_callback = yield self.handle_open_url(auth_result.url);
+
+          if (did_handle_callback) {
+            return true;
+          }
+
+          yield Tokens.clear_pending_oauth_state();
+          self.set_error('Micro.blog sign in did not complete. Please try again.');
+          return false;
         }
 
         yield Tokens.clear_pending_oauth_state();
@@ -324,6 +333,10 @@ const Auth = types
 
     is_signed_in() {
       return Tokens.has_user_token();
+    },
+
+    can_handle_open_url(raw_url = '') {
+      return is_legacy_wavelength_token_url(raw_url) || is_micro_blog_callback_url(raw_url);
     },
 
     current_profile() {
