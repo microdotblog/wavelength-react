@@ -1,6 +1,6 @@
 # Wavelength
 
-Wavelength is a React Native podcast studio built with Expo, that syncs with Micro.blog.
+Wavelength is a React Native podcast studio built with Expo, that syncs with Micro.blog. "Record, edit, and publish microcasts."
 
 ## Product Concepts
 The core product concepts are creating and managing audio podcasts that allows you to post them to your blog on Micro.blog.
