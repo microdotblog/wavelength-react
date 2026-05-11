@@ -80,7 +80,7 @@ function WelcomeScreen({ theme }) {
                 Record, edit, and publish microcasts.
               </Text>
               <Text style={[styles.body, { color: theme.colors.ink_soft }]}>
-                Sign in with Micro.blog to connect your podcast studio to your blog.
+                Sign in with Micro.blog to get started.
               </Text>
             </View>
           </View>
@@ -425,10 +425,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: '800',
     letterSpacing: 0,
-    lineHeight: 43,
+    lineHeight: 38,
     maxWidth: 360,
   },
   tokenLink: {
