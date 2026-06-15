@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Episodes from '../stores/Episodes';
 import HeaderPillButton from '../components/HeaderPillButton';
+import RecordPulseRings from '../components/RecordPulseRings';
 import RecordingWaveform from '../components/RecordingWaveform';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { format_clock } from '../lib/format_duration';
@@ -278,23 +279,31 @@ function RecordScreen({ navigation, theme }) {
           </Text>
         ) : null}
 
-        <Pressable
-          accessibilityLabel={record_button_label}
-          accessibilityRole="button"
-          disabled={is_button_disabled}
-          onPress={handle_press}
-          style={({ pressed }) => [
-            styles.recordButton,
-            {
-              backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12),
-              borderColor: theme.colors.accent,
-              opacity: is_button_disabled ? 0.5 : 1,
-            },
-            pressed && !is_button_disabled ? styles.pressed : null,
-          ]}
-        >
-          {render_record_icon(recording_phase, theme.colors.accent)}
-        </Pressable>
+        <View style={styles.recordButtonWrap}>
+          <RecordPulseRings
+            is_recording={is_active_recording}
+            metering={recorder_state.metering}
+            theme={theme}
+          />
+
+          <Pressable
+            accessibilityLabel={record_button_label}
+            accessibilityRole="button"
+            disabled={is_button_disabled}
+            onPress={handle_press}
+            style={({ pressed }) => [
+              styles.recordButton,
+              {
+                backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12),
+                borderColor: theme.colors.accent,
+                opacity: is_button_disabled ? 0.5 : 1,
+              },
+              pressed && !is_button_disabled ? styles.pressed : null,
+            ]}
+          >
+            {render_record_icon(recording_phase, theme.colors.accent)}
+          </Pressable>
+        </View>
       </View>
 
       <Animated.View
@@ -438,6 +447,12 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderRadius: 70,
     borderWidth: 2,
+    height: 140,
+    justifyContent: 'center',
+    width: 140,
+  },
+  recordButtonWrap: {
+    alignItems: 'center',
     height: 140,
     justifyContent: 'center',
     width: 140,
