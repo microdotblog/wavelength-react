@@ -8,6 +8,9 @@ The core product concepts are creating and managing audio podcasts that allows y
 ## Expo
 For Expo specific documentation and how-to's, reference https://docs.expo.dev/llms.txt.
 
+## Micro.blog API
+When working with the API, check relevant reference projects or use reference from: https://microblog.dev/llms.txt
+
 ## IMPORTANT! Reference Projects
 Always check code styling and implementation patterns as per "./../strata" or "./../epilogue" for React Native code.
 When instructions in those projects conflict with their live code, follow the implemented pattern in the reference project, not stale guidance.
