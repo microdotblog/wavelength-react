@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
@@ -7,11 +7,10 @@ import { observer } from 'mobx-react';
 import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
 import EpisodeRow from '../components/EpisodeRow';
-import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const WAVELENGTH_ICON = require('../../assets/icon.png');
 
-function StudioScreen({ navigation, theme }) {
+function RecordingsScreen({ navigation, theme }) {
   const profile = Auth.current_profile();
   const username_label = profile.username ? `@${profile.username}` : 'Micro.blog';
   const episodes = Episodes.sorted_episodes();
@@ -56,25 +55,6 @@ function StudioScreen({ navigation, theme }) {
         </Text>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => navigation.navigate('Record')}
-        style={({ pressed }) => [
-          styles.recordAction,
-          {
-            backgroundColor: theme.colors.accent,
-            boxShadow: theme.is_dark
-              ? '0 10px 18px rgba(0, 0, 0, 0.28)'
-              : '0 10px 18px rgba(95, 53, 0, 0.18)',
-          },
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={[styles.recordActionText, { color: theme.colors.button_text }]}>
-          New Recording
-        </Text>
-      </Pressable>
-
       <View style={styles.episodesSection}>
         <Text style={[styles.sectionTitle, { color: theme.colors.ink }]}>
           Episodes
@@ -106,42 +86,11 @@ function StudioScreen({ navigation, theme }) {
           </View>
         )}
       </View>
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => navigation.navigate('Account')}
-        style={({ pressed }) => [
-          styles.accountButton,
-          {
-            backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12),
-            borderColor: theme.colors.line,
-          },
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={[styles.accountButtonText, { color: theme.colors.accent_strong }]}>
-          Account
-        </Text>
-      </Pressable>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  accountButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 50,
-    paddingHorizontal: 18,
-  },
-  accountButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-  },
   content: {
     gap: 18,
     paddingBottom: 36,
@@ -200,22 +149,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 31,
   },
-  pressed: {
-    opacity: 0.72,
-  },
-  recordAction: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 20,
-    justifyContent: 'center',
-    minHeight: 58,
-    paddingHorizontal: 18,
-  },
-  recordActionText: {
-    fontSize: 17,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
   screen: {
     flex: 1,
   },
@@ -226,4 +159,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default observer(StudioScreen);
+export default observer(RecordingsScreen);

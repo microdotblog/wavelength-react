@@ -1,68 +1,42 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { observer } from 'mobx-react';
 
 import AccountScreen from '../screens/AccountScreen';
 import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
+import RecordFab from '../components/RecordFab';
 import RecordScreen from '../screens/RecordScreen';
-import StudioScreen from '../screens/StudioScreen';
-import {
-  header_left_element,
-  header_right_element,
-} from '../theme/wavelengthTheme';
+import TabNavigator from './TabNavigator';
+import { build_stack_screen_options } from './screenOptions';
+import { header_left_element } from '../theme/wavelengthTheme';
 
 const Stack = createNativeStackNavigator();
 
 function SignedInNavigator({ theme }) {
-  const common_screen_options = {
-    contentStyle: {
-      backgroundColor: theme.colors.canvas,
-    },
-    headerBackButtonDisplayMode: 'minimal',
-    headerBlurEffect: theme.is_dark ? 'systemMaterialDark' : 'systemMaterialLight',
-    headerLargeStyle: {
-      backgroundColor: theme.colors.canvas,
-    },
-    headerLargeTitle: Platform.OS === 'ios',
-    headerLargeTitleShadowVisible: false,
-    headerShadowVisible: false,
-    headerStyle: {
-      backgroundColor: Platform.OS === 'ios' ? 'transparent' : theme.colors.paper,
-    },
-    headerTintColor: theme.colors.ink,
-    headerTitleStyle: {
-      color: theme.colors.ink,
-      fontSize: 17,
-      fontWeight: '700',
-    },
-    headerTransparent: Platform.OS === 'ios',
-  };
-
   return (
     <Stack.Navigator
-      initialRouteName="Studio"
-      screenOptions={common_screen_options}
+      initialRouteName="MainTabs"
+      screenOptions={build_stack_screen_options(theme)}
     >
       <Stack.Screen
-        name="Studio"
-        options={({ navigation }) => ({
-          title: 'Studio',
-          ...header_right_element(() => (
-            <HeaderPillButton
-              label="Account"
-              onPress={() => navigation.navigate('Account')}
-              theme={theme}
-            />
-          )),
-        })}
+        name="MainTabs"
+        options={{ headerShown: false }}
       >
         {screen_props => (
-          <StudioScreen
-            {...screen_props}
-            theme={theme}
-          />
+          <View style={{ flex: 1 }}>
+            <TabNavigator
+              {...screen_props}
+              theme={theme}
+            />
+            {Platform.OS === 'android' ? (
+              <RecordFab
+                onPress={() => screen_props.navigation.navigate('Record')}
+                theme={theme}
+              />
+            ) : null}
+          </View>
         )}
       </Stack.Screen>
       <Stack.Screen
