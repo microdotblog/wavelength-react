@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import HeaderPillButton from '../../components/HeaderPillButton';
+import HeaderProfileButton from '../../components/HeaderProfileButton';
 import RecordingsScreen from '../../screens/RecordingsScreen';
 import { build_stack_screen_options } from '../screenOptions';
 import {
@@ -23,8 +24,7 @@ function RecordingsStack({ theme }) {
         options={({ navigation }) => ({
           title: 'Recordings',
           ...header_right_element(() => (
-            <HeaderPillButton
-              label="Account"
+            <HeaderProfileButton
               onPress={() => navigation.navigate('Account')}
               theme={theme}
             />
