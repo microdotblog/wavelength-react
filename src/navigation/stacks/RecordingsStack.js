@@ -23,6 +23,7 @@ function RecordingsStack({ theme }) {
         name="Recordings"
         options={({ navigation }) => ({
           title: 'Recordings',
+          headerLargeTitle: false,
           ...header_right_element(() => (
             <HeaderProfileButton
               onPress={() => navigation.navigate('Account')}

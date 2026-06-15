@@ -11,7 +11,7 @@ function PostsStack({ theme }) {
     <Stack.Navigator screenOptions={build_stack_screen_options(theme)}>
       <Stack.Screen
         name="Posts"
-        options={{ title: 'Posts' }}
+        options={{ title: 'Posts', headerLargeTitle: false }}
       >
         {screen_props => (
           <PostsScreen

@@ -11,7 +11,7 @@ function DiscoverStack({ theme }) {
     <Stack.Navigator screenOptions={build_stack_screen_options(theme)}>
       <Stack.Screen
         name="Discover"
-        options={{ title: 'Discover' }}
+        options={{ title: 'Discover', headerLargeTitle: false }}
       >
         {screen_props => (
           <DiscoverScreen
