@@ -13,7 +13,7 @@ function EditScreen({ navigation, route, theme }) {
   const episode = Episodes.get_episode(episode_id);
   const clip_uri = episode ? episode.primary_clip_uri() : null;
 
-  const player = useAudioPlayer(clip_uri ? { uri: clip_uri } : null);
+  const player = useAudioPlayer(clip_uri ? { uri: clip_uri } : null, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
 
   function toggle_playback() {
@@ -73,9 +73,6 @@ function EditScreen({ navigation, route, theme }) {
   const total_seconds = status.duration > 0 ? status.duration : episode.duration_seconds;
   const elapsed_label = format_duration(status.currentTime);
   const total_label = format_duration(total_seconds);
-  const progress_fraction = total_seconds > 0
-    ? Math.min(status.currentTime / total_seconds, 1)
-    : 0;
 
   return (
     <ScrollView
@@ -102,8 +99,10 @@ function EditScreen({ navigation, route, theme }) {
         </Text>
 
         <PlaybackWaveform
+          current_time={status.currentTime}
+          duration_seconds={total_seconds}
+          is_playing={status.playing}
           onSeek={handle_seek}
-          progress={progress_fraction}
           theme={theme}
           waveform={episode.waveform}
         />

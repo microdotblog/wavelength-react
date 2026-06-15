@@ -1,5 +1,13 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { with_color_opacity } from '../theme/wavelengthTheme';
@@ -16,67 +24,130 @@ function build_display_levels(waveform) {
   return new Array(WAVEFORM_SAMPLE_COUNT).fill(FALLBACK_LEVEL);
 }
 
-function PlaybackWaveform({ onSeek, progress = 0, theme, waveform = [] }) {
+function BarsLayer({ color, levels, width }) {
+  return (
+    <View style={[styles.bars, width != null ? { width } : null]}>
+      {levels.map((level, index) => (
+        <View
+          key={index}
+          style={[
+            styles.bar,
+            { backgroundColor: color, height: Math.max(MIN_BAR_HEIGHT, level * BAR_AREA_HEIGHT) },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+function PlaybackWaveform({ current_time = 0, duration_seconds = 0, is_playing = false, onSeek, theme, waveform = [] }) {
+  const [track_width, set_track_width] = React.useState(0);
   const width_ref = React.useRef(0);
+  const on_seek_ref = React.useRef(onSeek);
+  const is_scrubbing_ref = React.useRef(false);
+  const progress = useSharedValue(0);
   const levels = build_display_levels(waveform);
-  const clamped_progress = Math.min(Math.max(progress, 0), 1);
 
-  function handle_layout(event) {
-    width_ref.current = event.nativeEvent.layout.width;
-  }
+  on_seek_ref.current = onSeek;
 
-  function seek_to_touch(event) {
-    const width = width_ref.current;
+  const played_color = theme.colors.accent;
+  const muted_color = with_color_opacity(theme.colors.ink_soft, theme.is_dark ? 0.45 : 0.3);
 
-    if (typeof onSeek !== 'function' || width <= 0) {
+  // Re-sync the animated playhead to the real playback time on every status
+  // tick, then let it glide linearly toward the end so it never looks stepped.
+  React.useEffect(() => {
+    if (is_scrubbing_ref.current) {
       return;
     }
 
-    const fraction = Math.min(Math.max(event.nativeEvent.locationX / width, 0), 1);
-    onSeek(fraction);
+    const fraction = duration_seconds > 0
+      ? Math.min(Math.max(current_time / duration_seconds, 0), 1)
+      : 0;
+
+    cancelAnimation(progress);
+    progress.value = fraction;
+
+    if (is_playing && duration_seconds > 0 && fraction < 1) {
+      const remaining_ms = Math.max((duration_seconds - current_time) * 1000, 0);
+      progress.value = withTiming(1, { duration: remaining_ms, easing: Easing.linear });
+    }
+  }, [current_time, duration_seconds, is_playing, progress]);
+
+  function handle_layout(event) {
+    const next_width = event.nativeEvent.layout.width;
+    width_ref.current = next_width;
+    set_track_width(next_width);
   }
 
+  const scrub_to_x = React.useCallback(touch_x => {
+    const width = width_ref.current;
+
+    if (width <= 0) {
+      return;
+    }
+
+    const fraction = Math.min(Math.max(touch_x / width, 0), 1);
+    progress.value = fraction;
+
+    const current_on_seek = on_seek_ref.current;
+
+    if (typeof current_on_seek === 'function') {
+      current_on_seek(fraction);
+    }
+  }, [progress]);
+
+  // Gesture-handler keeps the horizontal scrub from being stolen by the native
+  // stack's swipe-to-go-back gesture, while letting vertical scrolls pass through.
+  const scrub_gesture = React.useMemo(() => {
+    const tap = Gesture.Tap()
+      .runOnJS(true)
+      .onEnd(event => scrub_to_x(event.x));
+
+    const pan = Gesture.Pan()
+      .runOnJS(true)
+      .activeOffsetX([-6, 6])
+      .failOffsetY([-12, 12])
+      .shouldCancelWhenOutside(false)
+      .onStart(event => {
+        is_scrubbing_ref.current = true;
+        cancelAnimation(progress);
+        scrub_to_x(event.x);
+      })
+      .onUpdate(event => scrub_to_x(event.x))
+      .onFinalize(() => {
+        is_scrubbing_ref.current = false;
+      });
+
+    return Gesture.Race(tap, pan);
+  }, [progress, scrub_to_x]);
+
+  const reveal_style = useAnimatedStyle(() => ({
+    width: progress.value * track_width,
+  }));
+
+  const playhead_style = useAnimatedStyle(() => ({
+    transform: [{ translateX: progress.value * track_width }],
+  }));
+
   return (
-    <View
-      accessibilityRole="adjustable"
-      accessibilityValue={{ now: Math.round(clamped_progress * 100), min: 0, max: 100 }}
-      hitSlop={12}
-      onLayout={handle_layout}
-      onResponderGrant={seek_to_touch}
-      onResponderMove={seek_to_touch}
-      onStartShouldSetResponder={() => true}
-      onMoveShouldSetResponder={() => true}
-      style={styles.container}
-    >
-      <View style={styles.bars}>
-        {levels.map((level, index) => {
-          const bar_height = Math.max(MIN_BAR_HEIGHT, level * BAR_AREA_HEIGHT);
-          const bar_center = (index + 0.5) / levels.length;
-          const is_played = bar_center <= clamped_progress;
-          const bar_color = is_played
-            ? theme.colors.accent
-            : with_color_opacity(theme.colors.ink_soft, theme.is_dark ? 0.45 : 0.3);
-
-          return (
-            <View
-              key={index}
-              style={[styles.bar, { backgroundColor: bar_color, height: bar_height }]}
-            />
-          );
-        })}
-      </View>
-
+    <GestureDetector gesture={scrub_gesture}>
       <View
-        pointerEvents="none"
-        style={[
-          styles.playhead,
-          {
-            backgroundColor: theme.colors.accent_strong,
-            left: `${clamped_progress * 100}%`,
-          },
-        ]}
-      />
-    </View>
+        accessibilityRole="adjustable"
+        onLayout={handle_layout}
+        style={styles.container}
+      >
+        <BarsLayer color={muted_color} levels={levels} />
+
+        <Animated.View pointerEvents="none" style={[styles.reveal, reveal_style]}>
+          <BarsLayer color={played_color} levels={levels} width={track_width} />
+        </Animated.View>
+
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.playhead, { backgroundColor: theme.colors.accent_strong }, playhead_style]}
+        />
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -95,6 +166,7 @@ const styles = StyleSheet.create({
   container: {
     height: BAR_AREA_HEIGHT,
     justifyContent: 'center',
+    overflow: 'hidden',
     width: '100%',
   },
   playhead: {
@@ -104,6 +176,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     width: 2,
+  },
+  reveal: {
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    top: 0,
   },
 });
 
