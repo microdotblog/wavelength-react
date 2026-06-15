@@ -51,16 +51,7 @@ function RecordingWaveform({ is_recording = false, levels = [], theme }) {
     <View
       accessibilityLabel={is_recording ? 'Recording level' : 'Ready to record'}
       accessibilityRole="image"
-      style={[
-        styles.panel,
-        {
-          backgroundColor: theme.colors.paper,
-          borderColor: theme.colors.line,
-          boxShadow: theme.is_dark
-            ? '0 10px 18px rgba(0, 0, 0, 0.3)'
-            : '0 10px 18px rgba(95, 53, 0, 0.12)',
-        },
-      ]}
+      style={styles.panel}
     >
       <View style={styles.bars}>
         {levels.map((level, index) => (
@@ -87,9 +78,6 @@ const styles = StyleSheet.create({
   },
   panel: {
     alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 26,
-    borderWidth: 1,
     justifyContent: 'center',
     paddingHorizontal: 18,
     paddingVertical: 16,
