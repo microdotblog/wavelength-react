@@ -4,6 +4,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
+import PlaybackWaveform from '../components/PlaybackWaveform';
 import { format_duration } from '../lib/format_duration';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
@@ -26,6 +27,14 @@ function EditScreen({ navigation, route, theme }) {
     }
 
     player.play();
+  }
+
+  function handle_seek(fraction) {
+    if (!(total_seconds > 0)) {
+      return;
+    }
+
+    player.seekTo(fraction * total_seconds);
   }
 
   function confirm_delete() {
@@ -92,17 +101,12 @@ function EditScreen({ navigation, route, theme }) {
           {total_label}
         </Text>
 
-        <View style={[styles.progressTrack, { backgroundColor: theme.colors.line }]}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                backgroundColor: theme.colors.accent,
-                width: `${progress_fraction * 100}%`,
-              },
-            ]}
-          />
-        </View>
+        <PlaybackWaveform
+          onSeek={handle_seek}
+          progress={progress_fraction}
+          theme={theme}
+          waveform={episode.waveform}
+        />
 
         <View style={styles.timeRow}>
           <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
@@ -201,16 +205,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
-  },
-  progressFill: {
-    borderRadius: 3,
-    height: '100%',
-  },
-  progressTrack: {
-    borderRadius: 3,
-    height: 6,
-    overflow: 'hidden',
-    width: '100%',
   },
   screen: {
     flex: 1,

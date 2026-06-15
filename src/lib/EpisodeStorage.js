@@ -37,6 +37,16 @@ function normalize_folder_uri(uri = '') {
   return `${uri}/`;
 }
 
+function sanitize_waveform(waveform) {
+  if (!Array.isArray(waveform)) {
+    return [];
+  }
+
+  return waveform
+    .filter(Number.isFinite)
+    .map(value => Math.min(Math.max(value, 0), 1));
+}
+
 function create_episode_directory(date) {
   const episodes_directory = get_episodes_directory();
   const base_id = build_episode_id(date);
@@ -81,13 +91,14 @@ function read_episode_from_directory(directory) {
       folder_uri: normalize_folder_uri(directory.uri),
       id: directory.name,
       title: `${parsed.title || directory.name}`,
+      waveform: sanitize_waveform(parsed.waveform),
     };
   } catch (error) {
     return null;
   }
 }
 
-export async function save_episode_from_recording(recording_uri = '', duration_seconds = 0) {
+export async function save_episode_from_recording(recording_uri = '', duration_seconds = 0, waveform = []) {
   const trimmed_uri = `${recording_uri || ''}`.trim();
 
   if (!trimmed_uri) {
@@ -111,6 +122,7 @@ export async function save_episode_from_recording(recording_uri = '', duration_s
     created_at: created_at.toISOString(),
     duration_seconds: Number.isFinite(duration_seconds) ? duration_seconds : 0,
     title,
+    waveform: sanitize_waveform(waveform),
   };
 
   info_file.write(JSON.stringify(episode_info, null, 2));

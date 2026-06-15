@@ -15,6 +15,7 @@ const Episode = types
     folder_uri: types.string,
     id: types.identifier,
     title: types.string,
+    waveform: types.optional(types.array(types.number), []),
   })
   .views(self => ({
     primary_clip_uri() {
@@ -45,8 +46,8 @@ const Episodes = types
       self.is_loading = false;
     }),
 
-    create_from_recording: flow(function* (recording_uri = '', duration_seconds = 0) {
-      const episode = yield save_episode_from_recording(recording_uri, duration_seconds);
+    create_from_recording: flow(function* (recording_uri = '', duration_seconds = 0, waveform = []) {
+      const episode = yield save_episode_from_recording(recording_uri, duration_seconds, waveform);
       self.episodes.push(episode);
 
       return episode.id;

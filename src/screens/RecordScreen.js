@@ -11,16 +11,26 @@ import { observer } from 'mobx-react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Episodes from '../stores/Episodes';
+import RecordingWaveform from '../components/RecordingWaveform';
+import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { format_clock } from '../lib/format_duration';
+import { normalize_metering } from '../lib/normalize_metering';
+import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const MINIMUM_RECORDING_SECONDS = 1;
+const RECORDER_POLL_MS = 50;
+const RECORDING_OPTIONS = {
+  ...RecordingPresets.HIGH_QUALITY,
+  isMeteringEnabled: true,
+};
 
 function RecordScreen({ navigation, theme }) {
-  const audio_recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorder_state = useAudioRecorderState(audio_recorder);
+  const audio_recorder = useAudioRecorder(RECORDING_OPTIONS);
+  const recorder_state = useAudioRecorderState(audio_recorder, RECORDER_POLL_MS);
   const [permission_status, set_permission_status] = React.useState('pending');
   const [is_saving, set_is_saving] = React.useState(false);
+  const captured_samples_ref = React.useRef([]);
 
   React.useEffect(() => {
     let is_cancelled = false;
@@ -49,12 +59,21 @@ function RecordScreen({ navigation, theme }) {
     };
   }, []);
 
+  React.useEffect(() => {
+    if (!recorder_state.isRecording || !Number.isFinite(recorder_state.metering)) {
+      return;
+    }
+
+    captured_samples_ref.current.push(normalize_metering(recorder_state.metering));
+  }, [recorder_state.isRecording, recorder_state.metering, recorder_state.durationMillis]);
+
   async function start_recording() {
     if (permission_status !== 'granted' || is_saving) {
       return;
     }
 
-    await audio_recorder.prepareToRecordAsync();
+    captured_samples_ref.current = [];
+    await audio_recorder.prepareToRecordAsync(RECORDING_OPTIONS);
     audio_recorder.record();
   }
 
@@ -82,7 +101,8 @@ function RecordScreen({ navigation, theme }) {
       return;
     }
 
-    const episode_id = await Episodes.create_from_recording(recording_uri, captured_seconds);
+    const waveform = downsample_waveform(captured_samples_ref.current, WAVEFORM_SAMPLE_COUNT);
+    const episode_id = await Episodes.create_from_recording(recording_uri, captured_seconds, waveform);
     set_is_saving(false);
     navigation.replace('Edit', { episode_id });
   }
@@ -96,6 +116,11 @@ function RecordScreen({ navigation, theme }) {
   }
 
   const is_recording = recorder_state.isRecording;
+  const waveform_levels = use_recording_waveform_levels({
+    duration_millis: recorder_state.durationMillis,
+    is_recording,
+    metering: recorder_state.metering,
+  });
   const timer_label = format_clock(recorder_state.durationMillis);
   const status_label = resolve_status_label({ is_recording, is_saving, permission_status });
   const is_button_disabled = permission_status !== 'granted' || is_saving;
@@ -114,6 +139,12 @@ function RecordScreen({ navigation, theme }) {
             {status_label}
           </Text>
         </View>
+
+        <RecordingWaveform
+          is_recording={is_recording}
+          levels={waveform_levels}
+          theme={theme}
+        />
 
         {permission_status === 'denied' ? (
           <Text style={[styles.permissionMessage, { color: theme.colors.accent_strong }]}>
@@ -172,7 +203,7 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     flex: 1,
-    gap: 28,
+    gap: 24,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
