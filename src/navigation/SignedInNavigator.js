@@ -4,6 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { observer } from 'mobx-react';
 
 import AccountScreen from '../screens/AccountScreen';
+import EditScreen from '../screens/EditScreen';
+import RecordScreen from '../screens/RecordScreen';
 import StudioScreen from '../screens/StudioScreen';
 import {
   header_left_element,
@@ -79,6 +81,46 @@ function SignedInNavigator({ theme }) {
       >
         {screen_props => (
           <AccountScreen
+            {...screen_props}
+            theme={theme}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="Record"
+        options={({ navigation }) => ({
+          title: 'New Recording',
+          ...header_left_element(() => (
+            <HeaderPillButton
+              label="Done"
+              onPress={() => navigation.goBack()}
+              theme={theme}
+            />
+          )),
+        })}
+      >
+        {screen_props => (
+          <RecordScreen
+            {...screen_props}
+            theme={theme}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="Edit"
+        options={({ navigation }) => ({
+          title: 'Episode',
+          ...header_left_element(() => (
+            <HeaderPillButton
+              label="Done"
+              onPress={() => navigation.goBack()}
+              theme={theme}
+            />
+          )),
+        })}
+      >
+        {screen_props => (
+          <EditScreen
             {...screen_props}
             theme={theme}
           />

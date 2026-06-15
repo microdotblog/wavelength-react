@@ -1,9 +1,12 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
 import Auth from '../stores/Auth';
+import Episodes from '../stores/Episodes';
+import EpisodeRow from '../components/EpisodeRow';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const WAVELENGTH_ICON = require('../../assets/icon.png');
@@ -11,6 +14,13 @@ const WAVELENGTH_ICON = require('../../assets/icon.png');
 function StudioScreen({ navigation, theme }) {
   const profile = Auth.current_profile();
   const username_label = profile.username ? `@${profile.username}` : 'Micro.blog';
+  const episodes = Episodes.sorted_episodes();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      Episodes.refresh();
+    }, []),
+  );
 
   return (
     <ScrollView
@@ -46,17 +56,55 @@ function StudioScreen({ navigation, theme }) {
         </Text>
       </View>
 
-      <View style={styles.quickActions}>
-        <StudioAction
-          label="New Recording"
-          note="Recorder setup comes next."
-          theme={theme}
-        />
-        <StudioAction
-          label="Episodes"
-          note="No local episodes yet."
-          theme={theme}
-        />
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => navigation.navigate('Record')}
+        style={({ pressed }) => [
+          styles.recordAction,
+          {
+            backgroundColor: theme.colors.accent,
+            boxShadow: theme.is_dark
+              ? '0 10px 18px rgba(0, 0, 0, 0.28)'
+              : '0 10px 18px rgba(95, 53, 0, 0.18)',
+          },
+          pressed ? styles.pressed : null,
+        ]}
+      >
+        <Text style={[styles.recordActionText, { color: theme.colors.button_text }]}>
+          New Recording
+        </Text>
+      </Pressable>
+
+      <View style={styles.episodesSection}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.ink }]}>
+          Episodes
+        </Text>
+        {episodes.length === 0 ? (
+          <View
+            style={[
+              styles.emptyCard,
+              {
+                backgroundColor: theme.colors.glass,
+                borderColor: theme.colors.line,
+              },
+            ]}
+          >
+            <Text style={[styles.emptyText, { color: theme.colors.ink_soft }]}>
+              Record your first microcast to see it here.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.episodesList}>
+            {episodes.map(episode => (
+              <EpisodeRow
+                episode={episode}
+                key={episode.id}
+                onPress={() => navigation.navigate('Edit', { episode_id: episode.id })}
+                theme={theme}
+              />
+            ))}
+          </View>
+        )}
       </View>
 
       <Pressable
@@ -79,27 +127,6 @@ function StudioScreen({ navigation, theme }) {
   );
 }
 
-function StudioAction({ label, note, theme }) {
-  return (
-    <View
-      style={[
-        styles.actionCard,
-        {
-          backgroundColor: theme.colors.glass,
-          borderColor: theme.colors.line,
-        },
-      ]}
-    >
-      <Text style={[styles.actionLabel, { color: theme.colors.ink }]}>
-        {label}
-      </Text>
-      <Text style={[styles.actionNote, { color: theme.colors.ink_soft }]}>
-        {note}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   accountButton: {
     alignItems: 'center',
@@ -115,30 +142,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 20,
   },
-  actionCard: {
-    borderCurve: 'continuous',
-    borderRadius: 20,
-    borderWidth: 1,
-    flex: 1,
-    gap: 8,
-    minHeight: 118,
-    minWidth: 148,
-    padding: 16,
-  },
-  actionLabel: {
-    fontSize: 17,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
-  actionNote: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
   content: {
     gap: 18,
     paddingBottom: 36,
     paddingHorizontal: 20,
     paddingTop: 18,
+  },
+  emptyCard: {
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 18,
+  },
+  emptyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
+  episodesList: {
+    gap: 10,
+  },
+  episodesSection: {
+    gap: 12,
   },
   heroBody: {
     fontSize: 16,
@@ -178,13 +203,26 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  recordAction: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    justifyContent: 'center',
+    minHeight: 58,
+    paddingHorizontal: 18,
+  },
+  recordActionText: {
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 22,
   },
   screen: {
     flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 23,
   },
 });
 
