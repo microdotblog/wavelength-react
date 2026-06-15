@@ -9,32 +9,39 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@react-navigation/native": "^7.2.4",
-    "@react-navigation/native-stack": "^7.14.14",
-    "expo": "~56.0.8",
-    "expo-auth-session": "~56.0.13",
+    "@react-navigation/native": "^7.3.3",
+    "@react-navigation/native-stack": "^7.17.5",
+    "expo": "~56.0.11",
+    "expo-auth-session": "~56.0.14",
     "expo-crypto": "~56.0.4",
-    "expo-font": "~56.0.5",
-    "expo-image": "~56.0.9",
+    "expo-font": "~56.0.6",
+    "expo-image": "~56.0.11",
     "expo-linear-gradient": "~56.0.4",
     "expo-secure-store": "~56.0.4",
     "expo-splash-screen": "~56.0.10",
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
     "expo-web-browser": "~56.0.5",
-    "mobx": "^6.15.3",
-    "mobx-react": "^9.2.1",
+    "mobx": "^6.16.1",
+    "mobx-react": "^9.2.2",
     "mobx-state-tree": "^7.2.0",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-gesture-handler": "~2.31.1",
-    "react-native-keyboard-controller": "1.21.6",
+    "react-native-keyboard-controller": "1.21.11",
     "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
     "react-native-worklets": "0.8.3"
   },
   "private": true,
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native-keyboard-controller"
+      ]
+    }
+  },
   "devDependencies": {
     "glob": "^13.0.0"
   }
