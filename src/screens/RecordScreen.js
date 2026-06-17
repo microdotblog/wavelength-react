@@ -35,6 +35,8 @@ const RECORDING_OPTIONS = {
 };
 
 function RecordScreen({ navigation, route, theme }) {
+  const episode_id = route.params?.episode_id;
+  const is_appending = typeof episode_id === 'string' && episode_id.length > 0;
   const audio_recorder = useAudioRecorder(RECORDING_OPTIONS);
   const recorder_state = useAudioRecorderState(audio_recorder, RECORDER_POLL_MS);
   const [permission_status, set_permission_status] = React.useState('pending');
@@ -171,9 +173,18 @@ function RecordScreen({ navigation, route, theme }) {
     }
 
     const waveform = downsample_waveform(captured_samples_ref.current, WAVEFORM_SAMPLE_COUNT);
-    const episode_id = await Episodes.create_from_recording(recording_uri, captured_seconds, waveform);
+
+    if (is_appending) {
+      await Episodes.append_clip_to_episode(episode_id, recording_uri, captured_seconds, waveform);
+      Episodes.export_merged_audio(episode_id);
+      set_is_saving(false);
+      navigation.goBack();
+      return;
+    }
+
+    const created_episode_id = await Episodes.create_from_recording(recording_uri, captured_seconds, waveform);
     set_is_saving(false);
-    navigation.replace('Edit', { episode_id });
+    navigation.replace('Edit', { episode_id: created_episode_id });
   }
 
   async function discard_recording() {
@@ -263,7 +274,7 @@ function RecordScreen({ navigation, route, theme }) {
     metering: recorder_state.metering,
   });
   const timer_label = format_clock(recorder_state.durationMillis);
-  const status_label = resolve_status_label({ is_saving, permission_status, recording_phase });
+  const status_label = resolve_status_label({ is_appending, is_saving, permission_status, recording_phase });
   const is_button_disabled = permission_status !== 'granted' || is_saving;
   const is_paused = recording_phase === 'paused';
 
@@ -323,7 +334,7 @@ function RecordScreen({ navigation, route, theme }) {
           ]}
         >
           <Text style={[styles.saveButtonText, { color: theme.colors.button_text }]}>
-            Save episode
+            {is_appending ? 'Save segment' : 'Save episode'}
           </Text>
         </Pressable>
 
@@ -349,7 +360,7 @@ function RecordScreen({ navigation, route, theme }) {
   );
 }
 
-function resolve_status_label({ is_saving, permission_status, recording_phase }) {
+function resolve_status_label({ is_appending, is_saving, permission_status, recording_phase }) {
   if (permission_status === 'pending') {
     return 'Checking microphone access...';
   }
@@ -359,7 +370,7 @@ function resolve_status_label({ is_saving, permission_status, recording_phase })
   }
 
   if (is_saving) {
-    return 'Saving episode...';
+    return is_appending ? 'Saving segment...' : 'Saving episode...';
   }
 
   if (recording_phase === 'recording') {

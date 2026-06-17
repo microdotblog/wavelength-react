@@ -1,43 +1,98 @@
 import React from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
 import PlaybackWaveform from '../components/PlaybackWaveform';
+import SegmentRow from '../components/SegmentRow';
 import { format_duration } from '../lib/format_duration';
+import { use_episode_playback } from '../hooks/use_episode_playback';
 import { with_color_opacity } from '../theme/wavelengthTheme';
+
+function clip_meta_snapshot(episode) {
+  return episode.clip_meta.map(clip => ({
+    duration_seconds: clip.duration_seconds,
+    name: clip.name,
+    waveform: clip.waveform.slice(),
+  }));
+}
 
 function EditScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;
   const episode = Episodes.get_episode(episode_id);
-  const clip_uri = episode ? episode.primary_clip_uri() : null;
-
-  const player = useAudioPlayer(clip_uri ? { uri: clip_uri } : null, { updateInterval: 100 });
-  const status = useAudioPlayerStatus(player);
+  const playback = use_episode_playback(episode ? episode.playback_clips() : []);
 
   function toggle_playback() {
-    if (status.playing) {
-      player.pause();
-      return;
+    if (playback.playing) {
+      playback.pause();
+    } else {
+      playback.play();
     }
-
-    if (status.duration > 0 && status.currentTime >= status.duration) {
-      player.seekTo(0);
-    }
-
-    player.play();
   }
 
   function handle_seek(fraction) {
-    if (!(total_seconds > 0)) {
+    const basis = playback.total_duration > 0 ? playback.total_duration : 0;
+
+    if (basis <= 0) {
       return;
     }
 
-    player.seekTo(fraction * total_seconds);
+    playback.seek(fraction * basis);
   }
 
-  function confirm_delete() {
+  function open_split(clip) {
+    navigation.navigate('Split', { clip_name: clip.name, episode_id });
+  }
+
+  function add_segment() {
+    navigation.navigate('Record', { episode_id });
+  }
+
+  async function move_clip(index, target_index) {
+    const clips = clip_meta_snapshot(episode);
+
+    if (target_index < 0 || target_index >= clips.length) {
+      return;
+    }
+
+    const [moved] = clips.splice(index, 1);
+    clips.splice(target_index, 0, moved);
+
+    await Episodes.update_episode_clips(episode_id, clips);
+    Episodes.export_merged_audio(episode_id);
+  }
+
+  async function delete_clip(index) {
+    const clips = clip_meta_snapshot(episode).filter((_, clip_index) => clip_index !== index);
+
+    await Episodes.update_episode_clips(episode_id, clips);
+    Episodes.export_merged_audio(episode_id);
+  }
+
+  function confirm_delete_clip(index) {
+    if (episode.clips.length <= 1) {
+      confirm_delete_episode();
+      return;
+    }
+
+    Alert.alert(
+      'Delete segment?',
+      'This removes the segment from this episode.',
+      [
+        {
+          style: 'cancel',
+          text: 'Cancel',
+        },
+        {
+          onPress: () => delete_clip(index),
+          style: 'destructive',
+          text: 'Delete',
+        },
+      ],
+    );
+  }
+
+  function confirm_delete_episode() {
     Alert.alert(
       'Delete episode?',
       'This permanently removes the recording from this device.',
@@ -47,7 +102,7 @@ function EditScreen({ navigation, route, theme }) {
           text: 'Cancel',
         },
         {
-          onPress: handle_delete,
+          onPress: delete_episode,
           style: 'destructive',
           text: 'Delete',
         },
@@ -55,7 +110,7 @@ function EditScreen({ navigation, route, theme }) {
     );
   }
 
-  async function handle_delete() {
+  async function delete_episode() {
     await Episodes.delete_episode(episode_id);
     navigation.goBack();
   }
@@ -70,9 +125,11 @@ function EditScreen({ navigation, route, theme }) {
     );
   }
 
-  const total_seconds = status.duration > 0 ? status.duration : episode.duration_seconds;
-  const elapsed_label = format_duration(status.currentTime);
+  const total_seconds = playback.total_duration > 0 ? playback.total_duration : episode.duration_seconds;
+  const elapsed_label = format_duration(playback.current_time);
   const total_label = format_duration(total_seconds);
+  const clip_count = episode.clips.length;
+  const clip_count_label = clip_count === 1 ? '1 clip' : `${clip_count} clips`;
 
   return (
     <ScrollView
@@ -93,15 +150,15 @@ function EditScreen({ navigation, route, theme }) {
           {episode.title}
         </Text>
         <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
-          {episode.clips.length === 1 ? '1 clip' : `${episode.clips.length} clips`}
+          {clip_count_label}
           {'  ·  '}
           {total_label}
         </Text>
 
         <PlaybackWaveform
-          current_time={status.currentTime}
+          current_time={playback.current_time}
           duration_seconds={total_seconds}
-          is_playing={status.playing}
+          is_playing={playback.playing}
           onSeek={handle_seek}
           theme={theme}
           waveform={episode.waveform}
@@ -117,7 +174,7 @@ function EditScreen({ navigation, route, theme }) {
         </View>
 
         <Pressable
-          accessibilityLabel={status.playing ? 'Pause' : 'Play'}
+          accessibilityLabel={playback.playing ? 'Pause' : 'Play'}
           accessibilityRole="button"
           onPress={toggle_playback}
           style={({ pressed }) => [
@@ -127,14 +184,47 @@ function EditScreen({ navigation, route, theme }) {
           ]}
         >
           <Text style={[styles.playButtonText, { color: theme.colors.button_text }]}>
-            {status.playing ? 'Pause' : 'Play'}
+            {playback.playing ? 'Pause' : 'Play'}
           </Text>
         </Pressable>
       </View>
 
+      <View style={styles.segmentsSection}>
+        <Text style={[styles.sectionLabel, { color: theme.colors.ink_soft }]}>
+          Segments
+        </Text>
+        {episode.clip_meta.map((clip, index) => (
+          <SegmentRow
+            clip={clip}
+            index={index}
+            key={clip.name}
+            onDelete={() => confirm_delete_clip(index)}
+            onMoveDown={() => move_clip(index, index + 1)}
+            onMoveUp={() => move_clip(index, index - 1)}
+            onPress={() => open_split(clip)}
+            theme={theme}
+            total={clip_count}
+          />
+        ))}
+      </View>
+
       <Pressable
         accessibilityRole="button"
-        onPress={confirm_delete}
+        onPress={add_segment}
+        style={({ pressed }) => [
+          styles.addButton,
+          { backgroundColor: theme.colors.accent },
+          pressed ? styles.pressed : null,
+        ]}
+      >
+        <Text style={[styles.addButtonText, { color: theme.colors.button_text }]}>
+          Add segment
+        </Text>
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={confirm_delete_episode}
         style={({ pressed }) => [
           styles.deleteButton,
           {
@@ -153,6 +243,18 @@ function EditScreen({ navigation, route, theme }) {
 }
 
 const styles = StyleSheet.create({
+  addButton: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  addButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
   content: {
     gap: 18,
     paddingBottom: 36,
@@ -207,6 +309,16 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+  },
+  segmentsSection: {
+    gap: 10,
   },
   subtitle: {
     fontSize: 15,

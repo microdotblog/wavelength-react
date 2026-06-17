@@ -49,6 +49,15 @@
           "enableBackgroundRecording": false,
           "enableBackgroundPlayback": false
         }
+      ],
+      [
+        "@siteed/audio-studio",
+        {
+          "enableNotifications": false,
+          "enablePhoneStateHandling": false,
+          "enableBackgroundAudio": false,
+          "enableDeviceDetection": false
+        }
       ]
     ]
   }

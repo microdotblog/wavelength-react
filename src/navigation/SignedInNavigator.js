@@ -8,6 +8,7 @@ import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
 import RecordFab from '../components/RecordFab';
 import RecordScreen from '../screens/RecordScreen';
+import SplitScreen from '../screens/SplitScreen';
 import TabNavigator from './TabNavigator';
 import { build_stack_screen_options } from './screenOptions';
 import { header_left_element } from '../theme/wavelengthTheme';
@@ -61,8 +62,8 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="Record"
-        options={({ navigation }) => ({
-          title: 'New Recording',
+        options={({ navigation, route }) => ({
+          title: route.params?.episode_id ? 'Add Segment' : 'New Recording',
           ...header_left_element(() => (
             <HeaderPillButton
               label="Done"
@@ -94,6 +95,26 @@ function SignedInNavigator({ theme }) {
       >
         {screen_props => (
           <EditScreen
+            {...screen_props}
+            theme={theme}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="Split"
+        options={({ navigation }) => ({
+          title: 'Split Segment',
+          ...header_left_element(() => (
+            <HeaderPillButton
+              label="Done"
+              onPress={() => navigation.goBack()}
+              theme={theme}
+            />
+          )),
+        })}
+      >
+        {screen_props => (
+          <SplitScreen
             {...screen_props}
             theme={theme}
           />

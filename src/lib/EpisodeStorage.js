@@ -1,9 +1,14 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
+import { WAVEFORM_SAMPLE_COUNT } from './downsample_waveform';
+import { merge_episode_waveform } from './merge_episode_waveform';
+
 const EPISODES_DIR_NAME = 'episodes';
 const EPISODE_INFO_FILENAME = 'episode.json';
+const EXPORTED_FILENAME = 'exported.m4a';
 const SEGMENT_BASENAME = 'segment';
 const DEFAULT_SEGMENT_EXTENSION = '.m4a';
+const SEGMENT_INDEX_PATTERN = /^segment(?:-(\d+))?\./i;
 
 function get_episodes_directory() {
   const directory = new Directory(Paths.document, EPISODES_DIR_NAME);
@@ -47,6 +52,74 @@ function sanitize_waveform(waveform) {
     .map(value => Math.min(Math.max(value, 0), 1));
 }
 
+function sanitize_duration(value) {
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function normalize_clip_meta(clip) {
+  return {
+    duration_seconds: sanitize_duration(clip?.duration_seconds),
+    name: `${clip?.name || ''}`,
+    waveform: sanitize_waveform(clip?.waveform),
+  };
+}
+
+// A single take always carries the whole episode shape, so the merged values
+// collapse back to that take. Legacy episodes therefore stay identical.
+function compose_episode_info({ clip_meta, created_at, title }) {
+  const safe_meta = clip_meta.map(normalize_clip_meta).filter(clip => clip.name.length > 0);
+
+  return {
+    clip_meta: safe_meta,
+    clips: safe_meta.map(clip => clip.name),
+    created_at,
+    duration_seconds: safe_meta.reduce((sum, clip) => sum + clip.duration_seconds, 0),
+    title,
+    waveform: merge_episode_waveform(safe_meta, WAVEFORM_SAMPLE_COUNT),
+  };
+}
+
+function migrate_clip_meta(parsed, clips) {
+  if (Array.isArray(parsed.clip_meta) && parsed.clip_meta.length === clips.length) {
+    return parsed.clip_meta;
+  }
+
+  const top_level_duration = sanitize_duration(parsed.duration_seconds);
+  const per_clip_duration = clips.length > 0 ? top_level_duration / clips.length : 0;
+  const top_level_waveform = sanitize_waveform(parsed.waveform);
+
+  return clips.map((name, index) => ({
+    duration_seconds: per_clip_duration,
+    name,
+    waveform: index === 0 ? top_level_waveform : [],
+  }));
+}
+
+function build_segment_name(index, extension) {
+  return `${SEGMENT_BASENAME}-${index}${extension || DEFAULT_SEGMENT_EXTENSION}`;
+}
+
+function next_segment_index(directory) {
+  let highest = 0;
+
+  for (const entry of directory.list()) {
+    if (!(entry instanceof File)) {
+      continue;
+    }
+
+    const match = entry.name.match(SEGMENT_INDEX_PATTERN);
+
+    if (!match) {
+      continue;
+    }
+
+    const parsed_index = match[1] ? Number.parseInt(match[1], 10) : 1;
+    highest = Math.max(highest, parsed_index);
+  }
+
+  return highest + 1;
+}
+
 function create_episode_directory(date) {
   const episodes_directory = get_episodes_directory();
   const base_id = build_episode_id(date);
@@ -69,6 +142,59 @@ function create_episode_directory(date) {
   };
 }
 
+function get_episode_directory(episode_id) {
+  const trimmed_id = `${episode_id || ''}`.trim();
+
+  if (!trimmed_id) {
+    return null;
+  }
+
+  const directory = new Directory(get_episodes_directory(), trimmed_id);
+
+  if (!directory.exists) {
+    return null;
+  }
+
+  return directory;
+}
+
+function delete_exported_file(directory) {
+  const exported_file = new File(directory, EXPORTED_FILENAME);
+
+  if (exported_file.exists) {
+    exported_file.delete();
+  }
+}
+
+// Drop any segment files left on disk that the new clip order no longer
+// references. This covers deletes and the original file replaced by a split.
+function prune_orphan_clips(directory, clips) {
+  const kept = new Set(clips);
+
+  for (const entry of directory.list()) {
+    if (!(entry instanceof File) || !SEGMENT_INDEX_PATTERN.test(entry.name)) {
+      continue;
+    }
+
+    if (!kept.has(entry.name)) {
+      entry.delete();
+    }
+  }
+}
+
+function write_episode_info(directory, info) {
+  const info_file = new File(directory, EPISODE_INFO_FILENAME);
+  info_file.write(JSON.stringify(info, null, 2));
+}
+
+function to_episode_snapshot(info, directory, id) {
+  return {
+    ...info,
+    folder_uri: normalize_folder_uri(directory.uri),
+    id,
+  };
+}
+
 function read_episode_from_directory(directory) {
   const info_file = new File(directory, EPISODE_INFO_FILENAME);
 
@@ -84,15 +210,14 @@ function read_episode_from_directory(directory) {
       return null;
     }
 
-    return {
-      clips,
+    const clip_meta = migrate_clip_meta(parsed, clips);
+    const info = compose_episode_info({
+      clip_meta,
       created_at: `${parsed.created_at || ''}`,
-      duration_seconds: Number.isFinite(parsed.duration_seconds) ? parsed.duration_seconds : 0,
-      folder_uri: normalize_folder_uri(directory.uri),
-      id: directory.name,
       title: `${parsed.title || directory.name}`,
-      waveform: sanitize_waveform(parsed.waveform),
-    };
+    });
+
+    return to_episode_snapshot(info, directory, directory.name);
   } catch (error) {
     return null;
   }
@@ -110,28 +235,106 @@ export async function save_episode_from_recording(recording_uri = '', duration_s
 
   const source_file = new File(trimmed_uri);
   const extension = source_file.extension || DEFAULT_SEGMENT_EXTENSION;
-  const segment_name = `${SEGMENT_BASENAME}${extension}`;
+  const segment_name = build_segment_name(1, extension);
   const segment_file = new File(directory, segment_name);
 
   await source_file.move(segment_file);
 
-  const title = build_episode_title(created_at);
-  const info_file = new File(directory, EPISODE_INFO_FILENAME);
-  const episode_info = {
-    clips: [segment_name],
+  const info = compose_episode_info({
+    clip_meta: [
+      {
+        duration_seconds,
+        name: segment_name,
+        waveform,
+      },
+    ],
     created_at: created_at.toISOString(),
-    duration_seconds: Number.isFinite(duration_seconds) ? duration_seconds : 0,
-    title,
-    waveform: sanitize_waveform(waveform),
-  };
+    title: build_episode_title(created_at),
+  });
 
-  info_file.write(JSON.stringify(episode_info, null, 2));
+  write_episode_info(directory, info);
 
-  return {
-    ...episode_info,
-    folder_uri: normalize_folder_uri(directory.uri),
-    id,
-  };
+  return to_episode_snapshot(info, directory, id);
+}
+
+// Move a freshly recorded or processed temp file into an episode folder under
+// the next free segment name and return that name so callers can build meta.
+export async function place_clip_file(episode_id = '', source_uri = '') {
+  const directory = get_episode_directory(episode_id);
+  const trimmed_uri = `${source_uri || ''}`.trim();
+
+  if (!directory || !trimmed_uri) {
+    throw new Error('A valid episode and source file are required to add a clip.');
+  }
+
+  const source_file = new File(trimmed_uri);
+  const extension = source_file.extension || DEFAULT_SEGMENT_EXTENSION;
+  const segment_name = build_segment_name(next_segment_index(directory), extension);
+
+  await source_file.move(new File(directory, segment_name));
+
+  return segment_name;
+}
+
+export async function append_clip_to_episode(episode_id = '', recording_uri = '', duration_seconds = 0, waveform = []) {
+  const directory = get_episode_directory(episode_id);
+
+  if (!directory) {
+    throw new Error('That episode is no longer available.');
+  }
+
+  const existing = read_episode_from_directory(directory);
+
+  if (!existing) {
+    throw new Error('That episode could not be read.');
+  }
+
+  const segment_name = await place_clip_file(episode_id, recording_uri);
+  const clip_meta = [
+    ...existing.clip_meta,
+    { duration_seconds, name: segment_name, waveform },
+  ];
+  const info = compose_episode_info({
+    clip_meta,
+    created_at: existing.created_at,
+    title: existing.title,
+  });
+
+  delete_exported_file(directory);
+  write_episode_info(directory, info);
+
+  return to_episode_snapshot(info, directory, directory.name);
+}
+
+export async function replace_episode_clips(episode_id = '', clip_meta = []) {
+  const directory = get_episode_directory(episode_id);
+
+  if (!directory) {
+    throw new Error('That episode is no longer available.');
+  }
+
+  const existing = read_episode_from_directory(directory);
+  const info = compose_episode_info({
+    clip_meta,
+    created_at: existing ? existing.created_at : new Date().toISOString(),
+    title: existing ? existing.title : directory.name,
+  });
+
+  delete_exported_file(directory);
+  write_episode_info(directory, info);
+  prune_orphan_clips(directory, info.clips);
+
+  return to_episode_snapshot(info, directory, directory.name);
+}
+
+export async function read_episode(episode_id = '') {
+  const directory = get_episode_directory(episode_id);
+
+  if (!directory) {
+    return null;
+  }
+
+  return read_episode_from_directory(directory);
 }
 
 export async function list_episodes() {
@@ -153,16 +356,9 @@ export async function list_episodes() {
 }
 
 export async function delete_episode(episode_id = '') {
-  const trimmed_id = `${episode_id || ''}`.trim();
+  const directory = get_episode_directory(episode_id);
 
-  if (!trimmed_id) {
-    return;
-  }
-
-  const episodes_directory = get_episodes_directory();
-  const directory = new Directory(episodes_directory, trimmed_id);
-
-  if (directory.exists) {
+  if (directory) {
     directory.delete();
   }
 }
@@ -179,4 +375,12 @@ export function get_episode_clip_uri(episode = null, clip_name = '') {
   }
 
   return `${normalize_folder_uri(episode.folder_uri)}${target_clip}`;
+}
+
+export function get_exported_clip_uri(episode = null) {
+  if (!episode || !episode.folder_uri) {
+    return '';
+  }
+
+  return `${normalize_folder_uri(episode.folder_uri)}${EXPORTED_FILENAME}`;
 }
