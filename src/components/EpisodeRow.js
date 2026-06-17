@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { observer } from 'mobx-react';
 
 import { format_duration } from '../lib/format_duration';
 
@@ -69,4 +70,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EpisodeRow;
+export default observer(EpisodeRow);
