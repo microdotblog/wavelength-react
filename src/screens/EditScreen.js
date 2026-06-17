@@ -5,7 +5,7 @@ import { observer } from 'mobx-react';
 import Episodes from '../stores/Episodes';
 import HeaderPillButton from '../components/HeaderPillButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
-import SegmentRow from '../components/SegmentRow';
+import SegmentList from '../components/SegmentList';
 import { format_duration } from '../lib/format_duration';
 import { use_episode_playback } from '../hooks/use_episode_playback';
 import { header_right_element, with_color_opacity } from '../theme/wavelengthTheme';
@@ -69,6 +69,31 @@ function EditScreen({ navigation, route, theme }) {
     clips.splice(target_index, 0, moved);
 
     await Episodes.update_episode_clips(episode_id, clips);
+    Episodes.export_merged_audio(episode_id);
+  }
+
+  async function reorder_clips(next_order) {
+    const clips = clip_meta_snapshot(episode);
+    const current_order = clips.map(clip => clip.name);
+
+    if (next_order.length !== current_order.length) {
+      return;
+    }
+
+    const is_unchanged = next_order.every((name, index) => name === current_order[index]);
+
+    if (is_unchanged) {
+      return;
+    }
+
+    const clips_by_name = new Map(clips.map(clip => [clip.name, clip]));
+    const reordered = next_order.map(name => clips_by_name.get(name)).filter(Boolean);
+
+    if (reordered.length !== clips.length) {
+      return;
+    }
+
+    await Episodes.update_episode_clips(episode_id, reordered);
     Episodes.export_merged_audio(episode_id);
   }
 
@@ -277,19 +302,14 @@ function EditScreen({ navigation, route, theme }) {
         <Text style={[styles.sectionLabel, { color: theme.colors.ink_soft }]}>
           Segments
         </Text>
-        {episode.clip_meta.map((clip, index) => (
-          <SegmentRow
-            clip={clip}
-            index={index}
-            key={clip.name}
-            onDelete={() => confirm_delete_clip(index)}
-            onMoveDown={() => move_clip(index, index + 1)}
-            onMoveUp={() => move_clip(index, index - 1)}
-            onPress={() => open_split(clip)}
-            theme={theme}
-            total={clip_count}
-          />
-        ))}
+        <SegmentList
+          clips={episode.clip_meta}
+          onDelete={confirm_delete_clip}
+          onMove={move_clip}
+          onReorder={reorder_clips}
+          onSplit={open_split}
+          theme={theme}
+        />
       </View>
 
       <Pressable

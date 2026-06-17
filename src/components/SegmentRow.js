@@ -44,27 +44,7 @@ function MiniWaveform({ color, waveform }) {
   );
 }
 
-function ReorderButton({ disabled, label, onPress, theme }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      hitSlop={6}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.iconButton,
-        { borderColor: theme.colors.line, opacity: disabled ? 0.35 : 1 },
-        pressed && !disabled ? styles.pressed : null,
-      ]}
-    >
-      <Text style={[styles.iconGlyph, { color: theme.colors.ink_soft }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function SegmentRow({ clip, index, onDelete, onMoveDown, onMoveUp, onPress, theme, total }) {
-  const is_first = index === 0;
-  const is_last = index === total - 1;
+function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
   const mini_color = with_color_opacity(theme.colors.accent, theme.is_dark ? 0.7 : 0.55);
 
   return (
@@ -77,20 +57,7 @@ function SegmentRow({ clip, index, onDelete, onMoveDown, onMoveUp, onPress, them
         },
       ]}
     >
-      <View style={styles.reorder}>
-        <ReorderButton
-          disabled={is_first}
-          label="↑"
-          onPress={onMoveUp}
-          theme={theme}
-        />
-        <ReorderButton
-          disabled={is_last}
-          label="↓"
-          onPress={onMoveDown}
-          theme={theme}
-        />
-      </View>
+      {handle != null ? <View style={styles.reorder}>{handle}</View> : null}
 
       <Pressable
         accessibilityLabel={`Edit segment ${index + 1}`}
@@ -164,7 +131,8 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   reorder: {
-    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   row: {
     alignItems: 'center',
