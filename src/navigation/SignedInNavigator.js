@@ -84,6 +84,7 @@ function SignedInNavigator({ theme }) {
         name="Edit"
         options={({ navigation }) => ({
           title: 'Episode',
+          headerLargeTitle: false,
           ...header_left_element(() => (
             <HeaderPillButton
               label="Done"
