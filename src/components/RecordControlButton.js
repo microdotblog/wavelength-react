@@ -15,6 +15,38 @@ import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const BREATHE_DURATION_MS = 900;
 const BREATHE_SCALE = 1.06;
+// The dot pulses on its own slightly slower clock so it feels independent.
+const DOT_PULSE_DURATION_MS = 1100;
+const DOT_PULSE_SCALE = 0.9;
+
+function RecordDot({ color }) {
+  const pulse = useSharedValue(1);
+
+  React.useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(DOT_PULSE_SCALE, {
+          duration: DOT_PULSE_DURATION_MS,
+          easing: Easing.inOut(Easing.quad),
+        }),
+        withTiming(1, {
+          duration: DOT_PULSE_DURATION_MS,
+          easing: Easing.inOut(Easing.quad),
+        }),
+      ),
+      -1,
+      false,
+    );
+
+    return () => cancelAnimation(pulse);
+  }, [pulse]);
+
+  const pulse_style = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+
+  return <Animated.View style={[styles.recordDot, { backgroundColor: color }, pulse_style]} />;
+}
 
 function render_record_icon(recording_phase, color) {
   if (recording_phase === 'recording') {
@@ -26,7 +58,7 @@ function render_record_icon(recording_phase, color) {
     );
   }
 
-  return <View style={[styles.recordDot, { backgroundColor: color }]} />;
+  return <RecordDot color={color} />;
 }
 
 function resolve_record_button_label(recording_phase) {
