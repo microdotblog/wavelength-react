@@ -1,13 +1,14 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
+import HeaderPillButton from '../components/HeaderPillButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentRow from '../components/SegmentRow';
 import { format_duration } from '../lib/format_duration';
 import { use_episode_playback } from '../hooks/use_episode_playback';
-import { with_color_opacity } from '../theme/wavelengthTheme';
+import { header_right_element, with_color_opacity } from '../theme/wavelengthTheme';
 
 function clip_meta_snapshot(episode) {
   return episode.clip_meta.map(clip => ({
@@ -21,6 +22,15 @@ function EditScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;
   const episode = Episodes.get_episode(episode_id);
   const playback = use_episode_playback(episode ? episode.playback_clips() : []);
+  const [title_draft, set_title_draft] = React.useState(episode?.title || '');
+  const [is_editing_title, set_is_editing_title] = React.useState(false);
+  const rename_handler_ref = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!is_editing_title) {
+      set_title_draft(episode?.title || '');
+    }
+  }, [episode?.title, is_editing_title]);
 
   function toggle_playback() {
     if (playback.playing) {
@@ -115,6 +125,54 @@ function EditScreen({ navigation, route, theme }) {
     navigation.goBack();
   }
 
+  function start_rename() {
+    if (!episode) {
+      return;
+    }
+
+    set_title_draft(episode.title);
+    set_is_editing_title(true);
+  }
+
+  async function commit_title() {
+    set_is_editing_title(false);
+
+    if (!episode) {
+      return;
+    }
+
+    const trimmed_title = title_draft.trim();
+
+    if (!trimmed_title || trimmed_title === episode.title) {
+      set_title_draft(episode.title);
+      return;
+    }
+
+    await Episodes.update_episode_title(episode_id, trimmed_title);
+  }
+
+  function handle_rename_press() {
+    if (is_editing_title) {
+      commit_title();
+    } else {
+      start_rename();
+    }
+  }
+
+  rename_handler_ref.current = handle_rename_press;
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      ...header_right_element(() => (
+        <HeaderPillButton
+          label={is_editing_title ? 'Save' : 'Rename'}
+          onPress={() => rename_handler_ref.current?.()}
+          theme={theme}
+        />
+      )),
+    });
+  }, [navigation, is_editing_title, theme]);
+
   if (!episode) {
     return (
       <View style={[styles.screen, styles.missingScreen, { backgroundColor: theme.colors.canvas }]}>
@@ -137,6 +195,41 @@ function EditScreen({ navigation, route, theme }) {
       contentInsetAdjustmentBehavior="automatic"
       style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
     >
+      <View style={styles.header}>
+        {is_editing_title ? (
+          <TextInput
+            accessibilityLabel="Episode name"
+            autoFocus
+            clearButtonMode="while-editing"
+            keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
+            onBlur={commit_title}
+            onChangeText={set_title_draft}
+            onSubmitEditing={commit_title}
+            placeholder="Episode name"
+            placeholderTextColor={theme.colors.ink_soft}
+            returnKeyType="done"
+            selectionColor={theme.colors.accent}
+            style={[styles.title, { color: theme.colors.ink }]}
+            value={title_draft}
+          />
+        ) : (
+          <Pressable
+            accessibilityHint="Rename episode"
+            accessibilityRole="button"
+            onPress={start_rename}
+          >
+            <Text style={[styles.title, { color: theme.colors.ink }]}>
+              {episode.title}
+            </Text>
+          </Pressable>
+        )}
+        <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
+          {clip_count_label}
+          {'  ·  '}
+          {total_label}
+        </Text>
+      </View>
+
       <View
         style={[
           styles.panel,
@@ -146,15 +239,6 @@ function EditScreen({ navigation, route, theme }) {
           },
         ]}
       >
-        <Text selectable style={[styles.title, { color: theme.colors.ink }]}>
-          {episode.title}
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
-          {clip_count_label}
-          {'  ·  '}
-          {total_label}
-        </Text>
-
         <PlaybackWaveform
           current_time={playback.current_time}
           duration_seconds={total_seconds}
@@ -274,6 +358,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 20,
   },
+  header: {
+    gap: 6,
+    paddingHorizontal: 4,
+  },
   missingScreen: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -339,6 +427,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     lineHeight: 29,
+    padding: 0,
   },
 });
 

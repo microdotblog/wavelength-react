@@ -306,6 +306,35 @@ export async function append_clip_to_episode(episode_id = '', recording_uri = ''
   return to_episode_snapshot(info, directory, directory.name);
 }
 
+export async function update_episode_title(episode_id = '', title = '') {
+  const directory = get_episode_directory(episode_id);
+  const trimmed_title = `${title || ''}`.trim();
+
+  if (!directory) {
+    throw new Error('That episode is no longer available.');
+  }
+
+  if (!trimmed_title) {
+    throw new Error('Episode title cannot be empty.');
+  }
+
+  const existing = read_episode_from_directory(directory);
+
+  if (!existing) {
+    throw new Error('That episode could not be read.');
+  }
+
+  const info = compose_episode_info({
+    clip_meta: existing.clip_meta,
+    created_at: existing.created_at,
+    title: trimmed_title,
+  });
+
+  write_episode_info(directory, info);
+
+  return to_episode_snapshot(info, directory, directory.name);
+}
+
 export async function replace_episode_clips(episode_id = '', clip_meta = []) {
   const directory = get_episode_directory(episode_id);
 

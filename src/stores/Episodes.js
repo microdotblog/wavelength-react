@@ -9,6 +9,7 @@ import {
   read_episode,
   replace_episode_clips,
   save_episode_from_recording,
+  update_episode_title,
 } from '../lib/EpisodeStorage';
 import { merge_episode_clips } from '../lib/episode_audio';
 
@@ -114,6 +115,13 @@ const Episodes = types
       const snapshot = yield replace_episode_clips(episode_id, clip_meta);
       self.apply_episode_snapshot(snapshot);
       delete self.export_fingerprints[episode_id];
+
+      return snapshot.id;
+    }),
+
+    update_episode_title: flow(function* (episode_id = '', title = '') {
+      const snapshot = yield update_episode_title(episode_id, title);
+      self.apply_episode_snapshot(snapshot);
 
       return snapshot.id;
     }),
