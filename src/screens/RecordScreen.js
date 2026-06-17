@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Episodes from '../stores/Episodes';
 import HeaderPillButton from '../components/HeaderPillButton';
-import RecordPulseRings from '../components/RecordPulseRings';
+import RecordControlButton from '../components/RecordControlButton';
 import RecordingWaveform from '../components/RecordingWaveform';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { format_clock } from '../lib/format_duration';
@@ -34,7 +34,7 @@ const RECORDING_OPTIONS = {
   isMeteringEnabled: true,
 };
 
-function RecordScreen({ navigation, theme }) {
+function RecordScreen({ navigation, route, theme }) {
   const audio_recorder = useAudioRecorder(RECORDING_OPTIONS);
   const recorder_state = useAudioRecorderState(audio_recorder, RECORDER_POLL_MS);
   const [permission_status, set_permission_status] = React.useState('pending');
@@ -42,6 +42,7 @@ function RecordScreen({ navigation, theme }) {
   const [is_saving, set_is_saving] = React.useState(false);
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
+  const start_recording_ref = React.useRef(null);
   const actions_opacity = useSharedValue(0);
   const actions_translate = useSharedValue(8);
 
@@ -109,6 +110,26 @@ function RecordScreen({ navigation, theme }) {
     audio_recorder.record();
     set_recording_phase('recording');
   }
+
+  start_recording_ref.current = start_recording;
+
+  React.useEffect(() => {
+    if (route.params?.auto_start !== true) {
+      return;
+    }
+
+    if (permission_status === 'pending') {
+      return;
+    }
+
+    navigation.setParams({ auto_start: undefined });
+
+    if (permission_status === 'denied' || is_saving || recording_phase !== 'idle') {
+      return;
+    }
+
+    start_recording_ref.current?.();
+  }, [is_saving, navigation, permission_status, recording_phase, route.params?.auto_start]);
 
   function pause_recording() {
     audio_recorder.pause();
@@ -243,7 +264,6 @@ function RecordScreen({ navigation, theme }) {
   });
   const timer_label = format_clock(recorder_state.durationMillis);
   const status_label = resolve_status_label({ is_saving, permission_status, recording_phase });
-  const record_button_label = resolve_record_button_label(recording_phase);
   const is_button_disabled = permission_status !== 'granted' || is_saving;
   const is_paused = recording_phase === 'paused';
 
@@ -279,31 +299,13 @@ function RecordScreen({ navigation, theme }) {
           </Text>
         ) : null}
 
-        <View style={styles.recordButtonWrap}>
-          <RecordPulseRings
-            is_recording={is_active_recording}
-            metering={recorder_state.metering}
-            theme={theme}
-          />
-
-          <Pressable
-            accessibilityLabel={record_button_label}
-            accessibilityRole="button"
-            disabled={is_button_disabled}
-            onPress={handle_press}
-            style={({ pressed }) => [
-              styles.recordButton,
-              {
-                backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12),
-                borderColor: theme.colors.accent,
-                opacity: is_button_disabled ? 0.5 : 1,
-              },
-              pressed && !is_button_disabled ? styles.pressed : null,
-            ]}
-          >
-            {render_record_icon(recording_phase, theme.colors.accent)}
-          </Pressable>
-        </View>
+        <RecordControlButton
+          disabled={is_button_disabled}
+          metering={recorder_state.metering}
+          onPress={handle_press}
+          recording_phase={recording_phase}
+          theme={theme}
+        />
       </View>
 
       <Animated.View
@@ -347,19 +349,6 @@ function RecordScreen({ navigation, theme }) {
   );
 }
 
-function render_record_icon(recording_phase, color) {
-  if (recording_phase === 'recording') {
-    return (
-      <View style={styles.pauseIcon}>
-        <View style={[styles.pauseBar, { backgroundColor: color }]} />
-        <View style={[styles.pauseBar, { backgroundColor: color }]} />
-      </View>
-    );
-  }
-
-  return <View style={[styles.recordDot, { backgroundColor: color }]} />;
-}
-
 function resolve_status_label({ is_saving, permission_status, recording_phase }) {
   if (permission_status === 'pending') {
     return 'Checking microphone access...';
@@ -384,18 +373,6 @@ function resolve_status_label({ is_saving, permission_status, recording_phase })
   return 'Tap to record';
 }
 
-function resolve_record_button_label(recording_phase) {
-  if (recording_phase === 'recording') {
-    return 'Pause recording';
-  }
-
-  if (recording_phase === 'paused') {
-    return 'Resume recording';
-  }
-
-  return 'Start recording';
-}
-
 const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
@@ -417,15 +394,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 20,
   },
-  pauseBar: {
-    borderRadius: 4,
-    height: 52,
-    width: 16,
-  },
-  pauseIcon: {
-    flexDirection: 'row',
-    gap: 10,
-  },
   pausedActions: {
     bottom: 16,
     gap: 12,
@@ -441,26 +409,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
-  },
-  recordButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 70,
-    borderWidth: 2,
-    height: 140,
-    justifyContent: 'center',
-    width: 140,
-  },
-  recordButtonWrap: {
-    alignItems: 'center',
-    height: 140,
-    justifyContent: 'center',
-    width: 140,
-  },
-  recordDot: {
-    borderRadius: 32,
-    height: 64,
-    width: 64,
   },
   saveButton: {
     alignItems: 'center',
