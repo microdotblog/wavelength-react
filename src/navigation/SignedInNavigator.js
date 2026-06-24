@@ -6,6 +6,7 @@ import { observer } from 'mobx-react';
 import AccountScreen from '../screens/AccountScreen';
 import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
+import PublishScreen from '../screens/PublishScreen';
 import RecordFab from '../components/RecordFab';
 import RecordScreen from '../screens/RecordScreen';
 import SplitScreen from '../screens/SplitScreen';
@@ -116,6 +117,27 @@ function SignedInNavigator({ theme }) {
       >
         {screen_props => (
           <SplitScreen
+            {...screen_props}
+            theme={theme}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="Publish"
+        options={({ navigation }) => ({
+          title: 'Publish',
+          headerLargeTitle: false,
+          ...header_left_element(() => (
+            <HeaderPillButton
+              label="Cancel"
+              onPress={() => navigation.goBack()}
+              theme={theme}
+            />
+          )),
+        })}
+      >
+        {screen_props => (
+          <PublishScreen
             {...screen_props}
             theme={theme}
           />

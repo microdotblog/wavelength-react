@@ -111,6 +111,10 @@ function EditScreen({ navigation, route, theme }) {
     navigation.navigate('Record', { episode_id });
   }
 
+  function open_publish() {
+    navigation.navigate('Publish', { episode_id });
+  }
+
   async function move_clip(index, target_index) {
     const clips = clip_meta_snapshot(episode);
 
@@ -397,6 +401,22 @@ function EditScreen({ navigation, route, theme }) {
           </Text>
         </Pressable>
       </View>
+
+      <View style={[styles.separator, { backgroundColor: theme.colors.line }]} />
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={open_publish}
+        style={({ pressed }) => [
+          styles.publishButton,
+          { backgroundColor: theme.colors.accent },
+          pressed ? styles.pressed : null,
+        ]}
+      >
+        <Text style={[styles.publishButtonText, { color: theme.colors.button_text }]}>
+          Publish to Micro.blog
+        </Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -464,11 +484,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 22,
   },
+  publishButton: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  publishButtonText: {
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
   pressed: {
     opacity: 0.72,
   },
   screen: {
     flex: 1,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 4,
   },
   sectionLabel: {
     fontSize: 13,
