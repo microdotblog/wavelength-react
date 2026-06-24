@@ -1,6 +1,7 @@
 import React from 'react';
 import { observer } from 'mobx-react';
 import { Platform, RefreshControl, Text, View } from 'react-native';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
@@ -14,7 +15,7 @@ import {
   normalise_theme,
   should_attempt_webview_recovery,
 } from '../lib/webview';
-import { tab_bar_bottom_inset } from '../lib/webview_ui';
+import { tab_bar_bottom_inset, web_view_top_inset } from '../lib/webview_ui';
 import Tokens from '../stores/Tokens';
 import WebViewStore from '../stores/WebView';
 import WebViewLoadingBanner from './WebViewLoadingBanner';
@@ -43,6 +44,7 @@ function WebViewErrorView({ error_name, theme }) {
 
 function HybridWebView({ endpoint, loading_text = 'Loading microcasts...', theme }) {
   const insets = useSafeAreaInsets();
+  const header_height = useHeaderHeight();
   const web_view_ref = React.useRef(null);
   const has_set_did_load_ref = React.useRef(false);
   const has_attempted_recovery_ref = React.useRef(false);
@@ -66,21 +68,28 @@ function HybridWebView({ endpoint, loading_text = 'Loading microcasts...', theme
   });
   const should_inject_web_view_padding = Platform.OS === 'ios' || Platform.OS === 'android';
   const web_view_bottom_padding = tab_bar_bottom_inset(insets.bottom);
+  const web_view_top_padding = web_view_top_inset({
+    header_height,
+    top_safe_area_inset: insets.top,
+  });
   const web_view_css_properties_javascript = `
     (() => {
       const bottom_padding = '${web_view_bottom_padding}px'
-      const apply_bottom_padding = () => {
+      const top_padding = '${web_view_top_padding}px'
+      const apply_webview_padding = () => {
         document.documentElement.style.setProperty('--microblog-webview-bottom-padding', bottom_padding)
+        document.documentElement.style.setProperty('--microblog-webview-top-padding', top_padding)
 
         if (document.body) {
           document.body.style.setProperty('padding-bottom', 'var(--microblog-webview-bottom-padding)')
+          document.body.style.setProperty('padding-top', 'var(--microblog-webview-top-padding)')
         }
       }
 
-      apply_bottom_padding()
+      apply_webview_padding()
 
       if (!document.body) {
-        document.addEventListener('DOMContentLoaded', apply_bottom_padding, { once: true })
+        document.addEventListener('DOMContentLoaded', apply_webview_padding, { once: true })
       }
     })()
     true
@@ -107,6 +116,9 @@ function HybridWebView({ endpoint, loading_text = 'Loading microcasts...', theme
       web_view_ref.current?.injectJavaScript(web_view_css_properties_javascript);
     }
   }, [should_inject_web_view_padding, web_view_css_properties_javascript]);
+
+  const loading_banner_top_offset =
+    web_view_top_padding + (Platform.OS === 'ios' ? 12 : 8);
 
   const on_refresh = () => {
     set_state(prev_state => {
@@ -181,6 +193,7 @@ function HybridWebView({ endpoint, loading_text = 'Loading microcasts...', theme
         loading_text={loading_text}
         progress={state.loading_progress}
         theme={theme}
+        top_offset={loading_banner_top_offset}
         visible={state.is_loading}
       />
       <ScrollView
