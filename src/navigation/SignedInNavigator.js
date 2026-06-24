@@ -65,6 +65,7 @@ function SignedInNavigator({ theme }) {
         name="Record"
         options={({ navigation, route }) => ({
           title: route.params?.episode_id ? 'Add Segment' : 'New Recording',
+          headerLargeTitle: false,
           ...header_left_element(() => (
             <HeaderPillButton
               label="Done"
@@ -106,6 +107,7 @@ function SignedInNavigator({ theme }) {
         name="Split"
         options={({ navigation }) => ({
           title: 'Split Segment',
+          headerLargeTitle: false,
           ...header_left_element(() => (
             <HeaderPillButton
               label="Done"

@@ -240,6 +240,7 @@ function EditScreen({ navigation, route, theme }) {
   React.useLayoutEffect(() => {
     if (Platform.OS === 'ios') {
       navigation.setOptions({
+        headerLargeTitle: false,
         headerRight: undefined,
         unstable_headerRightItems: () =>
           build_ios_episode_header_items({
@@ -253,6 +254,7 @@ function EditScreen({ navigation, route, theme }) {
     }
 
     navigation.setOptions({
+      headerLargeTitle: false,
       unstable_headerRightItems: undefined,
       ...header_right_element(() =>
         is_editing_title ? (

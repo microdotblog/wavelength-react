@@ -92,6 +92,7 @@ function RecordScreen({ navigation, route, theme }) {
   React.useLayoutEffect(() => {
     navigation.setOptions({
       gestureEnabled: recording_phase === 'idle',
+      headerLargeTitle: false,
       ...header_left_element(() => (
         <HeaderPillButton
           label="Done"
