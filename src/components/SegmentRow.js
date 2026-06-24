@@ -4,21 +4,21 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { format_duration } from '../lib/format_duration';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
-const MINI_BAR_COUNT = 28;
-const MINI_BAR_AREA_HEIGHT = 32;
-const MIN_BAR_HEIGHT = 3;
+const SPARKLINE_BAR_COUNT = 14;
+const SPARKLINE_HEIGHT = 20;
+const MIN_BAR_HEIGHT = 2;
 
-function build_mini_levels(waveform) {
+function build_sparkline_levels(waveform) {
   if (!Array.isArray(waveform) || waveform.length === 0) {
-    return new Array(MINI_BAR_COUNT).fill(0.16);
+    return new Array(SPARKLINE_BAR_COUNT).fill(0.16);
   }
 
-  const levels = new Array(MINI_BAR_COUNT);
+  const levels = new Array(SPARKLINE_BAR_COUNT);
 
-  for (let index = 0; index < MINI_BAR_COUNT; index += 1) {
+  for (let index = 0; index < SPARKLINE_BAR_COUNT; index += 1) {
     const source_index = Math.min(
       waveform.length - 1,
-      Math.floor((index / MINI_BAR_COUNT) * waveform.length),
+      Math.floor((index / SPARKLINE_BAR_COUNT) * waveform.length),
     );
     levels[index] = Math.min(Math.max(waveform[source_index] || 0, 0), 1);
   }
@@ -26,17 +26,20 @@ function build_mini_levels(waveform) {
   return levels;
 }
 
-function MiniWaveform({ color, waveform }) {
-  const levels = build_mini_levels(waveform);
+function SegmentSparkline({ is_active, theme, waveform }) {
+  const levels = build_sparkline_levels(waveform);
+  const bar_color = is_active
+    ? theme.colors.accent
+    : with_color_opacity(theme.colors.accent, theme.is_dark ? 0.55 : 0.4);
 
   return (
-    <View style={styles.miniWaveform}>
+    <View style={styles.sparkline}>
       {levels.map((level, index) => (
         <View
           key={index}
           style={[
-            styles.miniBar,
-            { backgroundColor: color, height: Math.max(MIN_BAR_HEIGHT, level * MINI_BAR_AREA_HEIGHT) },
+            styles.sparkBar,
+            { backgroundColor: bar_color, height: Math.max(MIN_BAR_HEIGHT, level * SPARKLINE_HEIGHT) },
           ]}
         />
       ))}
@@ -44,17 +47,38 @@ function MiniWaveform({ color, waveform }) {
   );
 }
 
-function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
-  const mini_color = with_color_opacity(theme.colors.accent, theme.is_dark ? 0.7 : 0.55);
-
+function SegmentRow({
+  clip,
+  grouped = false,
+  handle,
+  index,
+  is_active = false,
+  onDelete,
+  onPress,
+  showDivider = false,
+  theme,
+}) {
   return (
     <View
       style={[
         styles.row,
-        {
-          backgroundColor: theme.colors.glass,
-          borderColor: theme.colors.line,
-        },
+        grouped ? styles.groupedRow : styles.cardRow,
+        grouped && is_active
+          ? {
+              backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.14 : 0.08),
+              borderLeftColor: theme.colors.accent,
+              borderLeftWidth: 3,
+            }
+          : null,
+        grouped && showDivider
+          ? { borderBottomColor: theme.colors.line, borderBottomWidth: StyleSheet.hairlineWidth }
+          : null,
+        grouped
+          ? null
+          : {
+              backgroundColor: theme.colors.glass,
+              borderColor: theme.colors.line,
+            },
       ]}
     >
       {handle != null ? <View style={styles.reorder}>{handle}</View> : null}
@@ -66,7 +90,7 @@ function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
             : undefined
         }
         accessibilityHint="Tap to split"
-        accessibilityLabel={`Segment ${index + 1}`}
+        accessibilityLabel={`Segment ${index + 1}, ${format_duration(clip.duration_seconds)}`}
         accessibilityRole="button"
         onAccessibilityAction={event => {
           if (event.nativeEvent.actionName === 'delete') {
@@ -76,40 +100,64 @@ function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
         onPress={onPress}
         style={({ pressed }) => [styles.main, pressed ? styles.pressed : null]}
       >
-        <View style={styles.headerRow}>
-          <Text style={[styles.segmentTitle, { color: theme.colors.ink }]}>
-            {`Segment ${index + 1}`}
-          </Text>
-          <Text style={[styles.segmentDuration, { color: theme.colors.ink_soft }]}>
+        <View style={styles.leading}>
+          <View style={[styles.badge, { backgroundColor: theme.colors.accent_soft }]}>
+            <Text style={[styles.badgeLabel, { color: theme.colors.accent_strong }]}>
+              {index + 1}
+            </Text>
+          </View>
+          <Text style={[styles.segmentDuration, { color: theme.colors.ink }]}>
             {format_duration(clip.duration_seconds)}
           </Text>
         </View>
-        <MiniWaveform color={mini_color} waveform={clip.waveform} />
+
+        <SegmentSparkline is_active={is_active} theme={theme} waveform={clip.waveform} />
+
+        <View style={[styles.splitPill, { backgroundColor: theme.colors.accent_soft }]}>
+          <Text style={[styles.splitLabel, { color: theme.colors.accent_strong }]}>Split</Text>
+        </View>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
+  badge: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 10,
+    height: 22,
+    justifyContent: 'center',
+    minWidth: 22,
+    paddingHorizontal: 6,
+  },
+  badgeLabel: {
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '800',
+    lineHeight: 14,
+  },
+  cardRow: {
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+  },
+  groupedRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  leading: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
+    width: 92,
   },
   main: {
-    flex: 1,
-    gap: 8,
-  },
-  miniBar: {
-    borderRadius: 1.5,
-    flex: 1,
-  },
-  miniWaveform: {
     alignItems: 'center',
+    flex: 1,
     flexDirection: 'row',
-    gap: 2,
-    height: MINI_BAR_AREA_HEIGHT,
-    width: '100%',
+    gap: 12,
   },
   pressed: {
     opacity: 0.72,
@@ -120,23 +168,36 @@ const styles = StyleSheet.create({
   },
   row: {
     alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: 1,
     flexDirection: 'row',
-    gap: 14,
-    padding: 14,
+    gap: 8,
   },
   segmentDuration: {
-    fontSize: 13,
+    fontSize: 15,
     fontVariant: ['tabular-nums'],
-    fontWeight: '600',
-    lineHeight: 17,
-  },
-  segmentTitle: {
-    fontSize: 16,
     fontWeight: '800',
-    lineHeight: 20,
+    lineHeight: 19,
+  },
+  sparkBar: {
+    borderRadius: 1,
+    flex: 1,
+  },
+  sparkline: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 2,
+    height: SPARKLINE_HEIGHT,
+  },
+  splitLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  splitPill: {
+    borderCurve: 'continuous',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
 });
 

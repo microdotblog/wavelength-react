@@ -51,6 +51,7 @@ export function use_episode_playback(clips = []) {
 
   const [current_index, set_current_index] = React.useState(0);
   const [is_active, set_is_active] = React.useState(false);
+  const [clip_ready, set_clip_ready] = React.useState(false);
   const pending_seek_ref = React.useRef(null);
 
   const current_clip = safe_clips[current_index] || null;
@@ -68,8 +69,16 @@ export function use_episode_playback(clips = []) {
   React.useEffect(() => {
     set_current_index(0);
     set_is_active(false);
+    set_clip_ready(false);
     pending_seek_ref.current = null;
   }, [uris_key]);
+
+  // Ignore player time until the newly selected clip has loaded. Without this,
+  // the previous clip's end time can briefly add to the next clip's offset and
+  // shove the UI playhead to the end of the episode.
+  React.useEffect(() => {
+    set_clip_ready(false);
+  }, [current_index]);
 
   // Apply a queued cross-clip seek once the new source is ready, then resume
   // playback if the listener was mid-playback when they scrubbed.
@@ -82,6 +91,8 @@ export function use_episode_playback(clips = []) {
       player.seekTo(pending_seek_ref.current);
       pending_seek_ref.current = null;
     }
+
+    set_clip_ready(true);
 
     if (is_active && !status.playing) {
       player.play();
@@ -145,10 +156,13 @@ export function use_episode_playback(clips = []) {
 
   const clip_offset = timeline.offsets[current_index] || 0;
   const clip_duration = timeline.durations[current_index] || status.duration || 0;
-  const local_time = clamp(status.currentTime || 0, 0, clip_duration || status.currentTime || 0);
+  const local_time = clip_ready
+    ? clamp(status.currentTime || 0, 0, clip_duration || status.currentTime || 0)
+    : clamp(pending_seek_ref.current ?? 0, 0, clip_duration || 0);
   const current_time = clamp(clip_offset + local_time, 0, timeline.total_duration);
 
   return {
+    current_clip_index: current_index,
     current_time,
     pause,
     play,

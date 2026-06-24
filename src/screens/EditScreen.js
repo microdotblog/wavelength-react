@@ -14,13 +14,22 @@ import { observer } from 'mobx-react';
 import Episodes from '../stores/Episodes';
 import EpisodeActionsMenuButton from '../components/EpisodeActionsMenuButton';
 import HeaderPillButton from '../components/HeaderPillButton';
+import PlaybackControlButton from '../components/PlaybackControlButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
 import { format_duration } from '../lib/format_duration';
 import { use_episode_playback } from '../hooks/use_episode_playback';
-import { header_right_element } from '../theme/wavelengthTheme';
+import { header_right_element, with_color_opacity } from '../theme/wavelengthTheme';
 
-function build_ios_episode_header_items({ is_editing_title, on_delete, on_rename, on_save }) {
+const PLAYBACK_WAVEFORM_HEIGHT = 80;
+
+function build_ios_episode_header_items({
+  is_editing_title,
+  on_delete,
+  on_publish,
+  on_rename,
+  on_save,
+}) {
   if (is_editing_title) {
     return [
       {
@@ -58,6 +67,13 @@ function build_ios_episode_header_items({ is_editing_title, on_delete, on_rename
       },
       type: 'menu',
     },
+    {
+      accessibilityLabel: 'Publish episode to Micro.blog',
+      label: 'Publish',
+      onPress: on_publish,
+      type: 'button',
+      variant: 'done',
+    },
   ];
 }
 
@@ -69,6 +85,44 @@ function clip_meta_snapshot(episode) {
   }));
 }
 
+function resolve_active_clip_index({ clip_count, current_clip_index, current_time, playing, total_duration }) {
+  if (clip_count <= 0) {
+    return -1;
+  }
+
+  if (playing) {
+    return current_clip_index;
+  }
+
+  if (current_time > 0 && total_duration > 0 && current_time < total_duration) {
+    return current_clip_index;
+  }
+
+  return -1;
+}
+
+function resolve_playback_status_label({
+  clip_count,
+  current_clip_index,
+  current_time,
+  playing,
+  total_duration,
+}) {
+  if (playing) {
+    if (clip_count <= 1) {
+      return 'Playing preview';
+    }
+
+    return `Playing segment ${current_clip_index + 1} of ${clip_count}`;
+  }
+
+  if (current_time > 0 && total_duration > 0 && current_time < total_duration) {
+    return `Paused at ${format_duration(current_time)}`;
+  }
+
+  return 'Tap play to preview';
+}
+
 function EditScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;
   const episode = Episodes.get_episode(episode_id);
@@ -78,6 +132,7 @@ function EditScreen({ navigation, route, theme }) {
   const save_handler_ref = React.useRef(null);
   const rename_handler_ref = React.useRef(null);
   const delete_handler_ref = React.useRef(null);
+  const publish_handler_ref = React.useRef(null);
 
   React.useEffect(() => {
     if (!is_editing_title) {
@@ -236,16 +291,21 @@ function EditScreen({ navigation, route, theme }) {
   save_handler_ref.current = commit_title;
   rename_handler_ref.current = start_rename;
   delete_handler_ref.current = confirm_delete_episode;
+  publish_handler_ref.current = open_publish;
+
+  const navigation_title = is_editing_title ? 'Rename' : (episode?.title || 'Episode');
 
   React.useLayoutEffect(() => {
     if (Platform.OS === 'ios') {
       navigation.setOptions({
         headerLargeTitle: false,
         headerRight: undefined,
+        title: navigation_title,
         unstable_headerRightItems: () =>
           build_ios_episode_header_items({
             is_editing_title,
             on_delete: () => delete_handler_ref.current?.(),
+            on_publish: () => publish_handler_ref.current?.(),
             on_rename: () => rename_handler_ref.current?.(),
             on_save: () => save_handler_ref.current?.(),
           }),
@@ -255,6 +315,7 @@ function EditScreen({ navigation, route, theme }) {
 
     navigation.setOptions({
       headerLargeTitle: false,
+      title: navigation_title,
       unstable_headerRightItems: undefined,
       ...header_right_element(() =>
         is_editing_title ? (
@@ -265,15 +326,23 @@ function EditScreen({ navigation, route, theme }) {
             theme={theme}
           />
         ) : (
-          <EpisodeActionsMenuButton
-            on_delete={() => delete_handler_ref.current?.()}
-            on_rename={() => rename_handler_ref.current?.()}
-            theme={theme}
-          />
+          <View style={styles.headerActions}>
+            <HeaderPillButton
+              accessibilityLabel="Publish episode to Micro.blog"
+              label="Publish"
+              onPress={() => publish_handler_ref.current?.()}
+              theme={theme}
+            />
+            <EpisodeActionsMenuButton
+              on_delete={() => delete_handler_ref.current?.()}
+              on_rename={() => rename_handler_ref.current?.()}
+              theme={theme}
+            />
+          </View>
         ),
       ),
     });
-  }, [navigation, is_editing_title, theme]);
+  }, [navigation, is_editing_title, navigation_title, theme]);
 
   if (!episode) {
     return (
@@ -289,7 +358,21 @@ function EditScreen({ navigation, route, theme }) {
   const elapsed_label = format_duration(playback.current_time);
   const total_label = format_duration(total_seconds);
   const clip_count = episode.clips.length;
-  const clip_count_label = clip_count === 1 ? '1 clip' : `${clip_count} clips`;
+  const segment_count_label = clip_count === 1 ? '1 segment' : `${clip_count} segments`;
+  const playback_status_label = resolve_playback_status_label({
+    clip_count,
+    current_clip_index: playback.current_clip_index,
+    current_time: playback.current_time,
+    playing: playback.playing,
+    total_duration: total_seconds,
+  });
+  const active_clip_index = resolve_active_clip_index({
+    clip_count,
+    current_clip_index: playback.current_clip_index,
+    current_time: playback.current_time,
+    playing: playback.playing,
+    total_duration: total_seconds,
+  });
 
   return (
     <ScrollView
@@ -297,41 +380,38 @@ function EditScreen({ navigation, route, theme }) {
       contentInsetAdjustmentBehavior="automatic"
       style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
     >
-      <View style={styles.header}>
-        {is_editing_title ? (
-          <TextInput
-            accessibilityLabel="Episode name"
-            autoFocus
-            clearButtonMode="while-editing"
-            keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
-            onBlur={commit_title}
-            onChangeText={set_title_draft}
-            onSubmitEditing={commit_title}
-            placeholder="Episode name"
-            placeholderTextColor={theme.colors.ink_soft}
-            returnKeyType="done"
-            selectionColor={theme.colors.accent}
-            style={[styles.title, { color: theme.colors.ink }]}
-            value={title_draft}
-          />
-        ) : (
-          <Text
-            accessibilityRole="header"
-            style={[styles.title, { color: theme.colors.ink }]}
-          >
+      {is_editing_title ? (
+        <TextInput
+          accessibilityLabel="Episode name"
+          autoFocus
+          clearButtonMode="while-editing"
+          keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
+          onBlur={commit_title}
+          onChangeText={set_title_draft}
+          onSubmitEditing={commit_title}
+          placeholder="Episode name"
+          placeholderTextColor={theme.colors.ink_soft}
+          returnKeyType="done"
+          selectionColor={theme.colors.accent}
+          style={[styles.renameInput, { color: theme.colors.ink }]}
+          value={title_draft}
+        />
+      ) : (
+        <View style={styles.heroHeader}>
+          <Text style={[styles.episodeTitle, { color: theme.colors.ink }]}>
             {episode.title}
           </Text>
-        )}
-        <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
-          {clip_count_label}
-          {'  ·  '}
-          {total_label}
-        </Text>
-      </View>
+          <Text style={[styles.episodeMeta, { color: theme.colors.ink_soft }]}>
+            {segment_count_label}
+            {' · '}
+            {total_label}
+          </Text>
+        </View>
+      )}
 
       <View
         style={[
-          styles.panel,
+          styles.playbackPanel,
           {
             backgroundColor: theme.colors.paper,
             borderColor: theme.colors.line,
@@ -339,6 +419,7 @@ function EditScreen({ navigation, route, theme }) {
         ]}
       >
         <PlaybackWaveform
+          bar_area_height={PLAYBACK_WAVEFORM_HEIGHT}
           current_time={playback.current_time}
           duration_seconds={total_seconds}
           is_playing={playback.playing}
@@ -347,37 +428,39 @@ function EditScreen({ navigation, route, theme }) {
           waveform={episode.waveform}
         />
 
-        <View style={styles.timeRow}>
-          <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
-            {elapsed_label}
-          </Text>
-          <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
-            {total_label}
-          </Text>
-        </View>
+        <View style={styles.transportRow}>
+          <PlaybackControlButton
+            is_playing={playback.playing}
+            onPress={toggle_playback}
+            theme={theme}
+          />
 
-        <Pressable
-          accessibilityLabel={playback.playing ? 'Pause' : 'Play'}
-          accessibilityRole="button"
-          onPress={toggle_playback}
-          style={({ pressed }) => [
-            styles.playButton,
-            { backgroundColor: theme.colors.accent },
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Text style={[styles.playButtonText, { color: theme.colors.button_text }]}>
-            {playback.playing ? 'Pause' : 'Play'}
-          </Text>
-        </Pressable>
+          <View style={styles.transportCopy}>
+            <Text style={[styles.transportTime, { color: theme.colors.ink }]}>
+              {elapsed_label}
+              {' / '}
+              {total_label}
+            </Text>
+            <Text style={[styles.transportStatus, { color: theme.colors.ink_soft }]}>
+              {playback_status_label}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View style={styles.segmentsSection}>
-        <Text style={[styles.sectionLabel, { color: theme.colors.ink_soft }]}>
-          Segments
-        </Text>
+      <View
+        style={[
+          styles.segmentsPanel,
+          {
+            backgroundColor: theme.colors.paper_alt,
+            borderColor: theme.colors.line,
+          },
+        ]}
+      >
         <SegmentList
+          active_clip_index={active_clip_index}
           clips={episode.clip_meta}
+          grouped
           onDelete={confirm_delete_clip}
           onMove={move_clip}
           onReorder={reorder_clips}
@@ -389,36 +472,20 @@ function EditScreen({ navigation, route, theme }) {
           accessibilityRole="button"
           onPress={add_segment}
           style={({ pressed }) => [
-            styles.segmentActionRow,
+            styles.addSegmentRow,
             {
-              backgroundColor: theme.colors.glass,
-              borderColor: theme.colors.line,
+              backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.14 : 0.08),
+              borderTopColor: theme.colors.line,
             },
             pressed ? styles.pressed : null,
           ]}
         >
           <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
-          <Text style={[styles.segmentActionLabel, { color: theme.colors.accent_strong }]}>
-            Add segment
+          <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
+            Record another take
           </Text>
         </Pressable>
       </View>
-
-      <View style={[styles.separator, { backgroundColor: theme.colors.line }]} />
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={open_publish}
-        style={({ pressed }) => [
-          styles.publishButton,
-          { backgroundColor: theme.colors.accent },
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={[styles.publishButtonText, { color: theme.colors.button_text }]}>
-          Publish to Micro.blog
-        </Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -430,29 +497,43 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     width: 18,
   },
-  segmentActionLabel: {
+  addSegmentLabel: {
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 19,
   },
-  segmentActionRow: {
+  addSegmentRow: {
     alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 10,
-    minHeight: 46,
+    minHeight: 52,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 14,
   },
   content: {
-    gap: 18,
+    gap: 20,
     paddingBottom: 36,
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 8,
   },
-  header: {
+  episodeMeta: {
+    fontSize: 15,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  episodeTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 29,
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  heroHeader: {
     gap: 6,
     paddingHorizontal: 4,
   },
@@ -467,77 +548,51 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
   },
-  panel: {
+  playbackPanel: {
     borderCurve: 'continuous',
     borderRadius: 26,
     borderWidth: 1,
     gap: 16,
     padding: 20,
   },
-  playButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  playButtonText: {
-    fontSize: 17,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
-  publishButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  publishButtonText: {
-    fontSize: 17,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
   pressed: {
     opacity: 0.72,
+  },
+  renameInput: {
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 29,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
   screen: {
     flex: 1,
   },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: 4,
+  segmentsPanel: {
+    borderCurve: 'continuous',
+    borderRadius: 26,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    lineHeight: 16,
-    textTransform: 'uppercase',
+  transportCopy: {
+    flex: 1,
+    gap: 4,
   },
-  segmentsSection: {
-    gap: 10,
+  transportRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 16,
   },
-  subtitle: {
+  transportStatus: {
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 20,
   },
-  timeLabel: {
-    fontSize: 13,
+  transportTime: {
+    fontSize: 17,
     fontVariant: ['tabular-nums'],
-    fontWeight: '600',
-    lineHeight: 17,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  title: {
-    fontSize: 24,
     fontWeight: '800',
-    lineHeight: 29,
-    padding: 0,
+    lineHeight: 22,
   },
 });
 

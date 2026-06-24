@@ -66,9 +66,11 @@ function DragHandle({ theme }) {
 }
 
 function SegmentItem({
+  active_clip_index,
   active_name,
   clip,
   count,
+  grouped,
   index,
   onDelete,
   onMove,
@@ -174,9 +176,12 @@ function SegmentItem({
       >
         <SegmentRow
           clip={clip}
+          grouped={grouped}
           index={index}
+          is_active={index === active_clip_index}
           onDelete={() => onDelete(index)}
           onPress={() => onSplit(clip)}
+          showDivider={index < count - 1}
           theme={theme}
           handle={
             <GestureDetector gesture={pan}>
@@ -200,7 +205,16 @@ function SegmentItem({
   );
 }
 
-function SegmentList({ clips, onDelete, onMove, onReorder, onSplit, theme }) {
+function SegmentList({
+  active_clip_index = -1,
+  clips,
+  grouped = false,
+  onDelete,
+  onMove,
+  onReorder,
+  onSplit,
+  theme,
+}) {
   const names = clips.map(clip => clip.name);
   const names_key = names.join('|');
   const positions = useSharedValue(build_positions(names));
@@ -237,6 +251,7 @@ function SegmentList({ clips, onDelete, onMove, onReorder, onSplit, theme }) {
         <View onLayout={handle_measure} pointerEvents="none" style={styles.measure}>
           <SegmentRow
             clip={clips[0]}
+            grouped={grouped}
             handle={<DragHandle theme={theme} />}
             index={0}
             onPress={noop}
@@ -248,9 +263,11 @@ function SegmentList({ clips, onDelete, onMove, onReorder, onSplit, theme }) {
       {row_height > 0
         ? clips.map((clip, index) => (
             <SegmentItem
+              active_clip_index={active_clip_index}
               active_name={active_name}
               clip={clip}
               count={clips.length}
+              grouped={grouped}
               index={index}
               key={clip.name}
               onDelete={onDelete}
