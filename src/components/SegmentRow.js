@@ -65,7 +65,7 @@ function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
             ? [{ label: 'Delete segment', name: 'delete' }]
             : undefined
         }
-        accessibilityHint="Swipe left to delete, or tap to split"
+        accessibilityHint="Tap to split"
         accessibilityLabel={`Segment ${index + 1}`}
         accessibilityRole="button"
         onAccessibilityAction={event => {
@@ -76,13 +76,12 @@ function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
         onPress={onPress}
         style={({ pressed }) => [styles.main, pressed ? styles.pressed : null]}
       >
-        <View style={styles.mainCopy}>
+        <View style={styles.headerRow}>
           <Text style={[styles.segmentTitle, { color: theme.colors.ink }]}>
             {`Segment ${index + 1}`}
           </Text>
-          <Text style={[styles.segmentMeta, { color: theme.colors.ink_soft }]}>
+          <Text style={[styles.segmentDuration, { color: theme.colors.ink_soft }]}>
             {format_duration(clip.duration_seconds)}
-            {'  ·  Swipe to delete'}
           </Text>
         </View>
         <MiniWaveform color={mini_color} waveform={clip.waveform} />
@@ -92,12 +91,14 @@ function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   main: {
     flex: 1,
     gap: 8,
-  },
-  mainCopy: {
-    gap: 3,
   },
   miniBar: {
     borderRadius: 1.5,
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 14,
   },
-  segmentMeta: {
+  segmentDuration: {
     fontSize: 13,
     fontVariant: ['tabular-nums'],
     fontWeight: '600',
