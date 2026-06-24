@@ -3,13 +3,14 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
-function HeaderPillButton({ label, onPress, theme }) {
+function HeaderPillButton({ label, onPress, theme, ...pressable_props }) {
   const should_use_liquid_glass = is_liquid_glass();
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
+      {...pressable_props}
       style={({ pressed }) => [
         styles.headerButton,
         {

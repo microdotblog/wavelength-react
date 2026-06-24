@@ -215,61 +215,80 @@ function SplitScreen({ navigation, route, theme }) {
         </Pressable>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        disabled={is_busy}
-        onPress={handle_split}
-        style={({ pressed }) => [
-          styles.splitButton,
-          { backgroundColor: theme.colors.accent, opacity: is_busy ? 0.6 : 1 },
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={[styles.splitButtonText, { color: theme.colors.button_text }]}>
-          {is_busy ? 'Splitting...' : 'Split segment'}
-        </Text>
-      </Pressable>
+      <View style={styles.actionsRow}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={is_busy}
+          onPress={handle_split}
+          style={({ pressed }) => [
+            styles.actionButton,
+            {
+              backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.2 : 0.12),
+              borderColor: theme.colors.line,
+              opacity: is_busy ? 0.6 : 1,
+            },
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Text style={[styles.primaryActionText, { color: theme.colors.accent_strong }]}>
+            {is_busy ? 'Splitting...' : 'Split here'}
+          </Text>
+        </Pressable>
 
-      <Pressable
-        accessibilityRole="button"
-        disabled={is_busy}
-        onPress={confirm_delete_segment}
-        style={({ pressed }) => [
-          styles.deleteButton,
-          {
-            backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.16 : 0.1),
-            borderColor: theme.colors.line,
-          },
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={[styles.deleteButtonText, { color: theme.colors.accent_strong }]}>
-          Delete segment
-        </Text>
-      </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={is_busy}
+          onPress={confirm_delete_segment}
+          style={({ pressed }) => [
+            styles.actionButton,
+            {
+              backgroundColor: theme.colors.glass,
+              borderColor: theme.colors.line,
+              opacity: is_busy ? 0.6 : 1,
+            },
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Text style={[styles.secondaryActionText, { color: theme.colors.ink_soft }]}>
+            Delete segment
+          </Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  actionButton: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   content: {
     gap: 18,
     paddingBottom: 36,
     paddingHorizontal: 20,
     paddingTop: 18,
   },
-  deleteButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 52,
+  primaryActionText: {
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 19,
   },
-  deleteButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
+  secondaryActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 19,
   },
   heading: {
     fontSize: 24,
@@ -313,18 +332,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 20,
-  },
-  splitButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  splitButtonText: {
-    fontSize: 17,
-    fontWeight: '800',
-    lineHeight: 22,
   },
   subtitle: {
     fontSize: 15,

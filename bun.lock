@@ -4,10 +4,11 @@
     "": {
       "name": "wavelength",
       "dependencies": {
+        "@react-native-menu/menu": "^2.0.0",
         "@react-navigation/bottom-tabs": "^7.18.2",
         "@react-navigation/native": "^7.3.3",
         "@react-navigation/native-stack": "^7.17.5",
-        "@siteed/expo-audio-studio": "^3.2.1",
+        "@siteed/audio-studio": "^3.2.0",
         "expo": "~56.0.11",
         "expo-audio": "~56.0.12",
         "expo-auth-session": "~56.0.14",
@@ -266,6 +267,8 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
+    "@react-native-menu/menu": ["@react-native-menu/menu@2.0.0", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-hb8Mirw6aKPGONhgo52IiNpwHtISVrgCT3rMdFX1qS7eOFNzOcQh8d2UDnaH5zVpxN+QuvWtaaiRMGFpIjzdtA=="],
+
     "@react-native/assets-registry": ["@react-native/assets-registry@0.85.3", "", {}, "sha512-u9ZiYP23vA2IFtdFQFmetzSmk6SM0xgKIoiOsr1hXNHjHaLhOm+/Ph1ud57wX6+Dbwdzx8coJgnzSKL3W21PCg=="],
 
     "@react-native/babel-plugin-codegen": ["@react-native/babel-plugin-codegen@0.85.3", "", { "dependencies": { "@babel/traverse": "^7.29.0", "@react-native/codegen": "0.85.3" } }, "sha512-Wc94zGfeFG8Njf9SHMPfYZP04kjigkOps6F1TYTvd7ZVXuGxqseCDgxc50LWcOhOCLypI9n3oVVqz81C3p44ZA=="],
@@ -309,8 +312,6 @@
     "@sinclair/typebox": ["@sinclair/typebox@0.27.10", "", {}, "sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA=="],
 
     "@siteed/audio-studio": ["@siteed/audio-studio@3.2.0", "", { "peerDependencies": { "@expo/config-plugins": ">=7.0.0", "expo": ">=52.0.0", "react": "*", "react-native": "*" } }, "sha512-fU4aTIrwoo/DNLhbxsHlKyxw9NoC/rr6EuuBZHU8MRViL/M9qNQNDiWphXAF8G09eDJBk/uXxzU1+DamzNNmsQ=="],
-
-    "@siteed/expo-audio-studio": ["@siteed/expo-audio-studio@3.2.1", "", { "dependencies": { "@siteed/audio-studio": "3.2.0" } }, "sha512-XZ15OKiYjm8oqGuskDsa4T0WbAia6sg2/16LGggROTFXsQ5GEY3OqA9XD17nYBv7oxt6qFzVwelhwVepQ8x0Lw=="],
 
     "@types/hammerjs": ["@types/hammerjs@2.0.46", "", {}, "sha512-ynRvcq6wvqexJ9brDMS4BnBLzmr0e14d6ZJTEShTBWKymQiHwlAyGu0ZPEFI2Fh1U53F7tN9ufClWM5KvqkKOw=="],
 

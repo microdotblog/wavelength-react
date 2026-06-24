@@ -60,8 +60,19 @@ function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
       {handle != null ? <View style={styles.reorder}>{handle}</View> : null}
 
       <Pressable
-        accessibilityLabel={`Edit segment ${index + 1}`}
+        accessibilityActions={
+          onDelete
+            ? [{ label: 'Delete segment', name: 'delete' }]
+            : undefined
+        }
+        accessibilityHint="Swipe left to delete, or tap to split"
+        accessibilityLabel={`Segment ${index + 1}`}
         accessibilityRole="button"
+        onAccessibilityAction={event => {
+          if (event.nativeEvent.actionName === 'delete') {
+            onDelete?.();
+          }
+        }}
         onPress={onPress}
         style={({ pressed }) => [styles.main, pressed ? styles.pressed : null]}
       >
@@ -71,44 +82,16 @@ function SegmentRow({ clip, handle, index, onDelete, onPress, theme }) {
           </Text>
           <Text style={[styles.segmentMeta, { color: theme.colors.ink_soft }]}>
             {format_duration(clip.duration_seconds)}
-            {'  ·  Tap to split'}
+            {'  ·  Swipe to delete'}
           </Text>
         </View>
         <MiniWaveform color={mini_color} waveform={clip.waveform} />
-      </Pressable>
-
-      <Pressable
-        accessibilityLabel={`Delete segment ${index + 1}`}
-        accessibilityRole="button"
-        hitSlop={6}
-        onPress={onDelete}
-        style={({ pressed }) => [
-          styles.iconButton,
-          { borderColor: theme.colors.line },
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={[styles.iconGlyph, { color: theme.colors.accent_strong }]}>×</Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  iconButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 10,
-    borderWidth: 1,
-    height: 32,
-    justifyContent: 'center',
-    width: 32,
-  },
-  iconGlyph: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
   main: {
     flex: 1,
     gap: 8,

@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import SegmentRow from './SegmentRow';
+import SegmentSwipeRow from './SegmentSwipeRow';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const ROW_GAP = 10;
@@ -73,6 +74,7 @@ function SegmentItem({
   onMove,
   onReorder,
   onSplit,
+  on_swipe_will_open,
   positions,
   slot,
   theme,
@@ -166,29 +168,34 @@ function SegmentItem({
 
   return (
     <Animated.View style={[styles.item, item_style]}>
-      <SegmentRow
-        clip={clip}
-        index={index}
-        onDelete={() => onDelete(index)}
-        onPress={() => onSplit(clip)}
-        theme={theme}
-        handle={
-          <GestureDetector gesture={pan}>
-            <Animated.View
-              accessibilityActions={[
-                { label: 'Move up', name: 'decrement' },
-                { label: 'Move down', name: 'increment' },
-              ]}
-              accessibilityLabel={`Reorder segment ${index + 1}`}
-              accessibilityRole="adjustable"
-              onAccessibilityAction={handle_accessibility_action}
-              style={styles.handleHit}
-            >
-              <DragHandle theme={theme} />
-            </Animated.View>
-          </GestureDetector>
-        }
-      />
+      <SegmentSwipeRow
+        on_delete={() => onDelete(index)}
+        on_will_open={on_swipe_will_open}
+      >
+        <SegmentRow
+          clip={clip}
+          index={index}
+          onDelete={() => onDelete(index)}
+          onPress={() => onSplit(clip)}
+          theme={theme}
+          handle={
+            <GestureDetector gesture={pan}>
+              <Animated.View
+                accessibilityActions={[
+                  { label: 'Move up', name: 'decrement' },
+                  { label: 'Move down', name: 'increment' },
+                ]}
+                accessibilityLabel={`Reorder segment ${index + 1}`}
+                accessibilityRole="adjustable"
+                onAccessibilityAction={handle_accessibility_action}
+                style={styles.handleHit}
+              >
+                <DragHandle theme={theme} />
+              </Animated.View>
+            </GestureDetector>
+          }
+        />
+      </SegmentSwipeRow>
     </Animated.View>
   );
 }
@@ -198,7 +205,16 @@ function SegmentList({ clips, onDelete, onMove, onReorder, onSplit, theme }) {
   const names_key = names.join('|');
   const positions = useSharedValue(build_positions(names));
   const active_name = useSharedValue('');
+  const open_swipeable_ref = React.useRef(null);
   const [row_height, set_row_height] = React.useState(0);
+
+  function handle_swipe_will_open(swipeable) {
+    if (open_swipeable_ref.current && open_swipeable_ref.current !== swipeable) {
+      open_swipeable_ref.current.close?.();
+    }
+
+    open_swipeable_ref.current = swipeable;
+  }
 
   React.useEffect(() => {
     positions.value = build_positions(names_key.length > 0 ? names_key.split('|') : []);
@@ -223,7 +239,6 @@ function SegmentList({ clips, onDelete, onMove, onReorder, onSplit, theme }) {
             clip={clips[0]}
             handle={<DragHandle theme={theme} />}
             index={0}
-            onDelete={noop}
             onPress={noop}
             theme={theme}
           />
@@ -242,6 +257,7 @@ function SegmentList({ clips, onDelete, onMove, onReorder, onSplit, theme }) {
               onMove={onMove}
               onReorder={onReorder}
               onSplit={onSplit}
+              on_swipe_will_open={handle_swipe_will_open}
               positions={positions}
               slot={slot}
               theme={theme}

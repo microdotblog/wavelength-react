@@ -1,14 +1,65 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
+import EpisodeActionsMenuButton from '../components/EpisodeActionsMenuButton';
 import HeaderPillButton from '../components/HeaderPillButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
 import { format_duration } from '../lib/format_duration';
 import { use_episode_playback } from '../hooks/use_episode_playback';
-import { header_right_element, with_color_opacity } from '../theme/wavelengthTheme';
+import { header_right_element } from '../theme/wavelengthTheme';
+
+function build_ios_episode_header_items({ is_editing_title, on_delete, on_rename, on_save }) {
+  if (is_editing_title) {
+    return [
+      {
+        accessibilityLabel: 'Save episode name',
+        label: 'Save',
+        onPress: on_save,
+        type: 'button',
+        variant: 'done',
+      },
+    ];
+  }
+
+  return [
+    {
+      accessibilityLabel: 'Episode actions',
+      icon: { name: 'ellipsis.circle', type: 'sfSymbol' },
+      label: '',
+      menu: {
+        items: [
+          {
+            icon: { name: 'pencil', type: 'sfSymbol' },
+            label: 'Rename',
+            onPress: on_rename,
+            type: 'action',
+          },
+          {
+            destructive: true,
+            icon: { name: 'trash', type: 'sfSymbol' },
+            label: 'Delete Episode',
+            onPress: on_delete,
+            type: 'action',
+          },
+        ],
+        title: 'Episode',
+      },
+      type: 'menu',
+    },
+  ];
+}
 
 function clip_meta_snapshot(episode) {
   return episode.clip_meta.map(clip => ({
@@ -24,7 +75,9 @@ function EditScreen({ navigation, route, theme }) {
   const playback = use_episode_playback(episode ? episode.playback_clips() : []);
   const [title_draft, set_title_draft] = React.useState(episode?.title || '');
   const [is_editing_title, set_is_editing_title] = React.useState(false);
+  const save_handler_ref = React.useRef(null);
   const rename_handler_ref = React.useRef(null);
+  const delete_handler_ref = React.useRef(null);
 
   React.useEffect(() => {
     if (!is_editing_title) {
@@ -176,25 +229,43 @@ function EditScreen({ navigation, route, theme }) {
     await Episodes.update_episode_title(episode_id, trimmed_title);
   }
 
-  function handle_rename_press() {
-    if (is_editing_title) {
-      commit_title();
-    } else {
-      start_rename();
-    }
-  }
-
-  rename_handler_ref.current = handle_rename_press;
+  save_handler_ref.current = commit_title;
+  rename_handler_ref.current = start_rename;
+  delete_handler_ref.current = confirm_delete_episode;
 
   React.useLayoutEffect(() => {
+    if (Platform.OS === 'ios') {
+      navigation.setOptions({
+        headerRight: undefined,
+        unstable_headerRightItems: () =>
+          build_ios_episode_header_items({
+            is_editing_title,
+            on_delete: () => delete_handler_ref.current?.(),
+            on_rename: () => rename_handler_ref.current?.(),
+            on_save: () => save_handler_ref.current?.(),
+          }),
+      });
+      return;
+    }
+
     navigation.setOptions({
-      ...header_right_element(() => (
-        <HeaderPillButton
-          label={is_editing_title ? 'Save' : 'Rename'}
-          onPress={() => rename_handler_ref.current?.()}
-          theme={theme}
-        />
-      )),
+      unstable_headerRightItems: undefined,
+      ...header_right_element(() =>
+        is_editing_title ? (
+          <HeaderPillButton
+            accessibilityLabel="Save episode name"
+            label="Save"
+            onPress={() => save_handler_ref.current?.()}
+            theme={theme}
+          />
+        ) : (
+          <EpisodeActionsMenuButton
+            on_delete={() => delete_handler_ref.current?.()}
+            on_rename={() => rename_handler_ref.current?.()}
+            theme={theme}
+          />
+        ),
+      ),
     });
   }, [navigation, is_editing_title, theme]);
 
@@ -238,15 +309,12 @@ function EditScreen({ navigation, route, theme }) {
             value={title_draft}
           />
         ) : (
-          <Pressable
-            accessibilityHint="Rename episode"
-            accessibilityRole="button"
-            onPress={start_rename}
+          <Text
+            accessibilityRole="header"
+            style={[styles.title, { color: theme.colors.ink }]}
           >
-            <Text style={[styles.title, { color: theme.colors.ink }]}>
-              {episode.title}
-            </Text>
-          </Pressable>
+            {episode.title}
+          </Text>
         )}
         <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
           {clip_count_label}
@@ -310,73 +378,57 @@ function EditScreen({ navigation, route, theme }) {
           onSplit={open_split}
           theme={theme}
         />
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={add_segment}
+          style={({ pressed }) => [
+            styles.segmentActionRow,
+            {
+              backgroundColor: theme.colors.glass,
+              borderColor: theme.colors.line,
+            },
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
+          <Text style={[styles.segmentActionLabel, { color: theme.colors.accent_strong }]}>
+            Add segment
+          </Text>
+        </Pressable>
       </View>
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={add_segment}
-        style={({ pressed }) => [
-          styles.addButton,
-          { backgroundColor: theme.colors.accent },
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={[styles.addButtonText, { color: theme.colors.button_text }]}>
-          Add segment
-        </Text>
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={confirm_delete_episode}
-        style={({ pressed }) => [
-          styles.deleteButton,
-          {
-            backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.16 : 0.1),
-            borderColor: theme.colors.line,
-          },
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={[styles.deleteButtonText, { color: theme.colors.accent_strong }]}>
-          Delete episode
-        </Text>
-      </Pressable>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  addButton: {
+  addSegmentGlyph: {
+    fontSize: 20,
+    fontWeight: '600',
+    lineHeight: 24,
+    width: 18,
+  },
+  segmentActionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 19,
+  },
+  segmentActionRow: {
     alignItems: 'center',
     borderCurve: 'continuous',
     borderRadius: 18,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 46,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   content: {
     gap: 18,
     paddingBottom: 36,
     paddingHorizontal: 20,
     paddingTop: 18,
-  },
-  deleteButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  deleteButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
   },
   header: {
     gap: 6,
