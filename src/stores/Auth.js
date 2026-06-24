@@ -15,6 +15,7 @@ import {
   verify_micro_blog_token,
 } from '../api/MicroBlogAuth';
 import Tokens from './Tokens';
+import WebViewStore from './WebView';
 
 async function create_oauth_state() {
   const state_bytes = await Crypto.getRandomBytesAsync(16);
@@ -319,6 +320,8 @@ const Auth = types
       self.clear_session_data();
       self.clear_error();
       self.set_loading_phase();
+      WebViewStore.invalidate_webview_bootstrap();
+      WebViewStore.bump_web_view_epoch();
     }),
 
     finish_sign_in() {
