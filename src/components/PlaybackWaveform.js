@@ -54,6 +54,7 @@ function PlaybackWaveform({
   const on_seek_ref = React.useRef(onSeek);
   const is_scrubbing_ref = React.useRef(false);
   const progress = useSharedValue(0);
+  const last_synced_fraction_ref = React.useRef(0);
   const levels = build_display_levels(waveform);
 
   on_seek_ref.current = onSeek;
@@ -71,12 +72,14 @@ function PlaybackWaveform({
     const fraction = duration_seconds > 0
       ? Math.min(Math.max(current_time / duration_seconds, 0), 1)
       : 0;
+    const remaining_ms = Math.max((duration_seconds - current_time) * 1000, 0);
+    const jumped_backward = fraction + 0.02 < last_synced_fraction_ref.current;
 
     cancelAnimation(progress);
     progress.value = fraction;
+    last_synced_fraction_ref.current = fraction;
 
-    if (is_playing && duration_seconds > 0 && fraction < 1) {
-      const remaining_ms = Math.max((duration_seconds - current_time) * 1000, 0);
+    if (is_playing && duration_seconds > 0 && fraction < 1 && remaining_ms > 100 && !jumped_backward) {
       progress.value = withTiming(1, { duration: remaining_ms, easing: Easing.linear });
     }
   }, [current_time, duration_seconds, is_playing, progress]);

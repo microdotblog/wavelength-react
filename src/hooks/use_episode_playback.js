@@ -2,6 +2,7 @@ import React from 'react';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
 const STATUS_INTERVAL_MS = 100;
+const CLIP_READY_TOLERANCE_SECONDS = 0.5;
 
 function clamp(value, min, max) {
   if (value < min) {
@@ -51,6 +52,7 @@ export function use_episode_playback(clips = []) {
 
   const [current_index, set_current_index] = React.useState(0);
   const [is_active, set_is_active] = React.useState(false);
+  const [clip_ready, set_clip_ready] = React.useState(false);
   const pending_seek_ref = React.useRef(null);
   const handled_finish_ref = React.useRef(false);
 
@@ -69,6 +71,7 @@ export function use_episode_playback(clips = []) {
   React.useEffect(() => {
     set_current_index(0);
     set_is_active(false);
+    set_clip_ready(false);
     handled_finish_ref.current = false;
     pending_seek_ref.current = null;
   }, [uris_key]);
@@ -80,15 +83,31 @@ export function use_episode_playback(clips = []) {
       return;
     }
 
-    if (pending_seek_ref.current != null) {
-      player.seekTo(pending_seek_ref.current);
+    const expected_local_time = pending_seek_ref.current ?? 0;
+
+    if (!clip_ready) {
+      if (pending_seek_ref.current != null) {
+        player.seekTo(expected_local_time);
+      }
+
+      const reported_local_time = status.currentTime || 0;
+
+      if (Math.abs(reported_local_time - expected_local_time) > CLIP_READY_TOLERANCE_SECONDS) {
+        if (expected_local_time === 0 && reported_local_time > 1) {
+          player.seekTo(0);
+        }
+
+        return;
+      }
+
       pending_seek_ref.current = null;
+      set_clip_ready(true);
     }
 
     if (is_active && !status.playing) {
       player.play();
     }
-  }, [current_index, is_active, player, status.isLoaded, status.playing]);
+  }, [clip_ready, current_index, is_active, player, status.currentTime, status.isLoaded, status.playing]);
 
   React.useEffect(() => {
     if (!status.didJustFinish) {
@@ -103,6 +122,8 @@ export function use_episode_playback(clips = []) {
     handled_finish_ref.current = true;
 
     if (current_index < safe_clips.length - 1) {
+      pending_seek_ref.current = 0;
+      set_clip_ready(false);
       set_current_index(current_index + 1);
     } else {
       set_is_active(false);
@@ -122,6 +143,7 @@ export function use_episode_playback(clips = []) {
 
     if (at_end) {
       pending_seek_ref.current = 0;
+      set_clip_ready(false);
       set_current_index(0);
       return;
     }
@@ -149,12 +171,15 @@ export function use_episode_playback(clips = []) {
     }
 
     pending_seek_ref.current = local_time;
+    set_clip_ready(false);
     set_current_index(target_index);
   }
 
   const clip_offset = timeline.offsets[current_index] || 0;
   const clip_duration = timeline.durations[current_index] || status.duration || 0;
-  const local_time = clamp(status.currentTime || 0, 0, clip_duration || status.currentTime || 0);
+  const local_time = clip_ready
+    ? clamp(status.currentTime || 0, 0, clip_duration || status.currentTime || 0)
+    : clamp(pending_seek_ref.current ?? 0, 0, clip_duration || 0);
   const current_time = clamp(clip_offset + local_time, 0, timeline.total_duration);
 
   return {
