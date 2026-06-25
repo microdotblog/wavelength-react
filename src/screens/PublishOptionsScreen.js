@@ -12,6 +12,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { observer } from 'mobx-react';
 
 import CheckmarkRowCell from '../components/CheckmarkRowCell';
+import Auth from '../stores/Auth';
 import Publishing from '../stores/Publishing';
 
 function OptionsSection({ children, label, theme }) {
@@ -49,6 +50,8 @@ function OptionRow({ children, onPress }) {
 
 function PublishOptionsScreen({ theme }) {
   const scroll_ref = React.useRef(null);
+  const profile = Auth.current_profile();
+  const destination_label = profile.default_site || profile.url || 'your Micro.blog';
 
   return (
     <KeyboardAvoidingView
@@ -63,6 +66,12 @@ function PublishOptionsScreen({ theme }) {
         ref={scroll_ref}
         showsVerticalScrollIndicator
       >
+        <OptionsSection label="Posting to:" theme={theme}>
+          <Text style={[styles.destinationValue, { color: theme.colors.ink }]}>
+            {destination_label}
+          </Text>
+        </OptionsSection>
+
         <OptionsSection label="When sending this post:" theme={theme}>
           <OptionRow onPress={() => Publishing.handle_post_status_select('published')}>
             <CheckmarkRowCell
@@ -184,6 +193,12 @@ const styles = StyleSheet.create({
     gap: 24,
     padding: 15,
     paddingBottom: 50,
+  },
+  destinationValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    lineHeight: 22,
+    padding: 8,
   },
   emptyLabel: {
     fontSize: 15,

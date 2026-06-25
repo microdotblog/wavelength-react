@@ -11,7 +11,6 @@ import {
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { observer } from 'mobx-react';
 
-import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
 import EditorKeyboardAvoidingView from '../components/EditorKeyboardAvoidingView';
 import EpisodeAttachmentToolbar from '../components/EpisodeAttachmentToolbar';
@@ -147,8 +146,6 @@ function PublishScreen({ navigation, route, theme }) {
     );
   }
 
-  const profile = Auth.current_profile();
-  const destination_label = profile.default_site || profile.url || 'your Micro.blog';
   const status_label = Publishing.status_label();
 
   return (
@@ -204,18 +201,6 @@ function PublishScreen({ navigation, route, theme }) {
           value={Publishing.post_content}
         />
 
-        <View style={styles.destinationRow}>
-          <Text style={[styles.destinationLabel, { color: theme.colors.ink_soft }]}>
-            Posting to
-          </Text>
-          <Text
-            numberOfLines={1}
-            style={[styles.destinationValue, { color: theme.colors.ink }]}
-          >
-            {destination_label}
-          </Text>
-        </View>
-
         {Publishing.is_publishing ? (
           <View style={styles.statusRow}>
             <ActivityIndicator color={theme.colors.accent} />
@@ -256,26 +241,6 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     minHeight: 300,
     padding: 13,
-  },
-  destinationLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 17,
-  },
-  destinationRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  destinationValue: {
-    flexShrink: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 20,
-    textAlign: 'right',
   },
   editorArea: {
     flex: 1,
