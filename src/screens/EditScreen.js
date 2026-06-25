@@ -86,8 +86,12 @@ function clip_meta_snapshot(episode) {
 }
 
 function resolve_active_clip_index({ clip_count, current_clip_index, current_time, playing, total_duration }) {
-  if (clip_count <= 0 || playing) {
+  if (clip_count <= 0) {
     return -1;
+  }
+
+  if (playing) {
+    return current_clip_index;
   }
 
   if (current_time > 0 && total_duration > 0 && current_time < total_duration) {
@@ -97,9 +101,19 @@ function resolve_active_clip_index({ clip_count, current_clip_index, current_tim
   return -1;
 }
 
-function resolve_playback_status_label({ current_time, playing, total_duration }) {
+function resolve_playback_status_label({
+  clip_count,
+  current_clip_index,
+  current_time,
+  playing,
+  total_duration,
+}) {
   if (playing) {
-    return 'Playing preview';
+    if (clip_count <= 1) {
+      return 'Playing preview';
+    }
+
+    return `Playing segment ${current_clip_index + 1} of ${clip_count}`;
   }
 
   if (current_time > 0 && total_duration > 0 && current_time < total_duration) {
@@ -346,6 +360,8 @@ function EditScreen({ navigation, route, theme }) {
   const clip_count = episode.clips.length;
   const segment_count_label = clip_count === 1 ? '1 segment' : `${clip_count} segments`;
   const playback_status_label = resolve_playback_status_label({
+    clip_count,
+    current_clip_index: playback.current_clip_index,
     current_time: playback.current_time,
     playing: playback.playing,
     total_duration: total_seconds,
