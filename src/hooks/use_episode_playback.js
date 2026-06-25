@@ -73,13 +73,6 @@ export function use_episode_playback(clips = []) {
     pending_seek_ref.current = null;
   }, [uris_key]);
 
-  // Ignore player time until the newly selected clip has loaded. Without this,
-  // the previous clip's end time can briefly add to the next clip's offset and
-  // shove the UI playhead to the end of the episode.
-  React.useEffect(() => {
-    set_clip_ready(false);
-  }, [current_index]);
-
   // Apply a queued cross-clip seek once the new source is ready, then resume
   // playback if the listener was mid-playback when they scrubbed.
   React.useEffect(() => {
@@ -105,6 +98,7 @@ export function use_episode_playback(clips = []) {
     }
 
     if (current_index < safe_clips.length - 1) {
+      set_clip_ready(false);
       set_current_index(current_index + 1);
     } else {
       set_is_active(false);
@@ -124,6 +118,7 @@ export function use_episode_playback(clips = []) {
 
     if (at_end) {
       pending_seek_ref.current = 0;
+      set_clip_ready(false);
       set_current_index(0);
       return;
     }
@@ -151,6 +146,7 @@ export function use_episode_playback(clips = []) {
     }
 
     pending_seek_ref.current = local_time;
+    set_clip_ready(false);
     set_current_index(target_index);
   }
 
