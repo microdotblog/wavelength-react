@@ -40,7 +40,6 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
     "react-native-sfsymbols": "^1.2.2",
-    "react-native-svg": "15.12.1",
     "react-native-webview": "13.16.1",
     "react-native-worklets": "0.8.3"
   },

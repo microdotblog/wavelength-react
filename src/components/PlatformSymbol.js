@@ -1,7 +1,6 @@
 import React from 'react';
-import { Image, Platform } from 'react-native';
+import { Image, Platform, StyleSheet, Text } from 'react-native';
 import { SFSymbol } from 'react-native-sfsymbols';
-import { SvgXml } from 'react-native-svg';
 
 import { TOOLBAR_SYMBOLS } from '../lib/toolbar_symbols';
 
@@ -43,17 +42,33 @@ function PlatformSymbol({
     );
   }
 
-  if (symbol.android_svg) {
+  if (symbol.android_label) {
     return (
-      <SvgXml
-        color={color}
-        style={[dimension, style]}
-        xml={symbol.android_svg}
-      />
+      <Text
+        style={[
+          styles.androidLabel,
+          {
+            color,
+            fontSize: Math.max(size - 2, 12),
+            lineHeight: size,
+            minWidth: size,
+          },
+          style,
+        ]}
+      >
+        {symbol.android_label}
+      </Text>
     );
   }
 
   return null;
 }
+
+const styles = StyleSheet.create({
+  androidLabel: {
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+});
 
 export default PlatformSymbol;
