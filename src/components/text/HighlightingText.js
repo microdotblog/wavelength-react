@@ -89,6 +89,7 @@ export default class HighlightingText extends React.Component {
     const canvas = colors.canvas || (is_dark ? '#15100b' : '#fffaf0');
 
     return {
+      accent_color: colors.accent || '#ff8800',
       background_color: canvas,
       bottom_scrim_color: with_color_opacity(canvas, is_dark ? 0.86 : 0.82),
       code_background_color: colors.paper_alt || (is_dark ? '#2d2115' : '#fff3d2'),
@@ -106,6 +107,7 @@ export default class HighlightingText extends React.Component {
       backgroundColor: style.backgroundColor || theme_colors.background_color,
       bottomOverlayHeight: this.props.bottomOverlayHeight || 0,
       bottomScrimColor: theme_colors.bottom_scrim_color,
+      caretColor: this.props.caretColor || theme_colors.accent_color,
       codeBackgroundColor: theme_colors.code_background_color,
       colorScheme: this.props.theme?.is_dark ? 'dark' : 'light',
       editable: this.props.editable !== false,
@@ -125,6 +127,7 @@ export default class HighlightingText extends React.Component {
     const payload = JSON.stringify({
       backgroundColor: config.backgroundColor,
       bottomScrimColor: config.bottomScrimColor,
+      caretColor: config.caretColor,
       codeBackgroundColor: config.codeBackgroundColor,
       colorScheme: config.colorScheme,
       placeholderTextColor: config.placeholderTextColor,
@@ -164,7 +167,7 @@ export default class HighlightingText extends React.Component {
           }
 
           setVar('--editor-text', config.textColor);
-          setVar('--editor-caret', config.textColor);
+          setVar('--editor-caret', config.caretColor || config.textColor);
           setVar('--editor-placeholder', config.placeholderTextColor);
           setVar('--editor-code-background', config.codeBackgroundColor);
           setVar('--editor-bottom-scrim', config.bottomScrimColor);

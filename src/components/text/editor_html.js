@@ -726,7 +726,9 @@ const editorHtml = String.raw`<!doctype html>
         }
         if (config.textColor) {
           setThemeProperty(targets, "--editor-text", config.textColor);
-          setThemeProperty(targets, "--editor-caret", config.textColor);
+        }
+        if (config.caretColor || config.textColor) {
+          setThemeProperty(targets, "--editor-caret", config.caretColor || config.textColor);
         }
         if (config.placeholderTextColor) {
           setThemeProperty(targets, "--editor-placeholder", config.placeholderTextColor);
