@@ -91,6 +91,7 @@ export function build_episode_publish_payload({
   destination = '',
   status = 'published',
   summary = '',
+  syndicates = [],
   title = '',
 } = {}) {
   const trimmed_title = `${title || ''}`.trim();
@@ -102,6 +103,9 @@ export function build_episode_publish_payload({
   const safe_categories = Array.isArray(categories)
     ? categories.map(category => `${category || ''}`.trim()).filter(Boolean)
     : [];
+  const safe_syndicates = Array.isArray(syndicates)
+    ? syndicates.map(syndicate => `${syndicate || ''}`.trim()).filter(Boolean)
+    : [];
 
   return {
     audio_url: trimmed_audio_url,
@@ -110,10 +114,47 @@ export function build_episode_publish_payload({
     destination: trimmed_destination,
     status: trimmed_status,
     summary: trimmed_summary,
+    syndicates: safe_syndicates,
     title: trimmed_title,
   };
 }
 
 export function resolve_playback_toggle_action(is_playing = false) {
   return is_playing ? 'pause' : 'play';
+}
+
+export function seek_seconds_from_fraction(fraction = 0, duration_seconds = 0) {
+  const basis = Math.max(duration_seconds, 0);
+  const safe_fraction = Math.min(Math.max(fraction, 0), 1);
+
+  return safe_fraction * basis;
+}
+
+export function normalize_micropub_categories(payload = null) {
+  if (Array.isArray(payload)) {
+    return payload.map(category => `${category || ''}`.trim()).filter(Boolean);
+  }
+
+  const categories = payload?.categories;
+
+  if (!Array.isArray(categories)) {
+    return [];
+  }
+
+  return categories.map(category => `${category || ''}`.trim()).filter(Boolean);
+}
+
+export function normalize_micropub_syndicates(payload = null) {
+  const targets = payload?.['syndicate-to'];
+
+  if (!Array.isArray(targets)) {
+    return [];
+  }
+
+  return targets
+    .map(target => ({
+      name: `${target?.name || target?.uid || ''}`.trim(),
+      uid: `${target?.uid || ''}`.trim(),
+    }))
+    .filter(target => target.uid);
 }

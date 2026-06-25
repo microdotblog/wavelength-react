@@ -67,28 +67,18 @@ export async function upload_episode_audio({ token = '', destination = '', file_
   return audio_url;
 }
 
-export async function create_episode_post({
-  token = '',
-  destination = '',
-  title = '',
-  content = '',
+export function build_episode_post_body({
   audio_url = '',
-  status = 'published',
   categories = [],
+  content = '',
+  destination = '',
+  status = 'published',
+  summary = '',
+  syndicates = [],
+  title = '',
 } = {}) {
-  const trimmed_token = `${token || ''}`.trim();
-  const trimmed_audio_url = `${audio_url || ''}`.trim();
-
-  if (!trimmed_token) {
-    throw create_request_error('You need to be signed in to Micro.blog to publish.');
-  }
-
-  if (!trimmed_audio_url) {
-    throw create_request_error('The episode audio must be uploaded before posting.');
-  }
-
   const body = new URLSearchParams({
-    audio: trimmed_audio_url,
+    audio: `${audio_url || ''}`.trim(),
     content: `${content || ''}`,
     h: 'entry',
     name: `${title || ''}`,
@@ -106,6 +96,12 @@ export async function create_episode_post({
     body.append('post-status', trimmed_status);
   }
 
+  const trimmed_summary = `${summary || ''}`.trim();
+
+  if (trimmed_summary) {
+    body.append('summary', trimmed_summary);
+  }
+
   const safe_categories = Array.isArray(categories)
     ? categories.map(category => `${category || ''}`.trim()).filter(Boolean)
     : [];
@@ -113,6 +109,58 @@ export async function create_episode_post({
   for (const category of safe_categories) {
     body.append('category[]', category);
   }
+
+  const safe_syndicates = Array.isArray(syndicates)
+    ? syndicates.map(syndicate => `${syndicate || ''}`.trim()).filter(Boolean)
+    : [];
+
+  for (const syndicate of safe_syndicates) {
+    body.append('mp-syndicate-to[]', syndicate);
+  }
+
+  return body;
+}
+
+export async function fetch_micropub_categories({ token = '', destination = '' } = {}) {
+  return fetch_micropub_query({ destination, query: 'category', token });
+}
+
+export async function fetch_micropub_syndicate_targets({ token = '', destination = '' } = {}) {
+  return fetch_micropub_query({ destination, query: 'syndicate-to', token });
+}
+
+export async function create_episode_post({
+  token = '',
+  destination = '',
+  title = '',
+  content = '',
+  audio_url = '',
+  status = 'published',
+  categories = [],
+  summary = '',
+  syndicates = [],
+} = {}) {
+  const trimmed_token = `${token || ''}`.trim();
+  const trimmed_audio_url = `${audio_url || ''}`.trim();
+
+  if (!trimmed_token) {
+    throw create_request_error('You need to be signed in to Micro.blog to publish.');
+  }
+
+  if (!trimmed_audio_url) {
+    throw create_request_error('The episode audio must be uploaded before posting.');
+  }
+
+  const body = build_episode_post_body({
+    audio_url: trimmed_audio_url,
+    categories,
+    content,
+    destination,
+    status,
+    summary,
+    syndicates,
+    title,
+  });
 
   const response = await fetch(MICRO_BLOG_MICROPUB_URL, {
     body: body.toString(),
@@ -133,6 +181,39 @@ export async function create_episode_post({
   }
 
   return resolve_uploaded_url(response.headers.get('Location'), payload);
+}
+
+async function fetch_micropub_query({ token = '', destination = '', query = '' } = {}) {
+  const trimmed_token = `${token || ''}`.trim();
+  const trimmed_query = `${query || ''}`.trim();
+
+  if (!trimmed_token || !trimmed_query) {
+    return null;
+  }
+
+  const url = new URL(MICRO_BLOG_MICROPUB_URL);
+  url.searchParams.set('q', trimmed_query);
+
+  const trimmed_destination = `${destination || ''}`.trim();
+
+  if (trimmed_destination) {
+    url.searchParams.set('mp-destination', trimmed_destination);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${trimmed_token}`,
+    },
+    method: 'GET',
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || payload?.error) {
+    return null;
+  }
+
+  return payload;
 }
 
 function resolve_error_message(payload = null, fallback = '') {

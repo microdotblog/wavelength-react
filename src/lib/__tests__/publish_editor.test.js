@@ -1,7 +1,10 @@
 const {
   apply_text_format_action,
   build_episode_publish_payload,
+  normalize_micropub_categories,
+  normalize_micropub_syndicates,
   resolve_playback_toggle_action,
+  seek_seconds_from_fraction,
   should_show_title,
   toggle_list_item,
 } = require('../publish_editor');
@@ -45,6 +48,7 @@ describe('publish_editor', () => {
       destination: 'https://example.micro.blog',
       status: 'draft',
       summary: 'Summary text',
+      syndicates: [],
       title: 'Episode title',
     });
   });
@@ -52,5 +56,32 @@ describe('publish_editor', () => {
   test('resolve_playback_toggle_action returns play or pause', () => {
     expect(resolve_playback_toggle_action(false)).toBe('play');
     expect(resolve_playback_toggle_action(true)).toBe('pause');
+  });
+
+  test('seek_seconds_from_fraction converts waveform scrub fraction', () => {
+    expect(seek_seconds_from_fraction(0.5, 120)).toBe(60);
+    expect(seek_seconds_from_fraction(1.5, 120)).toBe(120);
+  });
+
+  test('normalize_micropub_categories reads categories array', () => {
+    expect(normalize_micropub_categories({ categories: [' microcast ', 'news'] }))
+      .toEqual(['microcast', 'news']);
+  });
+
+  test('normalize_micropub_syndicates reads syndicate targets', () => {
+    expect(normalize_micropub_syndicates({
+      'syndicate-to': [{ name: 'Twitter', uid: 'twitter' }],
+    })).toEqual([{ name: 'Twitter', uid: 'twitter' }]);
+  });
+
+  test('build_episode_publish_payload includes syndicates', () => {
+    const payload = build_episode_publish_payload({
+      summary: 'Short summary',
+      syndicates: ['twitter'],
+      title: 'Episode',
+    });
+
+    expect(payload.syndicates).toEqual(['twitter']);
+    expect(payload.summary).toBe('Short summary');
   });
 });

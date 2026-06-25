@@ -22,6 +22,10 @@ jest.mock('../Tokens', () => ({
 
 jest.mock('../../api/Micropub', () => ({
   create_episode_post: jest.fn(),
+  fetch_micropub_categories: jest.fn(async () => ({ categories: ['microcast'] })),
+  fetch_micropub_syndicate_targets: jest.fn(async () => ({
+    'syndicate-to': [{ name: 'Twitter', uid: 'twitter' }],
+  })),
   upload_episode_audio: jest.fn(),
 }));
 
@@ -55,5 +59,12 @@ describe('Publishing store', () => {
     Publishing.handle_post_category_select('microcast');
 
     expect(Publishing.post_categories).toEqual([]);
+  });
+
+  test('load_editor_options populates categories and syndicates', async () => {
+    await Publishing.load_editor_options();
+
+    expect(Publishing.available_categories).toEqual(['microcast']);
+    expect(Publishing.available_syndicates).toEqual([{ name: 'Twitter', uid: 'twitter' }]);
   });
 });

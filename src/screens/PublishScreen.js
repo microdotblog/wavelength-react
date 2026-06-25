@@ -40,21 +40,20 @@ function PublishScreen({ navigation, route, theme }) {
   const playback = use_episode_playback(episode ? episode.playback_clips() : []);
   const content_ref = React.useRef(null);
   const post_handler_ref = React.useRef(null);
+  const pause_playback_ref = React.useRef(playback.pause);
+
+  pause_playback_ref.current = playback.pause;
 
   React.useEffect(() => {
     Publishing.reset();
     Publishing.prep_editor(episode_id);
+    Publishing.load_editor_options();
 
     return () => {
       Publishing.reset();
+      pause_playback_ref.current();
     };
   }, [episode_id]);
-
-  React.useEffect(() => {
-    return () => {
-      playback.pause();
-    };
-  }, [playback]);
 
   async function handle_post() {
     if (!episode || Publishing.is_publishing) {
@@ -83,6 +82,16 @@ function PublishScreen({ navigation, route, theme }) {
     }
 
     playback.play();
+  }
+
+  function handle_seek(fraction = 0) {
+    const basis = playback.total_duration > 0 ? playback.total_duration : 0;
+
+    if (basis <= 0) {
+      return;
+    }
+
+    playback.seek(fraction * basis);
   }
 
   post_handler_ref.current = handle_post;
@@ -210,7 +219,7 @@ function PublishScreen({ navigation, route, theme }) {
             duration_seconds={playback.total_duration || episode.duration_seconds}
             episode_title={episode.title}
             is_playing={playback.playing}
-            on_seek={playback.seek}
+            on_seek={handle_seek}
             on_toggle_playback={handle_toggle_playback}
             theme={theme}
             waveform={episode.waveform}

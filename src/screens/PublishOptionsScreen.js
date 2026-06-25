@@ -159,14 +159,14 @@ function PublishOptionsScreen({ theme }) {
 
         {Publishing.available_syndicates.length > 0 ? (
           <OptionsSection label="Cross-posting:" theme={theme}>
-            {Publishing.available_syndicates.map(syndicate_uid => (
+            {Publishing.available_syndicates.map(syndicate => (
               <OptionRow
-                key={syndicate_uid}
-                onPress={() => Publishing.handle_post_syndicates_select(syndicate_uid)}
+                key={syndicate.uid}
+                onPress={() => Publishing.handle_post_syndicates_select(syndicate.uid)}
               >
                 <CheckmarkRowCell
-                  is_selected={Publishing.post_syndicates.includes(syndicate_uid)}
-                  text={syndicate_uid}
+                  is_selected={Publishing.post_syndicates.includes(syndicate.uid)}
+                  text={syndicate.name}
                   theme={theme}
                 />
               </OptionRow>

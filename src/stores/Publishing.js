@@ -1,9 +1,16 @@
 import { flow, types } from 'mobx-state-tree';
 
-import { create_episode_post, upload_episode_audio } from '../api/Micropub';
+import {
+  create_episode_post,
+  fetch_micropub_categories,
+  fetch_micropub_syndicate_targets,
+  upload_episode_audio,
+} from '../api/Micropub';
 import {
   apply_text_format_action,
   build_episode_publish_payload,
+  normalize_micropub_categories,
+  normalize_micropub_syndicates,
   post_text_length,
   should_show_title,
   toggle_list_item,
@@ -12,10 +19,15 @@ import Auth from './Auth';
 import Episodes from './Episodes';
 import Tokens from './Tokens';
 
+const SyndicateOption = types.model('SyndicateOption', {
+  name: types.string,
+  uid: types.string,
+});
+
 const Publishing = types
   .model('Publishing', {
     available_categories: types.optional(types.array(types.string), []),
-    available_syndicates: types.optional(types.array(types.string), []),
+    available_syndicates: types.optional(types.array(SyndicateOption), []),
     error_message: types.maybeNull(types.string),
     new_category_text: types.optional(types.string, ''),
     post_categories: types.optional(types.array(types.string), []),
@@ -78,6 +90,30 @@ const Publishing = types
       self.text_selection_end = 0;
       self.text_selection_start = 0;
     },
+
+    load_editor_options: flow(function* () {
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        return;
+      }
+
+      const destination = `${Auth.default_site || ''}`.trim();
+
+      try {
+        const categories_payload = yield fetch_micropub_categories({ destination, token });
+        self.available_categories = normalize_micropub_categories(categories_payload);
+      } catch {
+        self.available_categories = [];
+      }
+
+      try {
+        const syndicates_payload = yield fetch_micropub_syndicate_targets({ destination, token });
+        self.available_syndicates = normalize_micropub_syndicates(syndicates_payload);
+      } catch {
+        self.available_syndicates = [];
+      }
+    }),
 
     set_post_title(value = '') {
       self.post_title = `${value || ''}`;
@@ -161,6 +197,7 @@ const Publishing = types
         content: overrides.content ?? self.post_content,
         status: overrides.status ?? self.post_status,
         summary: overrides.summary ?? self.summary,
+        syndicates: overrides.syndicates ?? self.post_syndicates,
         title: overrides.title ?? self.post_title,
       });
 
@@ -190,6 +227,8 @@ const Publishing = types
           content: payload.content,
           destination,
           status: payload.status,
+          summary: payload.summary,
+          syndicates: payload.syndicates,
           title: payload.title,
           token,
         });
