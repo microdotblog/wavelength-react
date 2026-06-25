@@ -383,6 +383,8 @@ export default class HighlightingText extends React.Component {
 
       if (this.pending_focus_options) {
         this.focus(this.pending_focus_options);
+      } else {
+        this.props.onReady?.();
       }
 
       return;

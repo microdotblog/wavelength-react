@@ -22,6 +22,8 @@ import { use_episode_playback } from '../hooks/use_episode_playback';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
 import { header_right_element } from '../theme/wavelengthTheme';
 
+const EDITOR_REVEAL_DELAY_MS = 700;
+
 function build_ios_publish_header_items({ is_publishing, on_post, post_label }) {
   return [
     {
@@ -43,7 +45,8 @@ function PublishScreen({ navigation, route, theme }) {
   const text_editor_ref = React.useRef(null);
   const post_handler_ref = React.useRef(null);
   const pause_playback_ref = React.useRef(playback.pause);
-  const show_editor_timeout_ref = React.useRef(null);
+  const editor_ready_ref = React.useRef(false);
+  const reveal_timeout_ref = React.useRef(null);
   const is_mounted_ref = React.useRef(true);
   const [editor_is_visible, set_editor_is_visible] = React.useState(false);
 
@@ -54,40 +57,61 @@ function PublishScreen({ navigation, route, theme }) {
       return;
     }
 
-    text_editor_ref.current?.focus({ cursorToEnd: true });
+    const run_focus = () => {
+      text_editor_ref.current?.focus({ cursorToEnd: true });
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(run_focus);
+      return;
+    }
+
+    run_focus();
+  }
+
+  function try_focus_editor() {
+    if (!editor_ready_ref.current || !editor_is_visible) {
+      return;
+    }
+
+    focus_editor();
+  }
+
+  function handle_editor_ready() {
+    editor_ready_ref.current = true;
+    try_focus_editor();
   }
 
   React.useEffect(() => {
     is_mounted_ref.current = true;
+    editor_ready_ref.current = false;
+    set_editor_is_visible(false);
     Publishing.reset();
     Publishing.prep_editor(episode_id);
     Publishing.load_editor_options();
 
-    show_editor_timeout_ref.current = setTimeout(() => {
+    reveal_timeout_ref.current = setTimeout(() => {
       if (!is_mounted_ref.current) {
         return;
       }
 
       set_editor_is_visible(true);
-
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(focus_editor);
-        return;
-      }
-
-      focus_editor();
-    }, 1000);
+    }, EDITOR_REVEAL_DELAY_MS);
 
     return () => {
       is_mounted_ref.current = false;
 
-      if (show_editor_timeout_ref.current) {
-        clearTimeout(show_editor_timeout_ref.current);
+      if (reveal_timeout_ref.current) {
+        clearTimeout(reveal_timeout_ref.current);
       }
 
       Publishing.reset();
     };
   }, [episode_id]);
+
+  React.useEffect(() => {
+    try_focus_editor();
+  }, [editor_is_visible]);
 
   React.useEffect(() => {
     const unsubscribe = navigation.addListener('blur', () => {
@@ -217,6 +241,7 @@ function PublishScreen({ navigation, route, theme }) {
           accessibilityLabel="Show notes"
           bottomOverlayHeight={180}
           editable={!Publishing.is_publishing}
+          onReady={handle_editor_ready}
           onChangeText={({ nativeEvent: { text } }) => {
             if (!Publishing.is_publishing) {
               Publishing.set_post_content(text);
