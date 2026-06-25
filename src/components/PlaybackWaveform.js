@@ -45,7 +45,6 @@ function PlaybackWaveform({
   current_time = 0,
   duration_seconds = 0,
   is_playing = false,
-  is_transitioning = false,
   onSeek,
   theme,
   waveform = [],
@@ -55,7 +54,6 @@ function PlaybackWaveform({
   const on_seek_ref = React.useRef(onSeek);
   const is_scrubbing_ref = React.useRef(false);
   const progress = useSharedValue(0);
-  const last_synced_fraction_ref = React.useRef(0);
   const levels = build_display_levels(waveform);
 
   on_seek_ref.current = onSeek;
@@ -64,10 +62,7 @@ function PlaybackWaveform({
   const muted_color = with_color_opacity(theme.colors.ink_soft, theme.is_dark ? 0.45 : 0.3);
 
   // Re-sync the animated playhead to the real playback time on every status
-  // tick, then glide linearly toward the end so it never looks stepped.
-  // While the player swaps clips (is_transitioning), current_time sits still at
-  // the segment boundary — freeze the playhead there instead of letting the
-  // glide run unchecked, which would flick to the end before the new clip loads.
+  // tick, then let it glide linearly toward the end so it never looks stepped.
   React.useEffect(() => {
     if (is_scrubbing_ref.current) {
       return;
@@ -76,26 +71,15 @@ function PlaybackWaveform({
     const fraction = duration_seconds > 0
       ? Math.min(Math.max(current_time / duration_seconds, 0), 1)
       : 0;
-    const remaining_ms = Math.max((duration_seconds - current_time) * 1000, 0);
-    const jumped_backward = fraction + 0.02 < last_synced_fraction_ref.current;
-    const jumped_forward = fraction > last_synced_fraction_ref.current + 0.02;
 
     cancelAnimation(progress);
     progress.value = fraction;
-    last_synced_fraction_ref.current = fraction;
 
-    if (
-      is_playing
-      && !is_transitioning
-      && duration_seconds > 0
-      && fraction < 1
-      && remaining_ms > 100
-      && !jumped_backward
-      && !jumped_forward
-    ) {
+    if (is_playing && duration_seconds > 0 && fraction < 1) {
+      const remaining_ms = Math.max((duration_seconds - current_time) * 1000, 0);
       progress.value = withTiming(1, { duration: remaining_ms, easing: Easing.linear });
     }
-  }, [current_time, duration_seconds, is_playing, is_transitioning, progress]);
+  }, [current_time, duration_seconds, is_playing, progress]);
 
   function handle_layout(event) {
     const next_width = event.nativeEvent.layout.width;

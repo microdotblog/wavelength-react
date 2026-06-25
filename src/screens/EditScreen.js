@@ -97,13 +97,7 @@ function resolve_active_clip_index({ clip_count, current_clip_index, current_tim
   return -1;
 }
 
-function resolve_playback_status_label({
-  clip_count,
-  current_clip_index,
-  current_time,
-  playing,
-  total_duration,
-}) {
+function resolve_playback_status_label({ current_time, playing, total_duration }) {
   if (playing) {
     return 'Playing preview';
   }
@@ -352,8 +346,6 @@ function EditScreen({ navigation, route, theme }) {
   const clip_count = episode.clips.length;
   const segment_count_label = clip_count === 1 ? '1 segment' : `${clip_count} segments`;
   const playback_status_label = resolve_playback_status_label({
-    clip_count,
-    current_clip_index: playback.current_clip_index,
     current_time: playback.current_time,
     playing: playback.playing,
     total_duration: total_seconds,
@@ -415,7 +407,6 @@ function EditScreen({ navigation, route, theme }) {
           current_time={playback.current_time}
           duration_seconds={total_seconds}
           is_playing={playback.playing}
-          is_transitioning={playback.is_transitioning}
           onSeek={handle_seek}
           theme={theme}
           waveform={episode.waveform}

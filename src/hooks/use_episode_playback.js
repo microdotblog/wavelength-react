@@ -2,7 +2,6 @@ import React from 'react';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
 const STATUS_INTERVAL_MS = 100;
-const CLIP_READY_TOLERANCE_SECONDS = 0.35;
 
 function clamp(value, min, max) {
   if (value < min) {
@@ -33,10 +32,6 @@ function build_timeline(clips) {
   };
 }
 
-function is_reported_time_synced(reported_seconds, seek_target_seconds) {
-  return Math.abs(reported_seconds - seek_target_seconds) <= CLIP_READY_TOLERANCE_SECONDS;
-}
-
 function index_for_time(offsets, durations, target_seconds) {
   for (let index = offsets.length - 1; index >= 0; index -= 1) {
     if (target_seconds >= offsets[index]) {
@@ -56,12 +51,8 @@ export function use_episode_playback(clips = []) {
 
   const [current_index, set_current_index] = React.useState(0);
   const [is_active, set_is_active] = React.useState(false);
-  const [clip_ready, set_clip_ready] = React.useState(false);
   const pending_seek_ref = React.useRef(null);
-  const awaiting_clip_sync_ref = React.useRef(false);
   const handled_finish_ref = React.useRef(false);
-  const sync_streak_ref = React.useRef(0);
-  const display_local_hold_ref = React.useRef(null);
 
   const current_clip = safe_clips[current_index] || null;
   const player = useAudioPlayer(current_clip ? { uri: current_clip.uri } : null, {
@@ -78,59 +69,26 @@ export function use_episode_playback(clips = []) {
   React.useEffect(() => {
     set_current_index(0);
     set_is_active(false);
-    set_clip_ready(false);
-    awaiting_clip_sync_ref.current = false;
     handled_finish_ref.current = false;
-    sync_streak_ref.current = 0;
-    display_local_hold_ref.current = null;
     pending_seek_ref.current = null;
   }, [uris_key]);
 
   // Apply a queued cross-clip seek once the new source is ready, then resume
-  // playback if the listener was mid-playback when they scrubbed. Only mark the
-  // clip ready once player time matches the intended local position — stale
-  // end-of-clip time from the previous source would otherwise jump the scrubber.
+  // playback if the listener was mid-playback when they scrubbed.
   React.useEffect(() => {
     if (!status.isLoaded) {
       return;
     }
 
-    const seek_target = pending_seek_ref.current ?? 0;
-
-    if (awaiting_clip_sync_ref.current) {
-      const reported_time = status.currentTime || 0;
-
-      if (!is_reported_time_synced(reported_time, seek_target)) {
-        sync_streak_ref.current = 0;
-
-        if (pending_seek_ref.current != null) {
-          player.seekTo(seek_target);
-        }
-
-        return;
-      }
-
-      sync_streak_ref.current += 1;
-
-      if (sync_streak_ref.current < 2) {
-        return;
-      }
-
-      awaiting_clip_sync_ref.current = false;
-      sync_streak_ref.current = 0;
-      display_local_hold_ref.current = seek_target;
-      pending_seek_ref.current = null;
-    } else if (pending_seek_ref.current != null) {
-      player.seekTo(seek_target);
+    if (pending_seek_ref.current != null) {
+      player.seekTo(pending_seek_ref.current);
       pending_seek_ref.current = null;
     }
-
-    set_clip_ready(true);
 
     if (is_active && !status.playing) {
       player.play();
     }
-  }, [current_index, is_active, player, status.currentTime, status.isLoaded, status.playing]);
+  }, [current_index, is_active, player, status.isLoaded, status.playing]);
 
   React.useEffect(() => {
     if (!status.didJustFinish) {
@@ -145,11 +103,6 @@ export function use_episode_playback(clips = []) {
     handled_finish_ref.current = true;
 
     if (current_index < safe_clips.length - 1) {
-      pending_seek_ref.current = 0;
-      awaiting_clip_sync_ref.current = true;
-      sync_streak_ref.current = 0;
-      display_local_hold_ref.current = null;
-      set_clip_ready(false);
       set_current_index(current_index + 1);
     } else {
       set_is_active(false);
@@ -169,10 +122,6 @@ export function use_episode_playback(clips = []) {
 
     if (at_end) {
       pending_seek_ref.current = 0;
-      awaiting_clip_sync_ref.current = true;
-      sync_streak_ref.current = 0;
-      display_local_hold_ref.current = null;
-      set_clip_ready(false);
       set_current_index(0);
       return;
     }
@@ -200,37 +149,17 @@ export function use_episode_playback(clips = []) {
     }
 
     pending_seek_ref.current = local_time;
-    awaiting_clip_sync_ref.current = true;
-    sync_streak_ref.current = 0;
-    display_local_hold_ref.current = null;
-    set_clip_ready(false);
     set_current_index(target_index);
   }
 
   const clip_offset = timeline.offsets[current_index] || 0;
   const clip_duration = timeline.durations[current_index] || status.duration || 0;
-  const reported_local_time = clamp(status.currentTime || 0, 0, clip_duration || status.currentTime || 0);
-  let local_time = clip_ready
-    ? reported_local_time
-    : clamp(pending_seek_ref.current ?? 0, 0, clip_duration || 0);
-
-  if (clip_ready && display_local_hold_ref.current != null) {
-    const held_local_time = display_local_hold_ref.current;
-
-    if (reported_local_time > held_local_time + CLIP_READY_TOLERANCE_SECONDS) {
-      local_time = held_local_time;
-    } else {
-      display_local_hold_ref.current = null;
-      local_time = reported_local_time;
-    }
-  }
-
+  const local_time = clamp(status.currentTime || 0, 0, clip_duration || status.currentTime || 0);
   const current_time = clamp(clip_offset + local_time, 0, timeline.total_duration);
 
   return {
     current_clip_index: current_index,
     current_time,
-    is_transitioning: is_active && !clip_ready,
     pause,
     play,
     playing: is_active || status.playing,
