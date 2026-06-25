@@ -19,6 +19,7 @@ import HeaderPillButton from '../components/HeaderPillButton';
 import PublishPostToolbar from '../components/PublishPostToolbar';
 import Publishing from '../stores/Publishing';
 import { use_episode_playback } from '../hooks/use_episode_playback';
+import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
 import { header_right_element } from '../theme/wavelengthTheme';
 
 function build_ios_publish_header_items({ is_publishing, on_post, post_label }) {
@@ -38,6 +39,7 @@ function PublishScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;
   const episode = Episodes.get_episode(episode_id);
   const playback = use_episode_playback(episode ? episode.playback_clips() : []);
+  const top_inset = use_stack_top_inset();
   const content_ref = React.useRef(null);
   const post_handler_ref = React.useRef(null);
   const pause_playback_ref = React.useRef(playback.pause);
@@ -144,7 +146,12 @@ function PublishScreen({ navigation, route, theme }) {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
-      <EditorKeyboardAvoidingView style={styles.editorArea}>
+      <EditorKeyboardAvoidingView
+        style={[
+          styles.editorArea,
+          top_inset > 0 ? { paddingTop: top_inset } : null,
+        ]}
+      >
         {Publishing.should_show_title() ? (
           <TextInput
             accessibilityLabel="Episode title"

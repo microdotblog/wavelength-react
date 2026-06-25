@@ -58,6 +58,7 @@ function PublishOptionsScreen({ theme }) {
     >
       <ScrollView
         contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         ref={scroll_ref}
         showsVerticalScrollIndicator

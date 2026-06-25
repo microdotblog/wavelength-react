@@ -2,13 +2,14 @@ import React from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react';
 
+import PlatformSymbol from './PlatformSymbol';
 import Publishing from '../stores/Publishing';
 import { DEFAULT_MAX_POST_LENGTH } from '../lib/publish_editor';
 
-function ToolbarIconButton({ accessibility_label = '', label = '', onPress, theme }) {
+function ToolbarIconButton({ accessibility_label = '', icon_name = '', onPress, theme }) {
   return (
     <Pressable
-      accessibilityLabel={accessibility_label || label}
+      accessibilityLabel={accessibility_label}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
@@ -16,7 +17,11 @@ function ToolbarIconButton({ accessibility_label = '', label = '', onPress, them
         pressed ? styles.pressed : null,
       ]}
     >
-      <Text style={[styles.iconLabel, { color: theme.colors.ink }]}>{label}</Text>
+      <PlatformSymbol
+        color={theme.colors.ink}
+        name={icon_name}
+        size={icon_name === 'link' ? 20 : 18}
+      />
     </Pressable>
   );
 }
@@ -66,25 +71,25 @@ function PublishPostToolbar({ navigation, theme }) {
           >
             <ToolbarIconButton
               accessibility_label="Bold"
-              label="B"
+              icon_name="bold"
               onPress={() => Publishing.handle_text_action('bold')}
               theme={theme}
             />
             <ToolbarIconButton
               accessibility_label="Italic"
-              label="I"
+              icon_name="italic"
               onPress={() => Publishing.handle_text_action('italic')}
               theme={theme}
             />
             <ToolbarIconButton
               accessibility_label="Link"
-              label="🔗"
+              icon_name="link"
               onPress={() => Publishing.handle_text_action('link')}
               theme={theme}
             />
             <ToolbarIconButton
               accessibility_label="Quote"
-              label="❝"
+              icon_name="quote"
               onPress={() => Publishing.handle_text_action('quote')}
               theme={theme}
             />
@@ -105,7 +110,11 @@ function PublishPostToolbar({ navigation, theme }) {
             pressed ? styles.pressed : null,
           ]}
         >
-          <Text style={[styles.settingsGlyph, { color: theme.colors.ink }]}>⚙</Text>
+          <PlatformSymbol
+            color={theme.colors.ink}
+            name="settings"
+            size={22}
+          />
         </Pressable>
       </View>
     </View>
@@ -130,21 +139,12 @@ const styles = StyleSheet.create({
     minWidth: 34,
     paddingHorizontal: 4,
   },
-  iconLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
   pressed: {
     opacity: 0.72,
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
-  },
-  settingsGlyph: {
-    fontSize: 18,
-    lineHeight: 20,
   },
   settingsPill: {
     alignItems: 'center',

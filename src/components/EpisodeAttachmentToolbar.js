@@ -2,6 +2,7 @@ import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react';
 
+import PlatformSymbol from './PlatformSymbol';
 import PlaybackWaveform from './PlaybackWaveform';
 import { format_duration } from '../lib/format_duration';
 import { resolve_playback_toggle_action } from '../lib/publish_editor';
@@ -24,14 +25,11 @@ function CompactPlaybackButton({ is_playing = false, onPress, theme }) {
         pressed ? styles.pressed : null,
       ]}
     >
-      {is_playing ? (
-        <View style={styles.pauseIcon}>
-          <View style={[styles.pauseBar, { backgroundColor: theme.colors.button_text }]} />
-          <View style={[styles.pauseBar, { backgroundColor: theme.colors.button_text }]} />
-        </View>
-      ) : (
-        <Text style={[styles.playGlyph, { color: theme.colors.button_text }]}>▶</Text>
-      )}
+      <PlatformSymbol
+        color={theme.colors.button_text}
+        name={is_playing ? 'pause' : 'play'}
+        size={14}
+      />
     </Pressable>
   );
 }
@@ -64,9 +62,16 @@ function EpisodeAttachmentToolbar({
     >
       <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
-          <Text style={[styles.attachmentLabel, { color: theme.colors.ink_soft }]}>
-            Attached episode
-          </Text>
+          <View style={styles.attachmentLabelRow}>
+            <PlatformSymbol
+              color={theme.colors.accent}
+              name="waveform"
+              size={14}
+            />
+            <Text style={[styles.attachmentLabel, { color: theme.colors.ink_soft }]}>
+              Attached episode
+            </Text>
+          </View>
           <Text
             numberOfLines={1}
             style={[styles.episodeTitle, { color: theme.colors.ink }]}
@@ -109,6 +114,11 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     textTransform: 'uppercase',
   },
+  attachmentLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
   container: {
     borderCurve: 'continuous',
     borderRadius: 22,
@@ -134,15 +144,6 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'space-between',
   },
-  pauseBar: {
-    borderRadius: 2,
-    height: 14,
-    width: 4,
-  },
-  pauseIcon: {
-    flexDirection: 'row',
-    gap: 4,
-  },
   playButton: {
     alignItems: 'center',
     borderCurve: 'continuous',
@@ -151,12 +152,6 @@ const styles = StyleSheet.create({
     height: TOOLBAR_PLAY_BUTTON_SIZE,
     justifyContent: 'center',
     width: TOOLBAR_PLAY_BUTTON_SIZE,
-  },
-  playGlyph: {
-    fontSize: 13,
-    fontWeight: '800',
-    lineHeight: 15,
-    marginLeft: 2,
   },
   pressed: {
     opacity: 0.72,

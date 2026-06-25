@@ -1,8 +1,7 @@
 import { Platform } from 'react-native';
 
+import { stack_screen_top_inset } from './screen_top_inset';
 import { is_liquid_glass } from '../theme/wavelengthTheme';
-
-const IOS_NAVIGATION_BAR_HEIGHT = 44;
 const LIQUID_GLASS_WEBVIEW_TAB_BAR_PADDING = 56;
 const ANDROID_TAB_BAR_PADDING = 96;
 
@@ -27,9 +26,8 @@ export function web_view_top_inset({ header_height = 0, top_safe_area_inset = 0 
     return 0;
   }
 
-  if (header_height > 0) {
-    return header_height;
-  }
-
-  return top_safe_area_inset + IOS_NAVIGATION_BAR_HEIGHT;
+  return stack_screen_top_inset({
+    header_height,
+    top_safe_area_inset,
+  });
 }

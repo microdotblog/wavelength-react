@@ -113,6 +113,10 @@ jest.mock('../../stores/Auth', () => ({
   },
 }));
 
+jest.mock('../../hooks/use_stack_top_inset', () => ({
+  use_stack_top_inset: () => 0,
+}));
+
 jest.mock('../../hooks/use_episode_playback', () => ({
   use_episode_playback: () => ({
     current_time: 0,
