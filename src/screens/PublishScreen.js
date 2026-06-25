@@ -3,26 +3,30 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { observer } from 'mobx-react';
 
 import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
+import EditorKeyboardAvoidingView from '../components/EditorKeyboardAvoidingView';
+import EpisodeAttachmentToolbar from '../components/EpisodeAttachmentToolbar';
 import HeaderPillButton from '../components/HeaderPillButton';
+import PublishPostToolbar from '../components/PublishPostToolbar';
 import Publishing from '../stores/Publishing';
+import { use_episode_playback } from '../hooks/use_episode_playback';
 import { header_right_element } from '../theme/wavelengthTheme';
 
-function build_ios_publish_header_items({ is_publishing, on_post }) {
+function build_ios_publish_header_items({ is_publishing, on_post, post_label }) {
   return [
     {
       accessibilityLabel: 'Post episode to Micro.blog',
       disabled: is_publishing,
-      label: is_publishing ? 'Posting…' : 'Post',
+      label: is_publishing ? 'Posting…' : post_label,
       onPress: on_post,
       type: 'button',
       variant: 'done',
@@ -33,27 +37,31 @@ function build_ios_publish_header_items({ is_publishing, on_post }) {
 function PublishScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;
   const episode = Episodes.get_episode(episode_id);
-  const [title_draft, set_title_draft] = React.useState(episode?.title || '');
-  const [notes_draft, set_notes_draft] = React.useState('');
+  const playback = use_episode_playback(episode ? episode.playback_clips() : []);
+  const content_ref = React.useRef(null);
   const post_handler_ref = React.useRef(null);
 
   React.useEffect(() => {
     Publishing.reset();
+    Publishing.prep_editor(episode_id);
 
     return () => {
       Publishing.reset();
     };
-  }, []);
+  }, [episode_id]);
+
+  React.useEffect(() => {
+    return () => {
+      playback.pause();
+    };
+  }, [playback]);
 
   async function handle_post() {
     if (!episode || Publishing.is_publishing) {
       return;
     }
 
-    const post_url = await Publishing.publish_episode(episode_id, {
-      content: notes_draft.trim(),
-      title: title_draft.trim(),
-    });
+    const post_url = await Publishing.publish_episode(episode_id);
 
     if (post_url === null) {
       Alert.alert('Publish failed', Publishing.error_message || 'Please try again.');
@@ -68,34 +76,48 @@ function PublishScreen({ navigation, route, theme }) {
     ]);
   }
 
+  function handle_toggle_playback(action = 'play') {
+    if (action === 'pause') {
+      playback.pause();
+      return;
+    }
+
+    playback.play();
+  }
+
   post_handler_ref.current = handle_post;
 
   React.useLayoutEffect(() => {
+    const post_label = Publishing.post_button_label();
+
     if (Platform.OS === 'ios') {
       navigation.setOptions({
         headerRight: undefined,
+        title: 'New Post',
         unstable_headerRightItems: () =>
           build_ios_publish_header_items({
             is_publishing: Publishing.is_publishing,
             on_post: () => post_handler_ref.current?.(),
+            post_label,
           }),
       });
       return;
     }
 
     navigation.setOptions({
+      title: 'New Post',
       unstable_headerRightItems: undefined,
       ...header_right_element(() => (
         <HeaderPillButton
           accessibilityLabel="Post episode to Micro.blog"
           disabled={Publishing.is_publishing}
-          label={Publishing.is_publishing ? 'Posting…' : 'Post'}
+          label={Publishing.is_publishing ? 'Posting…' : post_label}
           onPress={() => post_handler_ref.current?.()}
           theme={theme}
         />
       )),
     });
-  }, [navigation, theme, Publishing.is_publishing]);
+  }, [navigation, theme, Publishing.is_publishing, Publishing.post_status]);
 
   if (!episode) {
     return (
@@ -112,90 +134,105 @@ function PublishScreen({ navigation, route, theme }) {
   const status_label = Publishing.status_label();
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
-    >
-      <View
-        style={[
-          styles.panel,
-          {
-            backgroundColor: theme.colors.paper,
-            borderColor: theme.colors.line,
-          },
-        ]}
-      >
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: theme.colors.ink_soft }]}>
-            Title
-          </Text>
+    <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
+      <EditorKeyboardAvoidingView style={styles.editorArea}>
+        {Publishing.should_show_title() ? (
           <TextInput
             accessibilityLabel="Episode title"
             editable={!Publishing.is_publishing}
             keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
-            onChangeText={set_title_draft}
-            placeholder="Episode title"
+            onChangeText={Publishing.set_post_title}
+            placeholder="Title"
             placeholderTextColor={theme.colors.ink_soft}
             selectionColor={theme.colors.accent}
-            style={[styles.titleInput, { color: theme.colors.ink }]}
-            value={title_draft}
+            style={[
+              styles.titleInput,
+              {
+                borderBottomColor: theme.colors.line,
+                color: theme.colors.ink,
+              },
+            ]}
+            value={Publishing.post_title}
+          />
+        ) : null}
+
+        <TextInput
+          accessibilityLabel="Show notes"
+          editable={!Publishing.is_publishing}
+          keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
+          multiline
+          onChangeText={Publishing.set_post_content}
+          onSelectionChange={event => {
+            Publishing.set_text_selection(event.nativeEvent.selection);
+          }}
+          placeholder="What's on your mind?"
+          placeholderTextColor={theme.colors.ink_soft}
+          ref={content_ref}
+          scrollEnabled
+          selectionColor={theme.colors.accent}
+          style={[
+            styles.contentInput,
+            {
+              color: theme.colors.ink,
+              paddingBottom: 120,
+            },
+          ]}
+          textAlignVertical="top"
+          value={Publishing.post_content}
+        />
+
+        <View style={styles.destinationRow}>
+          <Text style={[styles.destinationLabel, { color: theme.colors.ink_soft }]}>
+            Posting to
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[styles.destinationValue, { color: theme.colors.ink }]}
+          >
+            {destination_label}
+          </Text>
+        </View>
+
+        {Publishing.is_publishing ? (
+          <View style={styles.statusRow}>
+            <ActivityIndicator color={theme.colors.accent} />
+            <Text style={[styles.statusLabel, { color: theme.colors.ink_soft }]}>
+              {status_label}
+            </Text>
+          </View>
+        ) : null}
+      </EditorKeyboardAvoidingView>
+
+      <KeyboardStickyView>
+        <View style={styles.stickyArea}>
+          <EpisodeAttachmentToolbar
+            current_time={playback.current_time}
+            duration_seconds={playback.total_duration || episode.duration_seconds}
+            episode_title={episode.title}
+            is_playing={playback.playing}
+            on_seek={playback.seek}
+            on_toggle_playback={handle_toggle_playback}
+            theme={theme}
+            waveform={episode.waveform}
+          />
+          <PublishPostToolbar
+            navigation={navigation}
+            theme={theme}
           />
         </View>
-
-        <View style={[styles.divider, { backgroundColor: theme.colors.line }]} />
-
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: theme.colors.ink_soft }]}>
-            Show notes
-          </Text>
-          <TextInput
-            accessibilityLabel="Show notes"
-            editable={!Publishing.is_publishing}
-            keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
-            multiline
-            onChangeText={set_notes_draft}
-            placeholder="Add show notes (optional)"
-            placeholderTextColor={theme.colors.ink_soft}
-            selectionColor={theme.colors.accent}
-            style={[styles.notesInput, { color: theme.colors.ink }]}
-            textAlignVertical="top"
-            value={notes_draft}
-          />
-        </View>
-      </View>
-
-      <View style={styles.destinationRow}>
-        <Text style={[styles.destinationLabel, { color: theme.colors.ink_soft }]}>
-          Posting to
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={[styles.destinationValue, { color: theme.colors.ink }]}
-        >
-          {destination_label}
-        </Text>
-      </View>
-
-      {Publishing.is_publishing ? (
-        <View style={styles.statusRow}>
-          <ActivityIndicator color={theme.colors.accent} />
-          <Text style={[styles.statusLabel, { color: theme.colors.ink_soft }]}>
-            {status_label}
-          </Text>
-        </View>
-      ) : null}
-    </ScrollView>
+      </KeyboardStickyView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    gap: 16,
-    paddingBottom: 36,
-    paddingHorizontal: 20,
-    paddingTop: 18,
+  contentInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '500',
+    lineHeight: 26,
+    minHeight: 300,
+    padding: 13,
   },
   destinationLabel: {
     fontSize: 13,
@@ -207,7 +244,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   destinationValue: {
     flexShrink: 1,
@@ -216,18 +254,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'right',
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-  },
-  field: {
-    gap: 6,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    lineHeight: 16,
-    textTransform: 'uppercase',
+  editorArea: {
+    flex: 1,
   },
   missingScreen: {
     alignItems: 'center',
@@ -239,20 +267,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 22,
     textAlign: 'center',
-  },
-  notesInput: {
-    fontSize: 17,
-    fontWeight: '500',
-    lineHeight: 24,
-    minHeight: 160,
-    padding: 0,
-  },
-  panel: {
-    borderCurve: 'continuous',
-    borderRadius: 22,
-    borderWidth: 1,
-    gap: 16,
-    padding: 20,
   },
   screen: {
     flex: 1,
@@ -266,13 +280,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  stickyArea: {
+    paddingBottom: 8,
+    paddingHorizontal: 12,
   },
   titleInput: {
-    fontSize: 20,
-    fontWeight: '800',
-    lineHeight: 25,
-    padding: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+    minHeight: 56,
+    padding: 13,
   },
 });
 

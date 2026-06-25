@@ -1,0 +1,119 @@
+export const DEFAULT_MAX_POST_LENGTH = 280;
+
+const FORMAT_MARKERS = {
+  bold: { after: '**', before: '**' },
+  italic: { after: '_', before: '_' },
+  link: { after: '](url)', before: '[' },
+  quote: { after: '', before: '> ' },
+};
+
+export function clamp_selection(value = 0, min = 0, max = 0) {
+  if (value < min) {
+    return min;
+  }
+
+  if (value > max) {
+    return max;
+  }
+
+  return value;
+}
+
+export function should_show_title({
+  show_title = false,
+  title = '',
+  content_length = 0,
+  max_length = DEFAULT_MAX_POST_LENGTH,
+} = {}) {
+  return show_title || content_length > max_length || `${title || ''}`.length > 0;
+}
+
+export function post_text_length(content = '') {
+  return `${content || ''}`.length;
+}
+
+export function toggle_list_item(items = [], value = '') {
+  const safe_items = Array.isArray(items) ? [...items] : [];
+  const index = safe_items.indexOf(value);
+
+  if (index === -1) {
+    safe_items.push(value);
+    return safe_items;
+  }
+
+  safe_items.splice(index, 1);
+  return safe_items;
+}
+
+export function apply_text_format_action(
+  text = '',
+  selection = { end: 0, start: 0 },
+  action = 'bold',
+) {
+  const safe_text = `${text || ''}`;
+  const start = clamp_selection(selection?.start ?? 0, 0, safe_text.length);
+  const end = clamp_selection(selection?.end ?? 0, 0, safe_text.length);
+  const range_start = Math.min(start, end);
+  const range_end = Math.max(start, end);
+  const selected_text = safe_text.slice(range_start, range_end);
+  const markers = FORMAT_MARKERS[action] || FORMAT_MARKERS.bold;
+
+  if (action === 'quote') {
+    const quoted = selected_text
+      ? selected_text
+        .split('\n')
+        .map(line => `${markers.before}${line}`)
+        .join('\n')
+      : markers.before;
+    const next_text = `${safe_text.slice(0, range_start)}${quoted}${safe_text.slice(range_end)}`;
+    const cursor = range_start + quoted.length;
+
+    return {
+      selection: { end: cursor, start: cursor },
+      text: next_text,
+    };
+  }
+
+  const wrapped = `${markers.before}${selected_text}${markers.after}`;
+  const next_text = `${safe_text.slice(0, range_start)}${wrapped}${safe_text.slice(range_end)}`;
+  const cursor = range_start + wrapped.length;
+
+  return {
+    selection: { end: cursor, start: cursor },
+    text: next_text,
+  };
+}
+
+export function build_episode_publish_payload({
+  audio_url = '',
+  categories = [],
+  content = '',
+  destination = '',
+  status = 'published',
+  summary = '',
+  title = '',
+} = {}) {
+  const trimmed_title = `${title || ''}`.trim();
+  const trimmed_content = `${content || ''}`.trim();
+  const trimmed_summary = `${summary || ''}`.trim();
+  const trimmed_status = `${status || ''}`.trim() || 'published';
+  const trimmed_destination = `${destination || ''}`.trim();
+  const trimmed_audio_url = `${audio_url || ''}`.trim();
+  const safe_categories = Array.isArray(categories)
+    ? categories.map(category => `${category || ''}`.trim()).filter(Boolean)
+    : [];
+
+  return {
+    audio_url: trimmed_audio_url,
+    categories: safe_categories,
+    content: trimmed_content,
+    destination: trimmed_destination,
+    status: trimmed_status,
+    summary: trimmed_summary,
+    title: trimmed_title,
+  };
+}
+
+export function resolve_playback_toggle_action(is_playing = false) {
+  return is_playing ? 'pause' : 'play';
+}

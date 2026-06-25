@@ -6,6 +6,7 @@ import { observer } from 'mobx-react';
 import AccountScreen from '../screens/AccountScreen';
 import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
+import PublishOptionsScreen from '../screens/PublishOptionsScreen';
 import PublishScreen from '../screens/PublishScreen';
 import RecordFab from '../components/RecordFab';
 import RecordScreen from '../screens/RecordScreen';
@@ -127,7 +128,7 @@ function SignedInNavigator({ theme }) {
       <Stack.Screen
         name="Publish"
         options={({ navigation }) => ({
-          title: 'Publish',
+          title: 'New Post',
           headerLargeTitle: false,
           ...header_left_element(() => (
             <HeaderPillButton
@@ -140,6 +141,27 @@ function SignedInNavigator({ theme }) {
       >
         {screen_props => (
           <PublishScreen
+            {...screen_props}
+            theme={theme}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="PublishOptions"
+        options={({ navigation }) => ({
+          title: 'Options',
+          headerLargeTitle: false,
+          ...header_left_element(() => (
+            <HeaderPillButton
+              label="Done"
+              onPress={() => navigation.goBack()}
+              theme={theme}
+            />
+          )),
+        })}
+      >
+        {screen_props => (
+          <PublishOptionsScreen
             {...screen_props}
             theme={theme}
           />

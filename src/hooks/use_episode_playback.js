@@ -1,6 +1,8 @@
 import React from 'react';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
+import { build_timeline, index_for_time } from '../lib/playback_timeline';
+
 const STATUS_INTERVAL_MS = 100;
 const CLIP_READY_TOLERANCE_SECONDS = 0.5;
 
@@ -14,33 +16,6 @@ function clamp(value, min, max) {
   }
 
   return value;
-}
-
-function build_timeline(clips) {
-  const durations = clips.map(clip => Math.max(clip?.duration_seconds || 0, 0));
-  const offsets = [];
-  let elapsed = 0;
-
-  for (const duration of durations) {
-    offsets.push(elapsed);
-    elapsed += duration;
-  }
-
-  return {
-    durations,
-    offsets,
-    total_duration: elapsed,
-  };
-}
-
-function index_for_time(offsets, durations, target_seconds) {
-  for (let index = offsets.length - 1; index >= 0; index -= 1) {
-    if (target_seconds >= offsets[index]) {
-      return index;
-    }
-  }
-
-  return 0;
 }
 
 // Play an episode's clips back-to-back through a single player, swapping the

@@ -74,6 +74,7 @@ export async function create_episode_post({
   content = '',
   audio_url = '',
   status = 'published',
+  categories = [],
 } = {}) {
   const trimmed_token = `${token || ''}`.trim();
   const trimmed_audio_url = `${audio_url || ''}`.trim();
@@ -103,6 +104,14 @@ export async function create_episode_post({
 
   if (trimmed_status) {
     body.append('post-status', trimmed_status);
+  }
+
+  const safe_categories = Array.isArray(categories)
+    ? categories.map(category => `${category || ''}`.trim()).filter(Boolean)
+    : [];
+
+  for (const category of safe_categories) {
+    body.append('category[]', category);
   }
 
   const response = await fetch(MICRO_BLOG_MICROPUB_URL, {
