@@ -161,6 +161,7 @@ describe('PublishScreen', () => {
       tree = TestRenderer.create(
         React.createElement(PublishScreen, {
           navigation: {
+            addListener: jest.fn(() => jest.fn()),
             goBack: jest.fn(),
             navigate: jest.fn(),
             setOptions: jest.fn(),

@@ -2,6 +2,7 @@ import React from 'react';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
 import { build_timeline, index_for_time } from '../lib/playback_timeline';
+import { safe_audio_player_call } from '../lib/safe_audio_player';
 
 const STATUS_INTERVAL_MS = 100;
 const CLIP_READY_TOLERANCE_SECONDS = 0.5;
@@ -51,6 +52,10 @@ export function use_episode_playback(clips = []) {
     pending_seek_ref.current = null;
   }, [uris_key]);
 
+  React.useEffect(() => () => {
+    set_is_active(false);
+  }, []);
+
   // Apply a queued cross-clip seek once the new source is ready, then resume
   // playback if the listener was mid-playback when they scrubbed.
   React.useEffect(() => {
@@ -62,14 +67,14 @@ export function use_episode_playback(clips = []) {
 
     if (!clip_ready) {
       if (pending_seek_ref.current != null) {
-        player.seekTo(expected_local_time);
+        safe_audio_player_call(status.isLoaded, () => player.seekTo(expected_local_time));
       }
 
       const reported_local_time = status.currentTime || 0;
 
       if (Math.abs(reported_local_time - expected_local_time) > CLIP_READY_TOLERANCE_SECONDS) {
         if (expected_local_time === 0 && reported_local_time > 1) {
-          player.seekTo(0);
+          safe_audio_player_call(status.isLoaded, () => player.seekTo(0));
         }
 
         return;
@@ -80,7 +85,7 @@ export function use_episode_playback(clips = []) {
     }
 
     if (is_active && !status.playing) {
-      player.play();
+      safe_audio_player_call(status.isLoaded, () => player.play());
     }
   }, [clip_ready, current_index, is_active, player, status.currentTime, status.isLoaded, status.playing]);
 
@@ -123,12 +128,12 @@ export function use_episode_playback(clips = []) {
       return;
     }
 
-    player.play();
+    safe_audio_player_call(status.isLoaded, () => player.play());
   }
 
   function pause() {
     set_is_active(false);
-    player.pause();
+    safe_audio_player_call(status.isLoaded, () => player.pause());
   }
 
   function seek(global_seconds) {
@@ -141,7 +146,7 @@ export function use_episode_playback(clips = []) {
     const local_time = target - timeline.offsets[target_index];
 
     if (target_index === current_index) {
-      player.seekTo(local_time);
+      safe_audio_player_call(status.isLoaded, () => player.seekTo(local_time));
       return;
     }
 

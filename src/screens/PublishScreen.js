@@ -53,9 +53,16 @@ function PublishScreen({ navigation, route, theme }) {
 
     return () => {
       Publishing.reset();
-      pause_playback_ref.current();
     };
   }, [episode_id]);
+
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      pause_playback_ref.current();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   async function handle_post() {
     if (!episode || Publishing.is_publishing) {
