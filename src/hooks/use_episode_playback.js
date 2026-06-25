@@ -33,6 +33,15 @@ function build_timeline(clips) {
   };
 }
 
+function is_reported_time_synced(reported_seconds, seek_target_seconds) {
+  if (Math.abs(reported_seconds - seek_target_seconds) <= CLIP_READY_TOLERANCE_SECONDS) {
+    return true;
+  }
+
+  // Auto-advance always targets 0; stale end-of-clip times stay large.
+  return seek_target_seconds === 0 && reported_seconds < 1;
+}
+
 function index_for_time(offsets, durations, target_seconds) {
   for (let index = offsets.length - 1; index >= 0; index -= 1) {
     if (target_seconds >= offsets[index]) {
@@ -55,7 +64,7 @@ export function use_episode_playback(clips = []) {
   const [clip_ready, set_clip_ready] = React.useState(false);
   const pending_seek_ref = React.useRef(null);
   const awaiting_clip_sync_ref = React.useRef(false);
-  const seek_issued_ref = React.useRef(false);
+  const handled_finish_ref = React.useRef(false);
 
   const current_clip = safe_clips[current_index] || null;
   const player = useAudioPlayer(current_clip ? { uri: current_clip.uri } : null, {
@@ -74,7 +83,7 @@ export function use_episode_playback(clips = []) {
     set_is_active(false);
     set_clip_ready(false);
     awaiting_clip_sync_ref.current = false;
-    seek_issued_ref.current = false;
+    handled_finish_ref.current = false;
     pending_seek_ref.current = null;
   }, [uris_key]);
 
@@ -89,18 +98,21 @@ export function use_episode_playback(clips = []) {
 
     const seek_target = pending_seek_ref.current ?? 0;
 
-    if (pending_seek_ref.current != null && !seek_issued_ref.current) {
-      player.seekTo(seek_target);
-      seek_issued_ref.current = true;
-    }
-
     if (awaiting_clip_sync_ref.current) {
-      if (Math.abs((status.currentTime || 0) - seek_target) > CLIP_READY_TOLERANCE_SECONDS) {
+      const reported_time = status.currentTime || 0;
+
+      if (!is_reported_time_synced(reported_time, seek_target)) {
+        if (pending_seek_ref.current != null) {
+          player.seekTo(seek_target);
+        }
+
         return;
       }
 
       awaiting_clip_sync_ref.current = false;
-      seek_issued_ref.current = false;
+      pending_seek_ref.current = null;
+    } else if (pending_seek_ref.current != null) {
+      player.seekTo(seek_target);
       pending_seek_ref.current = null;
     }
 
@@ -113,13 +125,19 @@ export function use_episode_playback(clips = []) {
 
   React.useEffect(() => {
     if (!status.didJustFinish) {
+      handled_finish_ref.current = false;
       return;
     }
+
+    if (handled_finish_ref.current) {
+      return;
+    }
+
+    handled_finish_ref.current = true;
 
     if (current_index < safe_clips.length - 1) {
       pending_seek_ref.current = 0;
       awaiting_clip_sync_ref.current = true;
-      seek_issued_ref.current = false;
       set_clip_ready(false);
       set_current_index(current_index + 1);
     } else {
@@ -141,7 +159,6 @@ export function use_episode_playback(clips = []) {
     if (at_end) {
       pending_seek_ref.current = 0;
       awaiting_clip_sync_ref.current = true;
-      seek_issued_ref.current = false;
       set_clip_ready(false);
       set_current_index(0);
       return;
@@ -171,7 +188,6 @@ export function use_episode_playback(clips = []) {
 
     pending_seek_ref.current = local_time;
     awaiting_clip_sync_ref.current = true;
-    seek_issued_ref.current = false;
     set_clip_ready(false);
     set_current_index(target_index);
   }
