@@ -34,11 +34,42 @@ jest.mock('expo-audio', () => ({
   }),
 }));
 
+jest.mock('react-native-webview', () => ({
+  WebView: 'WebView',
+}));
+
+jest.mock('../../components/text/HighlightingText', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return React.forwardRef((props, ref) => React.createElement(View, {
+    accessibilityLabel: props.accessibilityLabel,
+    ref,
+  }));
+});
+
 jest.mock('../../components/EditorKeyboardAvoidingView', () => {
   const React = require('react');
   const { View } = require('react-native');
 
-  return ({ children, style }) => React.createElement(View, { style }, children);
+  const EditorKeyboardFrameContext = React.createContext({
+    height: 0,
+    keyboard_height: 0,
+    window_bottom: 0,
+    window_y: 0,
+  });
+
+  function EditorKeyboardAvoidingView({ children, style }) {
+    return React.createElement(View, { style }, children);
+  }
+
+  EditorKeyboardAvoidingView.EditorKeyboardFrameContext = EditorKeyboardFrameContext;
+
+  return {
+    __esModule: true,
+    EditorKeyboardFrameContext,
+    default: EditorKeyboardAvoidingView,
+  };
 });
 
 jest.mock('../../components/EpisodeAttachmentToolbar', () => {
@@ -89,6 +120,8 @@ jest.mock('../../stores/Publishing', () => ({
     set_post_title: jest.fn(),
     set_text_selection: jest.fn(),
     should_show_title: () => true,
+    text_selection_end: 0,
+    text_selection_start: 0,
     status_label: () => '',
   },
 }));

@@ -14,6 +14,7 @@ import { observer } from 'mobx-react';
 import Episodes from '../stores/Episodes';
 import EditorKeyboardAvoidingView from '../components/EditorKeyboardAvoidingView';
 import EpisodeAttachmentToolbar from '../components/EpisodeAttachmentToolbar';
+import HighlightingText from '../components/text/HighlightingText';
 import HeaderPillButton from '../components/HeaderPillButton';
 import PublishPostToolbar from '../components/PublishPostToolbar';
 import Publishing from '../stores/Publishing';
@@ -39,18 +40,51 @@ function PublishScreen({ navigation, route, theme }) {
   const episode = Episodes.get_episode(episode_id);
   const playback = use_episode_playback(episode ? episode.playback_clips() : []);
   const top_inset = use_stack_top_inset();
-  const content_ref = React.useRef(null);
+  const text_editor_ref = React.useRef(null);
   const post_handler_ref = React.useRef(null);
   const pause_playback_ref = React.useRef(playback.pause);
+  const show_editor_timeout_ref = React.useRef(null);
+  const is_mounted_ref = React.useRef(true);
+  const [editor_is_visible, set_editor_is_visible] = React.useState(false);
 
   pause_playback_ref.current = playback.pause;
 
+  function focus_editor() {
+    if (!is_mounted_ref.current) {
+      return;
+    }
+
+    text_editor_ref.current?.focus({ cursorToEnd: true });
+  }
+
   React.useEffect(() => {
+    is_mounted_ref.current = true;
     Publishing.reset();
     Publishing.prep_editor(episode_id);
     Publishing.load_editor_options();
 
+    show_editor_timeout_ref.current = setTimeout(() => {
+      if (!is_mounted_ref.current) {
+        return;
+      }
+
+      set_editor_is_visible(true);
+
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(focus_editor);
+        return;
+      }
+
+      focus_editor();
+    }, 1000);
+
     return () => {
+      is_mounted_ref.current = false;
+
+      if (show_editor_timeout_ref.current) {
+        clearTimeout(show_editor_timeout_ref.current);
+      }
+
       Publishing.reset();
     };
   }, [episode_id]);
@@ -151,9 +185,11 @@ function PublishScreen({ navigation, route, theme }) {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
       <EditorKeyboardAvoidingView
+        pointerEvents={editor_is_visible ? 'auto' : 'none'}
         style={[
           styles.editorArea,
           top_inset > 0 ? { paddingTop: top_inset } : null,
+          !editor_is_visible ? styles.editorHidden : null,
         ]}
       >
         {Publishing.should_show_title() ? (
@@ -168,6 +204,7 @@ function PublishScreen({ navigation, route, theme }) {
             style={[
               styles.titleInput,
               {
+                backgroundColor: theme.colors.canvas,
                 borderBottomColor: theme.colors.line,
                 color: theme.colors.ink,
               },
@@ -176,28 +213,33 @@ function PublishScreen({ navigation, route, theme }) {
           />
         ) : null}
 
-        <TextInput
+        <HighlightingText
           accessibilityLabel="Show notes"
+          bottomOverlayHeight={180}
           editable={!Publishing.is_publishing}
-          keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
-          multiline
-          onChangeText={Publishing.set_post_content}
-          onSelectionChange={event => {
-            Publishing.set_text_selection(event.nativeEvent.selection);
+          onChangeText={({ nativeEvent: { text } }) => {
+            if (!Publishing.is_publishing) {
+              Publishing.set_post_content(text);
+            }
           }}
-          placeholder="What's on your mind?"
-          placeholderTextColor={theme.colors.ink_soft}
-          ref={content_ref}
+          onSelectionChange={({ nativeEvent: { selection } }) => {
+            Publishing.set_text_selection(selection);
+          }}
+          ref={text_editor_ref}
           scrollEnabled
-          selectionColor={theme.colors.accent}
+          selection={{
+            end: Publishing.text_selection_end,
+            start: Publishing.text_selection_start,
+          }}
           style={[
             styles.contentInput,
             {
+              backgroundColor: theme.colors.canvas,
               color: theme.colors.ink,
-              paddingBottom: 120,
+              paddingBottom: 180,
             },
           ]}
-          textAlignVertical="top"
+          theme={theme}
           value={Publishing.post_content}
         />
 
@@ -237,13 +279,14 @@ const styles = StyleSheet.create({
   contentInput: {
     flex: 1,
     fontSize: 18,
-    fontWeight: '500',
-    lineHeight: 26,
     minHeight: 300,
     padding: 13,
   },
   editorArea: {
     flex: 1,
+  },
+  editorHidden: {
+    opacity: 0,
   },
   missingScreen: {
     alignItems: 'center',
