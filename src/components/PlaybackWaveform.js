@@ -78,12 +78,21 @@ function PlaybackWaveform({
       : 0;
     const remaining_ms = Math.max((duration_seconds - current_time) * 1000, 0);
     const jumped_backward = fraction + 0.02 < last_synced_fraction_ref.current;
+    const jumped_forward = fraction > last_synced_fraction_ref.current + 0.02;
 
     cancelAnimation(progress);
     progress.value = fraction;
     last_synced_fraction_ref.current = fraction;
 
-    if (is_playing && !is_transitioning && duration_seconds > 0 && fraction < 1 && remaining_ms > 100 && !jumped_backward) {
+    if (
+      is_playing
+      && !is_transitioning
+      && duration_seconds > 0
+      && fraction < 1
+      && remaining_ms > 100
+      && !jumped_backward
+      && !jumped_forward
+    ) {
       progress.value = withTiming(1, { duration: remaining_ms, easing: Easing.linear });
     }
   }, [current_time, duration_seconds, is_playing, is_transitioning, progress]);
