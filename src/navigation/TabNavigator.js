@@ -19,7 +19,7 @@ const TAB_ICONS = {
     image: RECORDINGS_ICON,
   },
   PostsStack: {
-    ios: { default: 'doc.text', selected: 'doc.text.fill' },
+    ios: { default: 'doc.text', selected: 'doc.text' },
     image: POSTS_ICON,
   },
   DiscoverStack: {
