@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { getSnapshot, isStateTreeNode } from 'mobx-state-tree';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -26,20 +27,32 @@ function bar_count_for_width(width) {
   return Math.max(WAVEFORM_SAMPLE_COUNT, Math.floor((width + BAR_GAP) / (BAR_WIDTH + BAR_GAP)));
 }
 
+function as_plain_waveform(waveform) {
+  if (isStateTreeNode(waveform)) {
+    return getSnapshot(waveform);
+  }
+
+  return Array.isArray(waveform) ? waveform : [];
+}
+
 function build_display_levels(waveform) {
-  if (Array.isArray(waveform) && waveform.length > 0) {
-    return waveform.map(level => Math.min(Math.max(level, 0), 1));
+  const plain_waveform = as_plain_waveform(waveform);
+
+  if (plain_waveform.length > 0) {
+    return plain_waveform.map(level => Math.min(Math.max(level, 0), 1));
   }
 
   return new Array(WAVEFORM_SAMPLE_COUNT).fill(FALLBACK_LEVEL);
 }
 
 function waveform_levels_key(waveform) {
-  if (!Array.isArray(waveform) || waveform.length === 0) {
+  const plain_waveform = as_plain_waveform(waveform);
+
+  if (plain_waveform.length === 0) {
     return '';
   }
 
-  return waveform.join('\u0000');
+  return plain_waveform.join('\u0000');
 }
 
 function BarsLayer({ bar_area_height, color, levels, width }) {

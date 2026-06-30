@@ -90,6 +90,7 @@ function SignedInNavigator({ theme }) {
         options={({ navigation }) => ({
           title: 'Episode',
           headerLargeTitle: false,
+          unmountOnBlur: true,
           ...header_left_element(() => (
             <HeaderPillButton
               label="Done"
@@ -111,6 +112,7 @@ function SignedInNavigator({ theme }) {
         options={({ navigation }) => ({
           title: 'Split Segment',
           headerLargeTitle: false,
+          unmountOnBlur: true,
           ...header_left_element(() => (
             <HeaderPillButton
               label="Done"

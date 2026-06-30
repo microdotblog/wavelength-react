@@ -122,18 +122,20 @@ function SplitScreen({ navigation, route, theme }) {
   }
 
   async function handle_delete_episode(delete_post = false) {
-    set_is_deleting_episode(true);
+    const was_published = episode?.is_published?.() ?? false;
+
     player.pause();
+    set_is_deleting_episode(true);
+    set_is_delete_modal_visible(false);
+    navigation.goBack();
 
     try {
       await Episodes.delete_episode(episode_id, { delete_post });
-      set_is_delete_modal_visible(false);
       show_toast(
         delete_post
           ? 'Episode and post deleted.'
-          : (episode?.is_published?.() ? 'Episode removed from device.' : 'Episode deleted.'),
+          : (was_published ? 'Episode removed from device.' : 'Episode deleted.'),
       );
-      navigation.goBack();
     } catch (error) {
       show_toast(error?.message || 'Could not delete episode. Please try again.');
     } finally {

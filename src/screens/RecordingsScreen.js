@@ -40,7 +40,11 @@ function RecordingsScreen({ navigation, theme }) {
   }
 
   function request_delete_episode(episode) {
-    set_delete_episode(episode);
+    set_delete_episode({
+      id: episode.id,
+      is_published: episode.is_published(),
+      title: episode.title,
+    });
   }
 
   async function duplicate_episode(episode) {
@@ -108,15 +112,17 @@ function RecordingsScreen({ navigation, theme }) {
       return;
     }
 
+    const { id, is_published } = delete_episode;
+
     set_is_deleting_episode(true);
 
     try {
-      await Episodes.delete_episode(delete_episode.id, { delete_post });
+      await Episodes.delete_episode(id, { delete_post });
       set_delete_episode(null);
       show_toast(
         delete_post
           ? 'Episode and post deleted.'
-          : (delete_episode.is_published() ? 'Episode removed from device.' : 'Episode deleted.'),
+          : (is_published ? 'Episode removed from device.' : 'Episode deleted.'),
       );
     } catch (error) {
       show_toast(error?.message || 'Could not delete episode. Please try again.');
@@ -186,7 +192,7 @@ function RecordingsScreen({ navigation, theme }) {
 
       <DeleteEpisodeModal
         episode_title={delete_episode?.title || ''}
-        has_published_post={delete_episode?.is_published?.() ?? false}
+        has_published_post={delete_episode?.is_published ?? false}
         is_busy={is_deleting_episode}
         on_cancel={close_delete_modal}
         on_delete_device_and_post={() => handle_delete_episode(true)}
