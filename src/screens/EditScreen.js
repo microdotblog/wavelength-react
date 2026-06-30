@@ -13,6 +13,7 @@ import {
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
+import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import EpisodeActionsMenuButton from '../components/EpisodeActionsMenuButton';
 import HeaderPillButton from '../components/HeaderPillButton';
 import PlaybackControlButton from '../components/PlaybackControlButton';
@@ -131,6 +132,8 @@ function EditScreen({ navigation, route, theme }) {
   const playback = use_episode_playback(episode ? episode.playback_clips() : []);
   const [title_draft, set_title_draft] = React.useState(episode?.title || '');
   const [is_editing_title, set_is_editing_title] = React.useState(false);
+  const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
+  const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const save_handler_ref = React.useRef(null);
   const rename_handler_ref = React.useRef(null);
   const delete_handler_ref = React.useRef(null);
@@ -242,26 +245,32 @@ function EditScreen({ navigation, route, theme }) {
   }
 
   function confirm_delete_episode() {
-    Alert.alert(
-      'Delete episode?',
-      'This permanently removes the recording from this device.',
-      [
-        {
-          style: 'cancel',
-          text: 'Cancel',
-        },
-        {
-          onPress: delete_episode,
-          style: 'destructive',
-          text: 'Delete',
-        },
-      ],
-    );
+    set_is_delete_modal_visible(true);
   }
 
-  async function delete_episode() {
-    await Episodes.delete_episode(episode_id);
-    navigation.goBack();
+  async function handle_delete_episode(delete_post = false) {
+    set_is_deleting_episode(true);
+
+    try {
+      await Episodes.delete_episode(episode_id, { delete_post });
+      set_is_delete_modal_visible(false);
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert(
+        'Could not delete episode',
+        error?.message || 'Please try again.',
+      );
+    } finally {
+      set_is_deleting_episode(false);
+    }
+  }
+
+  function close_delete_modal() {
+    if (is_deleting_episode) {
+      return;
+    }
+
+    set_is_delete_modal_visible(false);
   }
 
   function start_rename() {
@@ -388,11 +397,12 @@ function EditScreen({ navigation, route, theme }) {
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      contentInsetAdjustmentBehavior="automatic"
-      style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
-    >
+    <>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
+      >
       {is_editing_title ? (
         <TextInput
           accessibilityLabel="Episode name"
@@ -546,7 +556,19 @@ function EditScreen({ navigation, route, theme }) {
           </Text>
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      <DeleteEpisodeModal
+        episode_title={episode.title}
+        has_published_post={is_published}
+        is_busy={is_deleting_episode}
+        on_cancel={close_delete_modal}
+        on_delete_device_and_post={() => handle_delete_episode(true)}
+        on_delete_device_only={() => handle_delete_episode(false)}
+        theme={theme}
+        visible={is_delete_modal_visible}
+      />
+    </>
   );
 }
 

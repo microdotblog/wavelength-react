@@ -4,6 +4,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
+import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import { place_clip_file } from '../lib/EpisodeStorage';
 import { slice_waveform } from '../lib/merge_episode_waveform';
@@ -24,6 +25,8 @@ function SplitScreen({ navigation, route, theme }) {
   const player = useAudioPlayer(clip_uri ? { uri: clip_uri } : null, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
   const [is_busy, set_is_busy] = React.useState(false);
+  const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
+  const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
 
   function toggle_playback() {
     if (status.playing) {
@@ -104,12 +107,6 @@ function SplitScreen({ navigation, route, theme }) {
     set_is_busy(true);
     player.pause();
 
-    if (episode.clips.length <= 1) {
-      await Episodes.delete_episode(episode_id);
-      navigation.goBack();
-      return;
-    }
-
     const next_clips = episode.clip_meta
       .filter((_, index) => index !== clip_index)
       .map(item => ({
@@ -123,7 +120,38 @@ function SplitScreen({ navigation, route, theme }) {
     navigation.goBack();
   }
 
+  async function handle_delete_episode(delete_post = false) {
+    set_is_deleting_episode(true);
+    player.pause();
+
+    try {
+      await Episodes.delete_episode(episode_id, { delete_post });
+      set_is_delete_modal_visible(false);
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert(
+        'Could not delete episode',
+        error?.message || 'Please try again.',
+      );
+    } finally {
+      set_is_deleting_episode(false);
+    }
+  }
+
+  function close_delete_modal() {
+    if (is_deleting_episode) {
+      return;
+    }
+
+    set_is_delete_modal_visible(false);
+  }
+
   function confirm_delete_segment() {
+    if (episode.clips.length <= 1) {
+      set_is_delete_modal_visible(true);
+      return;
+    }
+
     Alert.alert(
       'Delete segment?',
       'This removes the segment from this episode.',
@@ -156,11 +184,12 @@ function SplitScreen({ navigation, route, theme }) {
   const total_label = format_duration(clip_duration);
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      contentInsetAdjustmentBehavior="automatic"
-      style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
-    >
+    <>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
+      >
       <View
         style={[
           styles.panel,
@@ -254,7 +283,19 @@ function SplitScreen({ navigation, route, theme }) {
           </Text>
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      <DeleteEpisodeModal
+        episode_title={episode.title}
+        has_published_post={episode.is_published()}
+        is_busy={is_deleting_episode}
+        on_cancel={close_delete_modal}
+        on_delete_device_and_post={() => handle_delete_episode(true)}
+        on_delete_device_only={() => handle_delete_episode(false)}
+        theme={theme}
+        visible={is_delete_modal_visible}
+      />
+    </>
   );
 }
 

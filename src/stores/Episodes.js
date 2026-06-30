@@ -1,8 +1,9 @@
 import { applySnapshot, flow, getSnapshot, types } from 'mobx-state-tree';
 
+import { delete_micropub_post } from '../api/Micropub';
 import {
   append_clip_to_episode,
-  delete_episode,
+  delete_episode as remove_episode_from_storage,
   get_episode_clip_uri,
   get_exported_clip_uri,
   list_episodes,
@@ -13,6 +14,9 @@ import {
   update_episode_title,
 } from '../lib/EpisodeStorage';
 import { merge_episode_clips } from '../lib/episode_audio';
+import Auth from './Auth';
+import Posts from './Posts';
+import Tokens from './Tokens';
 
 const ClipMeta = types.model('ClipMeta', {
   duration_seconds: types.optional(types.number, 0),
@@ -134,10 +138,31 @@ const Episodes = types
       return snapshot.id;
     }),
 
-    delete_episode: flow(function* (episode_id = '') {
-      yield delete_episode(episode_id);
-
+    delete_episode: flow(function* (episode_id = '', { delete_post = false } = {}) {
       const existing_episode = self.episodes.find(episode => episode.id === episode_id);
+
+      if (delete_post && existing_episode) {
+        const post_url = `${existing_episode.post_url || ''}`.trim();
+
+        if (post_url) {
+          const token = Tokens.get_user_token();
+
+          if (!token) {
+            throw new Error('You need to be signed in to Micro.blog to delete a post.');
+          }
+
+          const destination = `${Auth.default_site || ''}`.trim();
+
+          yield delete_micropub_post({
+            destination,
+            post_url,
+            token,
+          });
+          yield Posts.refresh();
+        }
+      }
+
+      yield remove_episode_from_storage(episode_id);
 
       if (existing_episode) {
         self.episodes.remove(existing_episode);

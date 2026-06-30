@@ -223,6 +223,50 @@ export async function create_episode_post({
   return resolve_uploaded_url(response.headers.get('Location'), payload);
 }
 
+export async function delete_micropub_post({ token = '', destination = '', post_url = '' } = {}) {
+  const trimmed_token = `${token || ''}`.trim();
+  const trimmed_post_url = `${post_url || ''}`.trim();
+
+  if (!trimmed_token) {
+    throw create_request_error('You need to be signed in to Micro.blog to delete a post.');
+  }
+
+  if (!trimmed_post_url) {
+    throw create_request_error('A post URL is required to delete the published post.');
+  }
+
+  const body = new URLSearchParams({
+    action: 'delete',
+    url: trimmed_post_url,
+  });
+
+  const trimmed_destination = `${destination || ''}`.trim();
+
+  if (trimmed_destination) {
+    body.append('mp-destination', trimmed_destination);
+  }
+
+  const response = await fetch(MICRO_BLOG_MICROPUB_URL, {
+    body: body.toString(),
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${trimmed_token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    method: 'POST',
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.error) {
+    throw create_request_error(
+      resolve_error_message(payload, 'We could not delete the published post.'),
+      response.status,
+    );
+  }
+
+  return true;
+}
+
 async function fetch_micropub_query({ token = '', destination = '', query = '' } = {}) {
   const trimmed_token = `${token || ''}`.trim();
   const trimmed_query = `${query || ''}`.trim();

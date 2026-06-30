@@ -10,6 +10,7 @@ jest.mock('expo-file-system', () => {
 const { File, UploadType } = require('expo-file-system');
 const {
   build_episode_post_body,
+  delete_micropub_post,
   upload_episode_audio,
 } = require('../Micropub');
 
@@ -67,5 +68,33 @@ describe('Micropub upload_episode_audio', () => {
       parameters: { 'mp-destination': 'https://test.micro.blog' },
       uploadType: UploadType.MULTIPART,
     });
+  });
+});
+
+describe('Micropub delete_micropub_post', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({}),
+      ok: true,
+    }));
+  });
+
+  test('posts a micropub delete action for the published post url', async () => {
+    await delete_micropub_post({
+      destination: 'https://example.micro.blog',
+      post_url: 'https://example.micro.blog/post/1',
+      token: 'token',
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://micro.blog/micropub',
+      expect.objectContaining({
+        body: 'action=delete&url=https%3A%2F%2Fexample.micro.blog%2Fpost%2F1&mp-destination=https%3A%2F%2Fexample.micro.blog',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token',
+        }),
+        method: 'POST',
+      }),
+    );
   });
 });
