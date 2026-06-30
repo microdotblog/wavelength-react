@@ -10,10 +10,28 @@ jest.mock('expo-file-system', () => {
 const { File, UploadType } = require('expo-file-system');
 const {
   build_episode_post_body,
+  create_episode_post,
   delete_micropub_post,
+  resolve_uploaded_url,
   update_micropub_post,
   upload_episode_audio,
 } = require('../Micropub');
+
+describe('Micropub resolve_uploaded_url', () => {
+  test('prefers the Location header over the JSON body url', () => {
+    expect(resolve_uploaded_url('https://micro.blog/header-url', { url: 'https://micro.blog/body-url' }))
+      .toBe('https://micro.blog/header-url');
+  });
+
+  test('falls back to the JSON body url when Location is missing', () => {
+    expect(resolve_uploaded_url('', { url: 'https://micro.blog/body-url' }))
+      .toBe('https://micro.blog/body-url');
+  });
+
+  test('returns empty string when neither source is present', () => {
+    expect(resolve_uploaded_url('', null)).toBe('');
+  });
+});
 
 describe('Micropub build_episode_post_body', () => {
   test('includes summary and syndicate targets in post body', () => {
@@ -97,6 +115,51 @@ describe('Micropub delete_micropub_post', () => {
         method: 'POST',
       }),
     );
+  });
+});
+
+describe('Micropub create_episode_post', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({
+      headers: {
+        get: jest.fn(name => (name === 'Location' ? 'https://micro.blog/post/header' : null)),
+      },
+      json: async () => ({ url: 'https://micro.blog/post/body' }),
+      ok: true,
+    }));
+  });
+
+  test('posts form-encoded micropub data and resolves the published url', async () => {
+    const post_url = await create_episode_post({
+      audio_url: 'https://micro.blog/uploaded.m4a',
+      categories: ['microcast'],
+      content: 'Show notes',
+      destination: 'https://example.micro.blog',
+      status: 'published',
+      summary: 'Episode summary',
+      syndicates: ['twitter'],
+      title: 'Episode title',
+      token: 'token',
+    });
+
+    expect(post_url).toBe('https://micro.blog/post/header');
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://micro.blog/micropub',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }),
+      }),
+    );
+  });
+
+  test('throws when audio has not been uploaded yet', async () => {
+    await expect(create_episode_post({
+      audio_url: '',
+      token: 'token',
+    })).rejects.toThrow('The episode audio must be uploaded before posting.');
   });
 });
 

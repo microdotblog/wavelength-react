@@ -55,6 +55,7 @@ const Posts = require('../Posts').default;
 const {
   create_episode_post,
   fetch_micropub_post_id,
+  fetch_micropub_post_source,
   update_micropub_post,
   upload_episode_audio,
 } = require('../../api/Micropub');
@@ -70,7 +71,10 @@ describe('Publishing store', () => {
     Posts.refresh.mockClear();
     create_episode_post.mockClear();
     fetch_micropub_post_id.mockClear();
+    fetch_micropub_post_source.mockClear();
     upload_episode_audio.mockClear();
+    Episodes.export_merged_audio.mockResolvedValue('file:///tmp/exported.m4a');
+    Episodes.get_episode_for_post.mockReturnValue(null);
   });
 
   test('handle_text_action applies formatting to post_content', () => {
@@ -144,6 +148,53 @@ describe('Publishing store', () => {
 
     expect(Episodes.get_episode).toHaveBeenCalledWith('episode-2');
     expect(Publishing.editor_episode_id).toBe('episode-2');
+  });
+
+  test('load_post_source hydrates editor fields and relinks the local episode', async () => {
+    Episodes.get_episode_for_post.mockReturnValue({ id: 'episode-1' });
+
+    Publishing.prep_post_edit({
+      content: '<p>Local notes</p>',
+      post_status: 'published',
+      title: 'Local title',
+      uid: '12345',
+      url: 'https://example.micro.blog/post/1',
+    });
+
+    await Publishing.load_post_source();
+
+    expect(fetch_micropub_post_source).toHaveBeenCalledWith({
+      destination: 'https://test.micro.blog',
+      post_url: 'https://example.micro.blog/post/1',
+      token: 'token',
+    });
+    expect(Publishing.post_title).toBe('Existing title');
+    expect(Publishing.post_content).toBe('<p>Existing notes</p>');
+    expect(Publishing.post_categories).toEqual(['microcast']);
+    expect(Publishing.summary).toBe('Episode summary');
+    expect(Publishing.editor_episode_id).toBe('episode-1');
+  });
+
+  test('publish_episode skips publish metadata when saving a draft', async () => {
+    Publishing.handle_post_status_select('draft');
+
+    const post_url = await Publishing.publish_episode('episode-1');
+
+    expect(post_url).toBe('https://example.micro.blog/post/1');
+    expect(fetch_micropub_post_id).not.toHaveBeenCalled();
+    expect(Episodes.mark_episode_published).not.toHaveBeenCalled();
+    expect(Posts.refresh).not.toHaveBeenCalled();
+  });
+
+  test('publish_episode resets phase and sets an error when export fails', async () => {
+    Episodes.export_merged_audio.mockResolvedValueOnce('');
+
+    const post_url = await Publishing.publish_episode('episode-1');
+
+    expect(post_url).toBeNull();
+    expect(Publishing.phase).toBe('idle');
+    expect(Publishing.error_message).toBe('We could not prepare this episode for publishing.');
+    expect(create_episode_post).not.toHaveBeenCalled();
   });
 
   test('update_post sends micropub update and refreshes posts', async () => {
