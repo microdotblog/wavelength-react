@@ -290,13 +290,15 @@ function RecordScreen({ navigation, route, theme }) {
       style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
     >
       <View style={styles.content}>
-        <View style={styles.timerBlock}>
-          <Text style={[styles.timer, { color: theme.colors.ink }]}>
-            {timer_label}
-          </Text>
-          <Text style={[styles.status, { color: theme.colors.ink_soft }]}>
-            {status_label}
-          </Text>
+        <View style={styles.paddedBlock}>
+          <View style={styles.timerBlock}>
+            <Text style={[styles.timer, { color: theme.colors.ink }]}>
+              {timer_label}
+            </Text>
+            <Text style={[styles.status, { color: theme.colors.ink_soft }]}>
+              {status_label}
+            </Text>
+          </View>
         </View>
 
         <RecordingWaveform
@@ -305,19 +307,21 @@ function RecordScreen({ navigation, route, theme }) {
           theme={theme}
         />
 
-        {permission_status === 'denied' ? (
-          <Text style={[styles.permissionMessage, { color: theme.colors.accent_strong }]}>
-            Wavelength needs microphone access to record. Enable it in Settings, then come back.
-          </Text>
-        ) : null}
+        <View style={styles.paddedBlock}>
+          {permission_status === 'denied' ? (
+            <Text style={[styles.permissionMessage, { color: theme.colors.accent_strong }]}>
+              Wavelength needs microphone access to record. Enable it in Settings, then come back.
+            </Text>
+          ) : null}
 
-        <RecordControlButton
-          disabled={is_button_disabled}
-          metering={recorder_state.metering}
-          onPress={handle_press}
-          recording_phase={recording_phase}
-          theme={theme}
-        />
+          <RecordControlButton
+            disabled={is_button_disabled}
+            metering={recorder_state.metering}
+            onPress={handle_press}
+            recording_phase={recording_phase}
+            theme={theme}
+          />
+        </View>
       </View>
 
       <Animated.View
@@ -387,10 +391,14 @@ function resolve_status_label({ is_appending, is_saving, permission_status, reco
 
 const styles = StyleSheet.create({
   content: {
-    alignItems: 'center',
+    alignItems: 'stretch',
     flex: 1,
     gap: 24,
     justifyContent: 'center',
+  },
+  paddedBlock: {
+    alignItems: 'center',
+    gap: 24,
     paddingHorizontal: 24,
   },
   deleteButton: {
