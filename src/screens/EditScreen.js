@@ -181,12 +181,34 @@ function EditScreen({ navigation, route, theme }) {
   const delete_handler_ref = React.useRef(null);
   const publish_handler_ref = React.useRef(null);
   const duplicate_handler_ref = React.useRef(null);
+  const playback_play_ref = React.useRef(null);
+
+  playback_play_ref.current = playback.play;
 
   React.useEffect(() => {
     if (!is_editing_title) {
       set_title_draft(episode?.title || '');
     }
   }, [episode?.title, is_editing_title]);
+
+  React.useEffect(() => {
+    if (!route.params?.start_rename || !episode) {
+      return;
+    }
+
+    set_title_draft(episode.title);
+    set_is_editing_title(true);
+    navigation.setParams({ start_rename: undefined });
+  }, [episode, navigation, route.params?.start_rename]);
+
+  React.useEffect(() => {
+    if (!route.params?.autoplay || !episode) {
+      return;
+    }
+
+    playback_play_ref.current?.();
+    navigation.setParams({ autoplay: undefined });
+  }, [episode?.id, navigation, route.params?.autoplay]);
 
   React.useEffect(() => {
     const post_id = `${episode?.post_id || ''}`.trim();
