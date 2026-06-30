@@ -78,6 +78,7 @@ function SegmentItem({
   onSplit,
   on_swipe_will_open,
   positions,
+  readOnly = false,
   slot,
   theme,
 }) {
@@ -108,6 +109,7 @@ function SegmentItem({
   const pan = React.useMemo(
     () =>
       Gesture.Pan()
+        .enabled(!readOnly)
         .activateAfterLongPress(DRAG_ACTIVATE_MS)
         .onStart(() => {
           is_dragging.value = true;
@@ -141,7 +143,7 @@ function SegmentItem({
           translate_y.value = withSpring(positions.value[name] * slot, SPRING_CONFIG);
           runOnJS(report_reorder)();
         }),
-    [active_name, count, is_dragging, name, positions, report_reorder, slot, start_y, translate_y],
+    [active_name, count, is_dragging, name, positions, readOnly, report_reorder, slot, start_y, translate_y],
   );
 
   const item_style = useAnimatedStyle(() => {
@@ -170,37 +172,49 @@ function SegmentItem({
 
   return (
     <Animated.View style={[styles.item, item_style]}>
-      <SegmentSwipeRow
-        on_delete={() => onDelete(index)}
-        on_will_open={on_swipe_will_open}
-      >
+      {readOnly ? (
         <SegmentRow
           clip={clip}
           grouped={grouped}
           index={index}
           is_active={index === active_clip_index}
-          onDelete={() => onDelete(index)}
-          onPress={() => onSplit(clip)}
+          readOnly
           showDivider={index < count - 1}
           theme={theme}
-          handle={
-            <GestureDetector gesture={pan}>
-              <Animated.View
-                accessibilityActions={[
-                  { label: 'Move up', name: 'decrement' },
-                  { label: 'Move down', name: 'increment' },
-                ]}
-                accessibilityLabel={`Reorder segment ${index + 1}`}
-                accessibilityRole="adjustable"
-                onAccessibilityAction={handle_accessibility_action}
-                style={styles.handleHit}
-              >
-                <DragHandle theme={theme} />
-              </Animated.View>
-            </GestureDetector>
-          }
         />
-      </SegmentSwipeRow>
+      ) : (
+        <SegmentSwipeRow
+          on_delete={() => onDelete(index)}
+          on_will_open={on_swipe_will_open}
+        >
+          <SegmentRow
+            clip={clip}
+            grouped={grouped}
+            index={index}
+            is_active={index === active_clip_index}
+            onDelete={() => onDelete(index)}
+            onPress={() => onSplit(clip)}
+            showDivider={index < count - 1}
+            theme={theme}
+            handle={
+              <GestureDetector gesture={pan}>
+                <Animated.View
+                  accessibilityActions={[
+                    { label: 'Move up', name: 'decrement' },
+                    { label: 'Move down', name: 'increment' },
+                  ]}
+                  accessibilityLabel={`Reorder segment ${index + 1}`}
+                  accessibilityRole="adjustable"
+                  onAccessibilityAction={handle_accessibility_action}
+                  style={styles.handleHit}
+                >
+                  <DragHandle theme={theme} />
+                </Animated.View>
+              </GestureDetector>
+            }
+          />
+        </SegmentSwipeRow>
+      )}
     </Animated.View>
   );
 }
@@ -213,6 +227,7 @@ function SegmentList({
   onMove,
   onReorder,
   onSplit,
+  readOnly = false,
   theme,
 }) {
   const names = clips.map(clip => clip.name);
@@ -276,6 +291,7 @@ function SegmentList({
               onSplit={onSplit}
               on_swipe_will_open={handle_swipe_will_open}
               positions={positions}
+              readOnly={readOnly}
               slot={slot}
               theme={theme}
             />

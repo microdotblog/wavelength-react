@@ -200,6 +200,18 @@ function write_episode_info(directory, info) {
   info_file.write(JSON.stringify(info, null, 2));
 }
 
+async function copy_segment_file(source_directory, directory, clip_name) {
+  const source_file = new File(source_directory, clip_name);
+
+  if (!source_file.exists) {
+    throw new Error('This episode is missing one of its segments.');
+  }
+
+  const dest_file = new File(directory, clip_name);
+  const bytes = await source_file.arrayBuffer();
+  dest_file.write(new Uint8Array(bytes));
+}
+
 function to_episode_snapshot(info, directory, id) {
   return {
     ...info,
@@ -418,6 +430,41 @@ export async function mark_episode_published(
   write_episode_info(directory, info);
 
   return to_episode_snapshot(info, directory, directory.name);
+}
+
+export async function duplicate_episode(episode_id = '') {
+  const source_directory = get_episode_directory(episode_id);
+
+  if (!source_directory) {
+    throw new Error('That episode is no longer available.');
+  }
+
+  const existing = read_episode_from_directory(source_directory);
+
+  if (!existing) {
+    throw new Error('That episode could not be read.');
+  }
+
+  const created_at = new Date();
+  const { directory, id } = create_episode_directory(created_at);
+
+  for (const clip_name of existing.clips) {
+    await copy_segment_file(source_directory, directory, clip_name);
+  }
+
+  const info = compose_episode_info({
+    clip_meta: existing.clip_meta.map(clip => ({
+      duration_seconds: clip.duration_seconds,
+      name: clip.name,
+      waveform: clip.waveform.slice(),
+    })),
+    created_at: created_at.toISOString(),
+    title: `${existing.title} Copy`,
+  });
+
+  write_episode_info(directory, info);
+
+  return to_episode_snapshot(info, directory, id);
 }
 
 export async function read_episode(episode_id = '') {

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
-function EpisodeActionsMenuButton({ on_delete, on_rename, theme }) {
+function EpisodeActionsMenuButton({ is_published = false, on_delete, on_duplicate, on_rename, theme }) {
   const should_use_liquid_glass = is_liquid_glass();
 
   function handle_press_action({ nativeEvent }) {
@@ -15,22 +15,34 @@ function EpisodeActionsMenuButton({ on_delete, on_rename, theme }) {
       return;
     }
 
+    if (action_id === 'duplicate') {
+      on_duplicate?.();
+      return;
+    }
+
     if (action_id === 'delete') {
       on_delete();
     }
   }
 
+  const actions = [
+    { id: 'rename', title: 'Rename' },
+  ];
+
+  if (is_published) {
+    actions.push({ id: 'duplicate', title: 'Duplicate' });
+  }
+
+  actions.push({
+    attributes: { destructive: true },
+    id: 'delete',
+    title: 'Delete Episode',
+  });
+
   return (
     <MenuView
       accessibilityLabel="Episode actions"
-      actions={[
-        { id: 'rename', title: 'Rename' },
-        {
-          attributes: { destructive: true },
-          id: 'delete',
-          title: 'Delete Episode',
-        },
-      ]}
+      actions={actions}
       onPressAction={handle_press_action}
       themeVariant={theme.is_dark ? 'dark' : 'light'}
     >

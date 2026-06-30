@@ -55,6 +55,7 @@ function SegmentRow({
   is_active = false,
   onDelete,
   onPress,
+  readOnly = false,
   showDivider = false,
   theme,
 }) {
@@ -85,20 +86,21 @@ function SegmentRow({
 
       <Pressable
         accessibilityActions={
-          onDelete
+          !readOnly && onDelete
             ? [{ label: 'Delete segment', name: 'delete' }]
             : undefined
         }
-        accessibilityHint="Tap to split"
+        accessibilityHint={readOnly ? undefined : 'Tap to split'}
         accessibilityLabel={`Segment ${index + 1}, ${format_duration(clip.duration_seconds)}`}
-        accessibilityRole="button"
+        accessibilityRole={readOnly ? undefined : 'button'}
+        disabled={readOnly}
         onAccessibilityAction={event => {
           if (event.nativeEvent.actionName === 'delete') {
             onDelete?.();
           }
         }}
-        onPress={onPress}
-        style={({ pressed }) => [styles.main, pressed ? styles.pressed : null]}
+        onPress={readOnly ? undefined : onPress}
+        style={({ pressed }) => [styles.main, !readOnly && pressed ? styles.pressed : null]}
       >
         <View style={styles.leading}>
           <View style={[styles.badge, { backgroundColor: theme.colors.accent_soft }]}>
@@ -113,9 +115,11 @@ function SegmentRow({
 
         <SegmentSparkline is_active={is_active} theme={theme} waveform={clip.waveform} />
 
-        <View style={[styles.splitPill, { backgroundColor: theme.colors.accent_soft }]}>
-          <Text style={[styles.splitLabel, { color: theme.colors.accent_strong }]}>Split</Text>
-        </View>
+        {!readOnly ? (
+          <View style={[styles.splitPill, { backgroundColor: theme.colors.accent_soft }]}>
+            <Text style={[styles.splitLabel, { color: theme.colors.accent_strong }]}>Split</Text>
+          </View>
+        ) : null}
       </Pressable>
     </View>
   );

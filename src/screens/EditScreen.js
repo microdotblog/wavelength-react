@@ -73,7 +73,9 @@ function PublishedPostActionRow({ accessibility_label, label, onPress, theme }) 
 
 function build_ios_episode_header_items({
   is_editing_title,
+  is_published,
   on_delete,
+  on_duplicate,
   on_publish,
   on_rename,
   on_save,
@@ -90,39 +92,56 @@ function build_ios_episode_header_items({
     ];
   }
 
-  return [
+  const menu_items = [
+    {
+      icon: { name: 'pencil', type: 'sfSymbol' },
+      label: 'Rename',
+      onPress: on_rename,
+      type: 'action',
+    },
+  ];
+
+  if (is_published) {
+    menu_items.push({
+      icon: { name: 'plus.square.on.square', type: 'sfSymbol' },
+      label: 'Duplicate',
+      onPress: on_duplicate,
+      type: 'action',
+    });
+  }
+
+  menu_items.push({
+    destructive: true,
+    icon: { name: 'trash', type: 'sfSymbol' },
+    label: 'Delete Episode',
+    onPress: on_delete,
+    type: 'action',
+  });
+
+  const header_items = [
     {
       accessibilityLabel: 'Episode actions',
       icon: { name: 'ellipsis.circle', type: 'sfSymbol' },
       label: '',
       menu: {
-        items: [
-          {
-            icon: { name: 'pencil', type: 'sfSymbol' },
-            label: 'Rename',
-            onPress: on_rename,
-            type: 'action',
-          },
-          {
-            destructive: true,
-            icon: { name: 'trash', type: 'sfSymbol' },
-            label: 'Delete Episode',
-            onPress: on_delete,
-            type: 'action',
-          },
-        ],
+        items: menu_items,
         title: 'Episode',
       },
       type: 'menu',
     },
-    {
+  ];
+
+  if (!is_published) {
+    header_items.push({
       accessibilityLabel: 'Publish episode to Micro.blog',
       label: 'Publish',
       onPress: on_publish,
       type: 'button',
       variant: 'done',
-    },
-  ];
+    });
+  }
+
+  return header_items;
 }
 
 function clip_meta_snapshot(episode) {
@@ -179,11 +198,13 @@ function EditScreen({ navigation, route, theme }) {
   const [is_editing_title, set_is_editing_title] = React.useState(false);
   const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
+  const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
   const [published_post_details, set_published_post_details] = React.useState(EMPTY_PUBLISHED_POST_DETAILS);
   const save_handler_ref = React.useRef(null);
   const rename_handler_ref = React.useRef(null);
   const delete_handler_ref = React.useRef(null);
   const publish_handler_ref = React.useRef(null);
+  const duplicate_handler_ref = React.useRef(null);
 
   React.useEffect(() => {
     if (!is_editing_title) {
@@ -276,18 +297,54 @@ function EditScreen({ navigation, route, theme }) {
   }
 
   function open_split(clip) {
+    if (!episode || episode.is_published()) {
+      return;
+    }
+
     navigation.navigate('Split', { clip_name: clip.name, episode_id });
   }
 
   function add_segment() {
+    if (!episode || episode.is_published()) {
+      return;
+    }
+
     navigation.navigate('Record', { episode_id });
   }
 
   function open_publish() {
+    if (episode?.is_published()) {
+      return;
+    }
+
     navigation.navigate('Publish', { episode_id });
   }
 
+  async function duplicate_episode() {
+    if (!episode || is_duplicating_episode) {
+      return;
+    }
+
+    set_is_duplicating_episode(true);
+
+    try {
+      const duplicate_id = await Episodes.duplicate_episode(episode_id);
+      navigation.replace('Edit', { episode_id: duplicate_id });
+    } catch (error) {
+      Alert.alert(
+        'Could not duplicate episode',
+        error?.message || 'Please try again.',
+      );
+    } finally {
+      set_is_duplicating_episode(false);
+    }
+  }
+
   async function move_clip(index, target_index) {
+    if (!episode || episode.is_published()) {
+      return;
+    }
+
     const clips = clip_meta_snapshot(episode);
 
     if (target_index < 0 || target_index >= clips.length) {
@@ -302,6 +359,10 @@ function EditScreen({ navigation, route, theme }) {
   }
 
   async function reorder_clips(next_order) {
+    if (!episode || episode.is_published()) {
+      return;
+    }
+
     const clips = clip_meta_snapshot(episode);
     const current_order = clips.map(clip => clip.name);
 
@@ -327,6 +388,10 @@ function EditScreen({ navigation, route, theme }) {
   }
 
   async function delete_clip(index) {
+    if (!episode || episode.is_published()) {
+      return;
+    }
+
     const clips = clip_meta_snapshot(episode).filter((_, clip_index) => clip_index !== index);
 
     await Episodes.update_episode_clips(episode_id, clips);
@@ -415,8 +480,10 @@ function EditScreen({ navigation, route, theme }) {
   rename_handler_ref.current = start_rename;
   delete_handler_ref.current = confirm_delete_episode;
   publish_handler_ref.current = open_publish;
+  duplicate_handler_ref.current = duplicate_episode;
 
   const navigation_title = is_editing_title ? 'Rename' : (episode?.title || 'Episode');
+  const is_published = episode?.is_published() ?? false;
 
   React.useLayoutEffect(() => {
     if (Platform.OS === 'ios') {
@@ -427,7 +494,9 @@ function EditScreen({ navigation, route, theme }) {
         unstable_headerRightItems: () =>
           build_ios_episode_header_items({
             is_editing_title,
+            is_published,
             on_delete: () => delete_handler_ref.current?.(),
+            on_duplicate: () => duplicate_handler_ref.current?.(),
             on_publish: () => publish_handler_ref.current?.(),
             on_rename: () => rename_handler_ref.current?.(),
             on_save: () => save_handler_ref.current?.(),
@@ -450,14 +519,18 @@ function EditScreen({ navigation, route, theme }) {
           />
         ) : (
           <View style={styles.headerActions}>
-            <HeaderPillButton
-              accessibilityLabel="Publish episode to Micro.blog"
-              label="Publish"
-              onPress={() => publish_handler_ref.current?.()}
-              theme={theme}
-            />
+            {!is_published ? (
+              <HeaderPillButton
+                accessibilityLabel="Publish episode to Micro.blog"
+                label="Publish"
+                onPress={() => publish_handler_ref.current?.()}
+                theme={theme}
+              />
+            ) : null}
             <EpisodeActionsMenuButton
+              is_published={is_published}
               on_delete={() => delete_handler_ref.current?.()}
+              on_duplicate={() => duplicate_handler_ref.current?.()}
               on_rename={() => rename_handler_ref.current?.()}
               theme={theme}
             />
@@ -465,7 +538,7 @@ function EditScreen({ navigation, route, theme }) {
         ),
       ),
     });
-  }, [navigation, is_editing_title, navigation_title, theme]);
+  }, [navigation, is_editing_title, is_published, navigation_title, theme]);
 
   if (!episode) {
     return (
@@ -496,7 +569,6 @@ function EditScreen({ navigation, route, theme }) {
     playing: playback.playing,
     total_duration: total_seconds,
   });
-  const is_published = episode.is_published();
   const published_label = format_post_date(episode.published_at || '');
   const post_url = `${episode.post_url || ''}`.trim();
   const published_post_title = published_post_details.title || 'Microcast';
@@ -675,26 +747,49 @@ function EditScreen({ navigation, route, theme }) {
           onMove={move_clip}
           onReorder={reorder_clips}
           onSplit={open_split}
+          readOnly={is_published}
           theme={theme}
         />
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={add_segment}
-          style={({ pressed }) => [
-            styles.addSegmentRow,
-            {
-              backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.14 : 0.08),
-              borderTopColor: theme.colors.line,
-            },
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
-          <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
-            Record another take
-          </Text>
-        </Pressable>
+        {is_published ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={is_duplicating_episode}
+            onPress={duplicate_episode}
+            style={({ pressed }) => [
+              styles.addSegmentRow,
+              {
+                backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.14 : 0.08),
+                borderTopColor: theme.colors.line,
+              },
+              pressed && !is_duplicating_episode ? styles.pressed : null,
+              is_duplicating_episode ? styles.disabledRow : null,
+            ]}
+          >
+            <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
+            <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
+              {is_duplicating_episode ? 'Duplicating…' : 'Duplicate to edit'}
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={add_segment}
+            style={({ pressed }) => [
+              styles.addSegmentRow,
+              {
+                backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.14 : 0.08),
+                borderTopColor: theme.colors.line,
+              },
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
+            <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
+              Record another take
+            </Text>
+          </Pressable>
+        )}
       </View>
       </ScrollView>
 
@@ -738,6 +833,9 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     paddingHorizontal: 20,
     paddingTop: 8,
+  },
+  disabledRow: {
+    opacity: 0.5,
   },
   episodeMeta: {
     fontSize: 15,
