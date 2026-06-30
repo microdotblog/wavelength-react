@@ -21,6 +21,7 @@ function PostsScreen({ navigation, theme }) {
   const posts = Posts.sorted_posts();
   const destination_label = Auth.default_site || Auth.profile_url || 'your Micro.blog';
   const open_swipeable_ref = React.useRef(null);
+  const [is_pull_refreshing, set_is_pull_refreshing] = React.useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -28,6 +29,16 @@ function PostsScreen({ navigation, theme }) {
       Episodes.refresh();
     }, []),
   );
+
+  async function handle_pull_refresh() {
+    set_is_pull_refreshing(true);
+
+    try {
+      await Posts.refresh();
+    } finally {
+      set_is_pull_refreshing(false);
+    }
+  }
 
   function open_post_edit(post) {
     const post_uid = `${post?.uid || ''}`.trim();
@@ -146,8 +157,8 @@ function PostsScreen({ navigation, theme }) {
       }
       refreshControl={
         <RefreshControl
-          onRefresh={() => Posts.refresh()}
-          refreshing={Posts.is_loading}
+          onRefresh={handle_pull_refresh}
+          refreshing={is_pull_refreshing}
           tintColor={theme.colors.accent}
         />
       }
