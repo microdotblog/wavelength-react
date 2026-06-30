@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Linking, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
@@ -7,10 +7,12 @@ import Episodes from '../stores/Episodes';
 import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import EpisodeRow from '../components/EpisodeRow';
 import RecordControlButton from '../components/RecordControlButton';
+import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import { show_toast } from '../lib/toast';
 
 function RecordingsScreen({ navigation, theme }) {
   const episodes = Episodes.sorted_episodes();
+  const open_swipeable_ref = React.useRef(null);
   const [delete_episode, set_delete_episode] = React.useState(null);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
@@ -27,6 +29,18 @@ function RecordingsScreen({ navigation, theme }) {
 
   function open_edit(episode_id, extra_params = {}) {
     navigation.navigate('Edit', { episode_id, ...extra_params });
+  }
+
+  function handle_swipe_will_open(swipeable) {
+    if (open_swipeable_ref.current && open_swipeable_ref.current !== swipeable) {
+      open_swipeable_ref.current.close?.();
+    }
+
+    open_swipeable_ref.current = swipeable;
+  }
+
+  function request_delete_episode(episode) {
+    set_delete_episode(episode);
   }
 
   async function duplicate_episode(episode) {
@@ -82,7 +96,7 @@ function RecordingsScreen({ navigation, theme }) {
         duplicate_episode(episode);
         return;
       case 'delete':
-        set_delete_episode(episode);
+        request_delete_episode(episode);
         return;
       default:
         break;
@@ -144,28 +158,31 @@ function RecordingsScreen({ navigation, theme }) {
 
   return (
     <>
-      <ScrollView
+      <FlatList
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
-        style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
-      >
-        <View style={styles.episodesSection}>
+        data={episodes}
+        keyExtractor={item => item.id}
+        ListHeaderComponent={
           <Text style={[styles.sectionTitle, { color: theme.colors.ink }]}>
             Episodes
           </Text>
-          <View style={styles.episodesList}>
-            {episodes.map(episode => (
-              <EpisodeRow
-                episode={episode}
-                key={episode.id}
-                onMenuAction={handle_episode_menu_action}
-                onPress={() => open_edit(episode.id)}
-                theme={theme}
-              />
-            ))}
-          </View>
-        </View>
-      </ScrollView>
+        }
+        renderItem={({ item }) => (
+          <SegmentSwipeRow
+            on_delete={() => request_delete_episode(item)}
+            on_will_open={handle_swipe_will_open}
+          >
+            <EpisodeRow
+              episode={item}
+              onMenuAction={handle_episode_menu_action}
+              onPress={() => open_edit(item.id)}
+              theme={theme}
+            />
+          </SegmentSwipeRow>
+        )}
+        style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
+      />
 
       <DeleteEpisodeModal
         episode_title={delete_episode?.title || ''}
@@ -183,7 +200,7 @@ function RecordingsScreen({ navigation, theme }) {
 
 const styles = StyleSheet.create({
   content: {
-    gap: 18,
+    gap: 10,
     paddingBottom: 36,
     paddingHorizontal: 20,
     paddingTop: 18,
@@ -211,12 +228,6 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     textAlign: 'center',
   },
-  episodesList: {
-    gap: 10,
-  },
-  episodesSection: {
-    gap: 12,
-  },
   screen: {
     flex: 1,
   },
@@ -224,6 +235,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 23,
+    marginBottom: 2,
   },
 });
 

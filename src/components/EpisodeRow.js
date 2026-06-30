@@ -79,26 +79,22 @@ function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
   }
 
   return (
-    <MenuView
+    <Pressable
       accessibilityHint="Long press for episode actions"
       accessibilityLabel={episode.title}
-      actions={build_menu_actions(episode, theme)}
-      onPressAction={handle_press_action}
-      shouldOpenOnLongPress
-      themeVariant={theme.is_dark ? 'dark' : 'light'}
+      accessibilityRole="button"
+      onLongPress={() => {}}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          backgroundColor: theme.colors.glass,
+          borderColor: theme.colors.line,
+        },
+        pressed ? styles.pressed : null,
+      ]}
     >
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.row,
-          {
-            backgroundColor: theme.colors.glass,
-            borderColor: theme.colors.line,
-          },
-          pressed ? styles.pressed : null,
-        ]}
-      >
+      <View pointerEvents="none" style={styles.content}>
         <View style={styles.copy}>
           <Text numberOfLines={1} style={[styles.title, { color: theme.colors.ink }]}>
             {episode.title}
@@ -118,8 +114,18 @@ function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
         <Text style={[styles.chevron, { color: theme.colors.ink_soft }]}>
           ›
         </Text>
-      </Pressable>
-    </MenuView>
+      </View>
+
+      <MenuView
+        actions={build_menu_actions(episode, theme)}
+        onPressAction={handle_press_action}
+        shouldOpenOnLongPress
+        style={styles.menuOverlay}
+        themeVariant={theme.is_dark ? 'dark' : 'light'}
+      >
+        <View style={styles.menuOverlay} />
+      </MenuView>
+    </Pressable>
   );
 }
 
@@ -129,9 +135,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 28,
   },
+  content: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
   copy: {
     flex: 1,
+    flexShrink: 1,
     gap: 4,
+    minWidth: 0,
+  },
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   meta: {
     fontSize: 14,
@@ -153,8 +170,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     minHeight: 68,
+    overflow: 'hidden',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    position: 'relative',
   },
   title: {
     fontSize: 17,
