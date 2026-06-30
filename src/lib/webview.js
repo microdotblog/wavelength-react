@@ -1,24 +1,17 @@
 const DEFAULT_THEME = 'light';
 
-// Matches hybrid/_head.erb mobile dark mode background.
-export const HYBRID_DARK_BACKGROUND_COLOR = '#000000';
-
 export function hybrid_web_view_background_color(theme) {
-  if (theme?.is_dark) {
-    return HYBRID_DARK_BACKGROUND_COLOR;
-  }
-
   return theme?.colors?.canvas ?? '#ffffff';
 }
 
 export function build_web_view_runtime_javascript({
+  background_color = null,
   bottom_padding = '0px',
-  is_dark = false,
   top_padding = '0px',
 } = {}) {
-  const dark_mode_javascript = is_dark
+  const dark_mode_javascript = background_color
     ? `
-      const background_color = '${HYBRID_DARK_BACKGROUND_COLOR}'
+      const background_color = '${background_color}'
       const apply_dark_mode_background = () => {
         document.documentElement.style.colorScheme = 'dark'
         document.documentElement.style.setProperty('background-color', background_color, 'important')

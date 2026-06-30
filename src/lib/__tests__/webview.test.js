@@ -2,7 +2,6 @@ const {
   build_webview_endpoint,
   build_webview_source_uri,
   build_web_view_runtime_javascript,
-  HYBRID_DARK_BACKGROUND_COLOR,
   hybrid_web_view_background_color,
   resolve_webview_navigation,
   resolve_webview_tap_url,
@@ -40,11 +39,11 @@ describe('build_webview_source_uri', () => {
 });
 
 describe('hybrid_web_view_background_color', () => {
-  test('uses the hybrid dark background in dark mode', () => {
+  test('uses the app canvas in dark mode', () => {
     expect(hybrid_web_view_background_color({
       is_dark: true,
       colors: { canvas: '#15100b' },
-    })).toBe(HYBRID_DARK_BACKGROUND_COLOR);
+    })).toBe('#15100b');
   });
 
   test('uses the app canvas in light mode', () => {
@@ -65,19 +64,23 @@ describe('build_web_view_runtime_javascript', () => {
       bottom_padding: '90px',
       top_padding: '122px',
     })).toMatch(/\(\(\) => \{[\s\S]*\}\)\(\);\s*true;/);
+    expect(build_web_view_runtime_javascript({
+      bottom_padding: '90px',
+      top_padding: '122px',
+    })).not.toContain('background-color');
   });
 
-  test('forces the hybrid dark background in dark mode', () => {
+  test('overrides hybrid dark mode background with important', () => {
     const javascript = build_web_view_runtime_javascript({
+      background_color: '#15100b',
       bottom_padding: '90px',
-      is_dark: true,
       top_padding: '122px',
     });
 
     expect(javascript).toContain(
       "document.body.style.setProperty('background-color', background_color, 'important')",
     );
-    expect(javascript).toContain("background_color = '#000000'");
+    expect(javascript).toContain("background_color = '#15100b'");
     expect(javascript).not.toMatch(/true\s*\(\(\)/);
   });
 });

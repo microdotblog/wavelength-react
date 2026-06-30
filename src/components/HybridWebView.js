@@ -86,8 +86,8 @@ function HybridWebView({
   const should_inject_web_view_runtime = Platform.OS === 'ios' || Platform.OS === 'android';
   const web_view_runtime_javascript = should_inject_web_view_runtime
     ? build_web_view_runtime_javascript({
+        background_color: theme.is_dark ? theme.colors.canvas : null,
         bottom_padding: `${web_view_bottom_padding}px`,
-        is_dark: theme.is_dark,
         top_padding: `${web_view_top_padding}px`,
       })
     : null;
