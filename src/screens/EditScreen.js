@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Platform,
@@ -12,7 +13,11 @@ import {
 } from 'react-native';
 import { observer } from 'mobx-react';
 
+import { fetch_micropub_post_source } from '../api/Micropub';
 import Episodes from '../stores/Episodes';
+import Auth from '../stores/Auth';
+import Posts from '../stores/Posts';
+import Tokens from '../stores/Tokens';
 import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import EpisodeActionsMenuButton from '../components/EpisodeActionsMenuButton';
 import HeaderPillButton from '../components/HeaderPillButton';
@@ -25,6 +30,46 @@ import { use_episode_playback } from '../hooks/use_episode_playback';
 import { header_right_element, with_color_opacity } from '../theme/wavelengthTheme';
 
 const PLAYBACK_WAVEFORM_HEIGHT = 80;
+
+const EMPTY_PUBLISHED_POST_DETAILS = {
+  is_loading: false,
+  post_uid: '',
+  summary: '',
+  title: '',
+};
+
+function merge_published_post_details({ cached_post = null, post_id = '', source = null } = {}) {
+  return {
+    post_uid: `${post_id || cached_post?.uid || source?.uid || ''}`.trim(),
+    summary: `${source?.summary || ''}`.trim(),
+    title: `${cached_post?.title || source?.title || ''}`.trim(),
+  };
+}
+
+function PublishedPostActionRow({ accessibility_label, label, onPress, theme }) {
+  return (
+    <Pressable
+      accessibilityLabel={accessibility_label}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.publishedLinkRow,
+        {
+          backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.12 : 0.06),
+          borderColor: theme.colors.line,
+        },
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <Text style={[styles.publishedLinkLabel, { color: theme.colors.accent_strong }]}>
+        {label}
+      </Text>
+      <Text style={[styles.publishedLinkChevron, { color: theme.colors.accent_strong }]}>
+        ›
+      </Text>
+    </Pressable>
+  );
+}
 
 function build_ios_episode_header_items({
   is_editing_title,
@@ -134,6 +179,7 @@ function EditScreen({ navigation, route, theme }) {
   const [is_editing_title, set_is_editing_title] = React.useState(false);
   const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
+  const [published_post_details, set_published_post_details] = React.useState(EMPTY_PUBLISHED_POST_DETAILS);
   const save_handler_ref = React.useRef(null);
   const rename_handler_ref = React.useRef(null);
   const delete_handler_ref = React.useRef(null);
@@ -144,6 +190,72 @@ function EditScreen({ navigation, route, theme }) {
       set_title_draft(episode?.title || '');
     }
   }, [episode?.title, is_editing_title]);
+
+  React.useEffect(() => {
+    const post_id = `${episode?.post_id || ''}`.trim();
+    const post_url = `${episode?.post_url || ''}`.trim();
+    const is_episode_published = post_id.length > 0 || post_url.length > 0;
+
+    if (!is_episode_published) {
+      set_published_post_details(EMPTY_PUBLISHED_POST_DETAILS);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function load_published_post_details() {
+      set_published_post_details(current => ({
+        ...current,
+        is_loading: true,
+      }));
+
+      await Posts.refresh();
+
+      if (cancelled) {
+        return;
+      }
+
+      const cached_post = Posts.get_post(post_id);
+      let merged = merge_published_post_details({
+        cached_post,
+        post_id,
+        source: null,
+      });
+
+      if (post_url && Tokens.get_user_token()) {
+        try {
+          const source = await fetch_micropub_post_source({
+            destination: `${Auth.default_site || ''}`.trim(),
+            post_url,
+            token: Tokens.get_user_token(),
+          });
+
+          if (!cancelled && source) {
+            merged = merge_published_post_details({
+              cached_post,
+              post_id,
+              source,
+            });
+          }
+        } catch {
+          // ponytail: cached post title still renders if source fetch fails.
+        }
+      }
+
+      if (!cancelled) {
+        set_published_post_details({
+          ...merged,
+          is_loading: false,
+        });
+      }
+    }
+
+    load_published_post_details();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [episode?.id, episode?.post_id, episode?.post_url]);
 
   function toggle_playback() {
     if (playback.playing) {
@@ -387,6 +499,9 @@ function EditScreen({ navigation, route, theme }) {
   const is_published = episode.is_published();
   const published_label = format_post_date(episode.published_at || '');
   const post_url = `${episode.post_url || ''}`.trim();
+  const published_post_title = published_post_details.title || 'Microcast';
+  const published_post_summary = published_post_details.summary;
+  const published_post_uid = published_post_details.post_uid;
 
   function open_published_post() {
     if (!post_url) {
@@ -394,6 +509,14 @@ function EditScreen({ navigation, route, theme }) {
     }
 
     Linking.openURL(post_url);
+  }
+
+  function open_post_edit() {
+    if (!published_post_uid) {
+      return;
+    }
+
+    navigation.navigate('PostEdit', { post_uid: published_post_uid });
   }
 
   return (
@@ -455,27 +578,44 @@ function EditScreen({ navigation, route, theme }) {
             ) : null}
           </View>
 
-          {post_url.length > 0 ? (
-            <Pressable
-              accessibilityRole="link"
-              onPress={open_published_post}
-              style={({ pressed }) => [
-                styles.publishedLinkRow,
-                {
-                  backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.12 : 0.06),
-                  borderColor: theme.colors.line,
-                },
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={[styles.publishedLinkLabel, { color: theme.colors.accent_strong }]}>
-                View on Micro.blog
+          {published_post_details.is_loading ? (
+            <View style={styles.publishedLoadingRow}>
+              <ActivityIndicator color={theme.colors.accent} size="small" />
+              <Text style={[styles.publishedLoadingLabel, { color: theme.colors.ink_soft }]}>
+                Loading post details…
               </Text>
-              <Text style={[styles.publishedLinkChevron, { color: theme.colors.accent_strong }]}>
-                ›
+            </View>
+          ) : (
+            <View style={styles.publishedCopy}>
+              <Text style={[styles.publishedPostTitle, { color: theme.colors.ink }]}>
+                {published_post_title}
               </Text>
-            </Pressable>
-          ) : null}
+              {published_post_summary.length > 0 ? (
+                <Text style={[styles.publishedPostSummary, { color: theme.colors.ink_soft }]}>
+                  {published_post_summary}
+                </Text>
+              ) : null}
+            </View>
+          )}
+
+          <View style={styles.publishedActions}>
+            {post_url.length > 0 ? (
+              <PublishedPostActionRow
+                accessibility_label="View published post on Micro.blog"
+                label="View on Micro.blog"
+                onPress={open_published_post}
+                theme={theme}
+              />
+            ) : null}
+            {published_post_uid.length > 0 ? (
+              <PublishedPostActionRow
+                accessibility_label="Edit published post"
+                label="Edit post"
+                onPress={open_post_edit}
+                theme={theme}
+              />
+            ) : null}
+          </View>
         </View>
       ) : null}
 
@@ -665,6 +805,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     justifyContent: 'space-between',
+  },
+  publishedActions: {
+    gap: 8,
+  },
+  publishedCopy: {
+    gap: 6,
+  },
+  publishedLoadingLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  publishedLoadingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  publishedPostSummary: {
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 21,
+  },
+  publishedPostTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 24,
   },
   publishedLinkChevron: {
     fontSize: 22,
