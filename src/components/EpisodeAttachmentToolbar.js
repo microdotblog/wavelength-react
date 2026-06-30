@@ -1,11 +1,11 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react';
 
 import PlatformSymbol from './PlatformSymbol';
 import PlaybackWaveform from './PlaybackWaveform';
 import { format_duration } from '../lib/format_duration';
-import { resolve_playback_toggle_action } from '../lib/publish_editor';
+import { resolve_playback_toggle_action, resolve_publish_progress } from '../lib/publish_editor';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const TOOLBAR_PLAY_BUTTON_SIZE = 40;
@@ -39,8 +39,11 @@ function EpisodeAttachmentToolbar({
   duration_seconds = 0,
   episode_title = '',
   is_playing = false,
+  is_publishing = false,
   on_toggle_playback,
   on_seek,
+  publish_phase = 'idle',
+  status_label = '',
   theme,
   waveform = [],
 }) {
@@ -48,6 +51,9 @@ function EpisodeAttachmentToolbar({
     const action = resolve_playback_toggle_action(is_playing);
     on_toggle_playback?.(action);
   }
+
+  const publish_progress = resolve_publish_progress(publish_phase);
+  const publishing_status = `${status_label || ''}`.trim() || 'Publishing…';
 
   return (
     <View
@@ -85,22 +91,64 @@ function EpisodeAttachmentToolbar({
       </View>
 
       <View style={styles.controlsRow}>
-        <CompactPlaybackButton
-          is_playing={is_playing}
-          onPress={handle_toggle_playback}
-          theme={theme}
-        />
-        <View style={styles.waveformWrap}>
-          <PlaybackWaveform
-            bar_area_height={44}
-            current_time={current_time}
-            duration_seconds={duration_seconds}
-            is_playing={is_playing}
-            onSeek={on_seek}
-            theme={theme}
-            waveform={waveform}
-          />
-        </View>
+        {is_publishing ? (
+          <>
+            <View
+              accessibilityLabel={publishing_status}
+              style={[
+                styles.playButton,
+                styles.publishingIndicatorSlot,
+                {
+                  backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12),
+                  borderColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35),
+                },
+              ]}
+            >
+              <ActivityIndicator color={theme.colors.accent} size="small" />
+            </View>
+            <View style={styles.publishingContent}>
+              <Text style={[styles.publishingLabel, { color: theme.colors.ink }]}>
+                {publishing_status}
+              </Text>
+              <View
+                accessibilityLabel={`Publishing progress ${Math.round(publish_progress * 100)} percent`}
+                style={[
+                  styles.progressTrack,
+                  { backgroundColor: with_color_opacity(theme.colors.ink, theme.is_dark ? 0.18 : 0.08) },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      backgroundColor: theme.colors.accent,
+                      width: `${Math.round(publish_progress * 100)}%`,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <CompactPlaybackButton
+              is_playing={is_playing}
+              onPress={handle_toggle_playback}
+              theme={theme}
+            />
+            <View style={styles.waveformWrap}>
+              <PlaybackWaveform
+                bar_area_height={44}
+                current_time={current_time}
+                duration_seconds={duration_seconds}
+                is_playing={is_playing}
+                onSeek={on_seek}
+                theme={theme}
+                waveform={waveform}
+              />
+            </View>
+          </>
+        )}
       </View>
     </View>
   );
@@ -155,6 +203,31 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+  progressFill: {
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    height: '100%',
+  },
+  progressTrack: {
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    height: 4,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  publishingContent: {
+    flex: 1,
+    gap: 8,
+    justifyContent: 'center',
+  },
+  publishingIndicatorSlot: {
+    opacity: 1,
+  },
+  publishingLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   shadow: Platform.select({
     android: {

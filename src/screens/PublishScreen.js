@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Platform,
   StyleSheet,
@@ -126,6 +125,7 @@ function PublishScreen({ navigation, route, theme }) {
       return;
     }
 
+    playback.pause();
     const post_url = await Publishing.publish_episode(episode_id);
 
     if (post_url === null) {
@@ -192,7 +192,7 @@ function PublishScreen({ navigation, route, theme }) {
         />
       )),
     });
-  }, [navigation, theme, Publishing.is_publishing, Publishing.post_status]);
+  }, [navigation, theme, Publishing.is_publishing, Publishing.phase, Publishing.post_status]);
 
   if (!episode) {
     return (
@@ -267,15 +267,6 @@ function PublishScreen({ navigation, route, theme }) {
           theme={theme}
           value={Publishing.post_content}
         />
-
-        {Publishing.is_publishing ? (
-          <View style={styles.statusRow}>
-            <ActivityIndicator color={theme.colors.accent} />
-            <Text style={[styles.statusLabel, { color: theme.colors.ink_soft }]}>
-              {status_label}
-            </Text>
-          </View>
-        ) : null}
       </EditorKeyboardAvoidingView>
 
       <KeyboardStickyView>
@@ -285,8 +276,11 @@ function PublishScreen({ navigation, route, theme }) {
             duration_seconds={playback.total_duration || episode.duration_seconds}
             episode_title={episode.title}
             is_playing={playback.playing}
+            is_publishing={Publishing.is_publishing}
             on_seek={handle_seek}
             on_toggle_playback={handle_toggle_playback}
+            publish_phase={Publishing.phase}
+            status_label={status_label}
             theme={theme}
             waveform={episode.waveform}
           />
@@ -326,18 +320,6 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-  },
-  statusLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-  statusRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
   },
   stickyArea: {
     paddingBottom: 8,

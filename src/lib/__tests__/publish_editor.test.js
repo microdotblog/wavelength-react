@@ -4,6 +4,7 @@ const {
   normalize_micropub_categories,
   normalize_micropub_syndicates,
   resolve_playback_toggle_action,
+  resolve_publish_progress,
   seek_seconds_from_fraction,
   should_show_title,
   toggle_list_item,
@@ -56,6 +57,14 @@ describe('publish_editor', () => {
   test('resolve_playback_toggle_action returns play or pause', () => {
     expect(resolve_playback_toggle_action(false)).toBe('play');
     expect(resolve_playback_toggle_action(true)).toBe('pause');
+  });
+
+  test('resolve_publish_progress maps publishing phases to progress values', () => {
+    expect(resolve_publish_progress('exporting')).toBe(0.25);
+    expect(resolve_publish_progress('uploading')).toBe(0.6);
+    expect(resolve_publish_progress('posting')).toBe(0.9);
+    expect(resolve_publish_progress('done')).toBe(1);
+    expect(resolve_publish_progress('idle')).toBe(0);
   });
 
   test('seek_seconds_from_fraction converts waveform scrub fraction', () => {

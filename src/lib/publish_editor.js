@@ -123,6 +123,21 @@ export function resolve_playback_toggle_action(is_playing = false) {
   return is_playing ? 'pause' : 'play';
 }
 
+export function resolve_publish_progress(phase = 'idle') {
+  switch (`${phase || ''}`.trim()) {
+    case 'exporting':
+      return 0.25;
+    case 'uploading':
+      return 0.6;
+    case 'posting':
+      return 0.9;
+    case 'done':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 export function seek_seconds_from_fraction(fraction = 0, duration_seconds = 0) {
   const basis = Math.max(duration_seconds, 0);
   const safe_fraction = Math.min(Math.max(fraction, 0), 1);
