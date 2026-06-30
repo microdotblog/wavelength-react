@@ -39,7 +39,12 @@ function SegmentDeleteAction({ on_delete_press, progress, translation }) {
 
   return (
     <Reanimated.View style={[styles.deleteActionContainer, animated_style]}>
-      <RectButton onPress={on_delete_press} style={styles.deleteActionButton}>
+      <RectButton
+        accessibilityLabel="Delete"
+        accessibilityRole="button"
+        onPress={on_delete_press}
+        style={styles.deleteActionButton}
+      >
         <Text style={styles.deleteActionLabel}>Delete</Text>
       </RectButton>
     </Reanimated.View>

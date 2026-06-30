@@ -330,7 +330,9 @@ function RecordScreen({ navigation, route, theme }) {
         style={[styles.pausedActions, actions_style]}
       >
         <Pressable
+          accessibilityLabel={is_appending ? 'Save segment' : 'Save episode'}
           accessibilityRole="button"
+          accessibilityState={{ disabled: is_saving }}
           disabled={is_saving}
           onPress={save_recording}
           style={({ pressed }) => [
@@ -345,7 +347,9 @@ function RecordScreen({ navigation, route, theme }) {
         </Pressable>
 
         <Pressable
+          accessibilityLabel="Delete recording"
           accessibilityRole="button"
+          accessibilityState={{ disabled: is_saving }}
           disabled={is_saving}
           onPress={confirm_discard_take}
           style={({ pressed }) => [

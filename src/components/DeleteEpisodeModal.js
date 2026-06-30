@@ -31,6 +31,7 @@ function DeleteOptionButton({
 }) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       disabled={disabled || is_busy}
       onPress={onPress}
@@ -128,6 +129,7 @@ function DeleteEpisodeModal({
         />
 
         <View
+          accessibilityViewIsModal
           style={[
             styles.card,
             {
@@ -177,6 +179,7 @@ function DeleteEpisodeModal({
             )}
 
             <Pressable
+              accessibilityLabel="Cancel"
               accessibilityRole="button"
               disabled={is_busy}
               onPress={on_cancel}

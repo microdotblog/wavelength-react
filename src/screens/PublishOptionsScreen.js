@@ -34,9 +34,18 @@ function OptionsSection({ children, label, theme }) {
   );
 }
 
-function OptionRow({ children, onPress }) {
+function OptionRow({
+  accessibility_label,
+  accessibility_role = 'checkbox',
+  children,
+  is_selected = false,
+  onPress,
+}) {
   return (
     <Pressable
+      accessibilityLabel={accessibility_label}
+      accessibilityRole={accessibility_role}
+      accessibilityState={{ selected: is_selected }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.optionRow,
@@ -75,14 +84,24 @@ function PublishOptionsScreen({ theme }) {
         <OptionsSection label="When sending this post:" theme={theme}>
           {!Publishing.is_editing_post ? (
             <>
-              <OptionRow onPress={() => Publishing.handle_post_status_select('published')}>
+              <OptionRow
+                accessibility_label="Publish to your blog"
+                accessibility_role="radio"
+                is_selected={Publishing.post_status === 'published'}
+                onPress={() => Publishing.handle_post_status_select('published')}
+              >
                 <CheckmarkRowCell
                   is_selected={Publishing.post_status === 'published'}
                   text="Publish to your blog"
                   theme={theme}
                 />
               </OptionRow>
-              <OptionRow onPress={() => Publishing.handle_post_status_select('draft')}>
+              <OptionRow
+                accessibility_label="Save as a draft"
+                accessibility_role="radio"
+                is_selected={Publishing.post_status === 'draft'}
+                onPress={() => Publishing.handle_post_status_select('draft')}
+              >
                 <CheckmarkRowCell
                   is_selected={Publishing.post_status === 'draft'}
                   text="Save as a draft"
@@ -101,6 +120,8 @@ function PublishOptionsScreen({ theme }) {
           {Publishing.available_categories.length > 0 ? (
             Publishing.available_categories.map(category => (
               <OptionRow
+                accessibility_label={category}
+                is_selected={Publishing.post_categories.includes(category)}
                 key={category}
                 onPress={() => Publishing.handle_post_category_select(category)}
               >
@@ -119,6 +140,7 @@ function PublishOptionsScreen({ theme }) {
 
           <View style={styles.newCategoryRow}>
             <TextInput
+              accessibilityLabel="Add new category"
               clearButtonMode="while-editing"
               keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
               onChangeText={Publishing.set_new_category_text}
@@ -145,7 +167,11 @@ function PublishOptionsScreen({ theme }) {
         </OptionsSection>
 
         <OptionsSection label="View:" theme={theme}>
-          <OptionRow onPress={() => Publishing.toggle_title()}>
+          <OptionRow
+            accessibility_label="Show title field"
+            is_selected={Publishing.show_title}
+            onPress={() => Publishing.toggle_title()}
+          >
             <CheckmarkRowCell
               is_selected={Publishing.show_title}
               text="Show title field"
@@ -156,6 +182,7 @@ function PublishOptionsScreen({ theme }) {
 
         <OptionsSection label="Summary:" theme={theme}>
           <TextInput
+            accessibilityLabel="Post summary"
             clearButtonMode="while-editing"
             keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
             multiline
@@ -179,6 +206,8 @@ function PublishOptionsScreen({ theme }) {
           <OptionsSection label="Cross-posting:" theme={theme}>
             {Publishing.available_syndicates.map(syndicate => (
               <OptionRow
+                accessibility_label={syndicate.name}
+                is_selected={Publishing.post_syndicates.includes(syndicate.uid)}
                 key={syndicate.uid}
                 onPress={() => Publishing.handle_post_syndicates_select(syndicate.uid)}
               >

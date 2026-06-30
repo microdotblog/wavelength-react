@@ -80,7 +80,7 @@ function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
 
   return (
     <Pressable
-      accessibilityHint="Long press for episode actions"
+      accessibilityHint="Long press for episode actions. Swipe left to delete."
       accessibilityLabel={episode.title}
       accessibilityRole="button"
       onLongPress={() => {}}

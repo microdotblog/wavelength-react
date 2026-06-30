@@ -105,6 +105,7 @@ function WelcomeScreen({ theme }) {
             />
 
             <Pressable
+              accessibilityLabel="Use an app token"
               accessibilityRole="button"
               disabled={is_signing_in}
               onPress={open_token_modal}
@@ -147,6 +148,7 @@ function PrimaryButton({
 
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       disabled={disabled}
       onLongPress={onLongPress}
@@ -212,6 +214,8 @@ function TokenSignInModal({
         style={styles.modalRoot}
       >
         <Pressable
+          accessibilityLabel="Dismiss sign-in dialog"
+          accessibilityRole="button"
           disabled={is_signing_in}
           onPress={onCancel}
           style={styles.modalBackdrop}
@@ -246,6 +250,7 @@ function TokenSignInModal({
             ]}
           >
             <TextInput
+              accessibilityLabel="Micro.blog app token"
               autoCapitalize="none"
               autoCorrect={false}
               autoFocus={visible}
@@ -278,6 +283,7 @@ function TokenSignInModal({
               theme={theme}
             />
             <Pressable
+              accessibilityLabel="Cancel"
               accessibilityRole="button"
               disabled={is_signing_in}
               onPress={onCancel}

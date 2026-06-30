@@ -8,9 +8,14 @@ function PostRow({ onPress, post, theme }) {
   const summary = post_plain_text(post.content);
   const published_label = format_post_date(post.published_at);
   const title = `${post.title || ''}`.trim() || 'Microcast';
+  const accessibility_label = published_label.length > 0
+    ? `${title}, ${published_label}`
+    : title;
 
   return (
     <Pressable
+      accessibilityHint="Swipe left to delete. Double tap to edit."
+      accessibilityLabel={accessibility_label}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [

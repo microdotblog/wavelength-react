@@ -70,6 +70,11 @@ function EpisodeAttachmentToolbar({
       <View style={styles.headerRow}>
         <Pressable
           accessibilityHint={on_open_episode ? 'Opens the linked episode editor' : undefined}
+          accessibilityLabel={
+            on_open_episode
+              ? `Open episode ${episode_title || 'Untitled episode'}`
+              : undefined
+          }
           accessibilityRole={on_open_episode ? 'button' : undefined}
           disabled={!on_open_episode}
           onPress={on_open_episode}

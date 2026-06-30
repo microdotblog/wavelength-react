@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { upsample_waveform_levels, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
+import { format_duration } from '../lib/format_duration';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const BAR_AREA_HEIGHT = 64;
@@ -176,10 +177,17 @@ function PlaybackWaveform({
     transform: [{ translateX: progress.value * track_width }],
   }));
 
+  const position_label = duration_seconds > 0
+    ? `${format_duration(current_time)} of ${format_duration(duration_seconds)}`
+    : format_duration(current_time);
+
   return (
     <GestureDetector gesture={scrub_gesture}>
       <View
+        accessibilityHint="Swipe up or down to adjust playback position"
+        accessibilityLabel="Playback position"
         accessibilityRole="adjustable"
+        accessibilityValue={{ text: position_label }}
         onLayout={handle_layout}
         style={[styles.container, { height: bar_area_height }]}
       >

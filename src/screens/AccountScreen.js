@@ -183,6 +183,7 @@ function AccountScreen({ theme }) {
       </SettingsSection>
 
       <Pressable
+        accessibilityLabel="Sign out"
         accessibilityRole="button"
         accessibilityState={{ disabled: is_busy }}
         disabled={is_busy}
@@ -229,6 +230,7 @@ function SettingsLinkRow({
 }) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="link"
       onPress={onPress}
       style={({ pressed }) => [

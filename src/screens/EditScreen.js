@@ -796,7 +796,9 @@ function EditScreen({ navigation, route, theme }) {
 
         {is_published ? (
           <Pressable
+            accessibilityLabel={is_duplicating_episode ? 'Duplicating episode' : 'Duplicate to edit'}
             accessibilityRole="button"
+            accessibilityState={{ disabled: is_duplicating_episode }}
             disabled={is_duplicating_episode}
             onPress={duplicate_episode}
             style={({ pressed }) => [
@@ -815,6 +817,7 @@ function EditScreen({ navigation, route, theme }) {
           </Pressable>
         ) : (
           <Pressable
+            accessibilityLabel="Record another take"
             accessibilityRole="button"
             onPress={add_segment}
             style={({ pressed }) => [

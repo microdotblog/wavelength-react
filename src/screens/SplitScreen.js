@@ -251,7 +251,9 @@ function SplitScreen({ navigation, route, theme }) {
 
       <View style={styles.actionsRow}>
         <Pressable
+          accessibilityLabel={is_busy ? 'Splitting' : 'Split here'}
           accessibilityRole="button"
+          accessibilityState={{ disabled: is_busy }}
           disabled={is_busy}
           onPress={handle_split}
           style={({ pressed }) => [
@@ -270,7 +272,10 @@ function SplitScreen({ navigation, route, theme }) {
         </Pressable>
 
         <Pressable
+          accessibilityHint="Removes this segment from the episode"
+          accessibilityLabel="Delete segment"
           accessibilityRole="button"
+          accessibilityState={{ disabled: is_busy }}
           disabled={is_busy}
           onPress={confirm_delete_segment}
           style={({ pressed }) => [
