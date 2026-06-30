@@ -78,6 +78,30 @@ function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
     onMenuAction?.(nativeEvent.event, episode);
   }
 
+  const row_content = (
+    <View style={styles.content}>
+      <View style={styles.copy}>
+        <Text numberOfLines={1} style={[styles.title, { color: theme.colors.ink }]}>
+          {episode.title}
+        </Text>
+        <Text style={[styles.meta, { color: theme.colors.ink_soft }]}>
+          {format_duration(episode.duration_seconds)}
+          {is_published ? (
+            <>
+              {' · '}
+              <Text style={[styles.publishedMeta, { color: theme.colors.accent_strong }]}>
+                Published
+              </Text>
+            </>
+          ) : null}
+        </Text>
+      </View>
+      <Text style={[styles.chevron, { color: theme.colors.ink_soft }]}>
+        ›
+      </Text>
+    </View>
+  );
+
   return (
     <Pressable
       accessibilityHint="Long press for episode actions. Swipe left to delete."
@@ -94,36 +118,13 @@ function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
         pressed ? styles.pressed : null,
       ]}
     >
-      <View pointerEvents="none" style={styles.content}>
-        <View style={styles.copy}>
-          <Text numberOfLines={1} style={[styles.title, { color: theme.colors.ink }]}>
-            {episode.title}
-          </Text>
-          <Text style={[styles.meta, { color: theme.colors.ink_soft }]}>
-            {format_duration(episode.duration_seconds)}
-            {is_published ? (
-              <>
-                {' · '}
-                <Text style={[styles.publishedMeta, { color: theme.colors.accent_strong }]}>
-                  Published
-                </Text>
-              </>
-            ) : null}
-          </Text>
-        </View>
-        <Text style={[styles.chevron, { color: theme.colors.ink_soft }]}>
-          ›
-        </Text>
-      </View>
-
       <MenuView
         actions={build_menu_actions(episode, theme)}
         onPressAction={handle_press_action}
         shouldOpenOnLongPress
-        style={styles.menuOverlay}
         themeVariant={theme.is_dark ? 'dark' : 'light'}
       >
-        <View style={styles.menuOverlay} />
+        {row_content}
       </MenuView>
     </Pressable>
   );
@@ -139,16 +140,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
-    width: '100%',
   },
   copy: {
     flex: 1,
     flexShrink: 1,
     gap: 4,
     minWidth: 0,
-  },
-  menuOverlay: {
-    ...StyleSheet.absoluteFillObject,
   },
   meta: {
     fontSize: 14,
@@ -163,17 +160,12 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   row: {
-    alignItems: 'center',
     borderCurve: 'continuous',
     borderRadius: 18,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
     minHeight: 68,
-    overflow: 'hidden',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    position: 'relative',
   },
   title: {
     fontSize: 17,
