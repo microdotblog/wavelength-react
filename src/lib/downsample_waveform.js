@@ -1,4 +1,4 @@
-export const WAVEFORM_SAMPLE_COUNT = 48;
+export const WAVEFORM_SAMPLE_COUNT = 128;
 
 function clamp_unit(value) {
   if (!Number.isFinite(value)) {
@@ -47,6 +47,38 @@ export function downsample_waveform(samples = [], target_count = WAVEFORM_SAMPLE
     }
 
     result[index] = peak;
+  }
+
+  return result;
+}
+
+// Stretch stored peaks to however many bars fit on screen so playback waveforms
+// stay smooth even when older episodes only saved a handful of samples.
+export function upsample_waveform_levels(waveform = [], target_count) {
+  const safe_waveform = Array.isArray(waveform) ? waveform.map(clamp_unit) : [];
+  const count = Math.max(1, Math.floor(target_count));
+
+  if (safe_waveform.length === 0) {
+    return [];
+  }
+
+  if (safe_waveform.length === 1 || count === 1) {
+    return new Array(count).fill(safe_waveform[0]);
+  }
+
+  if (safe_waveform.length >= count) {
+    return downsample_waveform(safe_waveform, count);
+  }
+
+  const last_index = safe_waveform.length - 1;
+  const result = new Array(count);
+
+  for (let index = 0; index < count; index += 1) {
+    const position = (index / (count - 1)) * last_index;
+    const lower = Math.floor(position);
+    const upper = Math.min(lower + 1, last_index);
+    const mix = position - lower;
+    result[index] = clamp_unit(safe_waveform[lower] * (1 - mix) + safe_waveform[upper] * mix);
   }
 
   return result;

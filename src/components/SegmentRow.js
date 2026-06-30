@@ -1,10 +1,11 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { upsample_waveform_levels } from '../lib/downsample_waveform';
 import { format_duration } from '../lib/format_duration';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
-const SPARKLINE_BAR_COUNT = 14;
+const SPARKLINE_BAR_COUNT = 32;
 const SPARKLINE_HEIGHT = 20;
 const MIN_BAR_HEIGHT = 2;
 
@@ -13,17 +14,7 @@ function build_sparkline_levels(waveform) {
     return new Array(SPARKLINE_BAR_COUNT).fill(0.16);
   }
 
-  const levels = new Array(SPARKLINE_BAR_COUNT);
-
-  for (let index = 0; index < SPARKLINE_BAR_COUNT; index += 1) {
-    const source_index = Math.min(
-      waveform.length - 1,
-      Math.floor((index / SPARKLINE_BAR_COUNT) * waveform.length),
-    );
-    levels[index] = Math.min(Math.max(waveform[source_index] || 0, 0), 1);
-  }
-
-  return levels;
+  return upsample_waveform_levels(waveform, SPARKLINE_BAR_COUNT);
 }
 
 function SegmentSparkline({ is_active, theme, waveform }) {
@@ -189,7 +180,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     flexDirection: 'row',
-    gap: 2,
+    gap: 1,
     height: SPARKLINE_HEIGHT,
   },
   splitLabel: {

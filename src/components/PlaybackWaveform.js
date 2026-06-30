@@ -9,12 +9,22 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
+import { upsample_waveform_levels, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const BAR_AREA_HEIGHT = 64;
+const BAR_WIDTH = 2;
+const BAR_GAP = 1;
 const MIN_BAR_HEIGHT = 4;
 const FALLBACK_LEVEL = 0.16;
+
+function bar_count_for_width(width) {
+  if (width <= 0) {
+    return WAVEFORM_SAMPLE_COUNT;
+  }
+
+  return Math.max(WAVEFORM_SAMPLE_COUNT, Math.floor((width + BAR_GAP) / (BAR_WIDTH + BAR_GAP)));
+}
 
 function build_display_levels(waveform) {
   if (Array.isArray(waveform) && waveform.length > 0) {
@@ -55,7 +65,10 @@ function PlaybackWaveform({
   const is_scrubbing_ref = React.useRef(false);
   const progress = useSharedValue(0);
   const last_synced_fraction_ref = React.useRef(0);
-  const levels = build_display_levels(waveform);
+  const levels = React.useMemo(() => {
+    const base_levels = build_display_levels(waveform);
+    return upsample_waveform_levels(base_levels, bar_count_for_width(track_width));
+  }, [track_width, waveform]);
 
   on_seek_ref.current = onSeek;
 
@@ -169,13 +182,14 @@ function PlaybackWaveform({
 
 const styles = StyleSheet.create({
   bar: {
-    borderRadius: 2,
+    borderRadius: 1,
     flex: 1,
+    maxWidth: BAR_WIDTH,
   },
   bars: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 3,
+    gap: BAR_GAP,
     width: '100%',
   },
   container: {
