@@ -11,6 +11,10 @@ jest.mock('react-native', () => ({
   View: 'View',
 }));
 
+jest.mock('../../lib/toast', () => ({
+  show_toast: jest.fn(),
+}));
+
 jest.mock('mobx-react', () => ({
   observer: component => component,
 }));

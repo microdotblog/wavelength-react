@@ -34,6 +34,7 @@
         "react-native-safe-area-context": "~5.7.0",
         "react-native-screens": "4.25.2",
         "react-native-sfsymbols": "^1.2.2",
+        "react-native-simple-toast": "^3.3.2",
         "react-native-webview": "13.16.1",
         "react-native-worklets": "0.8.3",
       },
@@ -1046,6 +1047,8 @@
     "react-native-screens": ["react-native-screens@4.25.2", "", { "dependencies": { "react-freeze": "^1.0.0", "warn-once": "^0.1.0" }, "peerDependencies": { "react": "*", "react-native": ">=0.82.0" } }, "sha512-1Nj1fusFd+rIMKU/qC9yGKVG+3ofh11d3OdBQKL1iVvQfKvcB8vhvTGQf2TkfxW3bamxN+hCZIXmNuU0mRkyDg=="],
 
     "react-native-sfsymbols": ["react-native-sfsymbols@1.2.2", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-/9zshSuIlvCTnD9yfrD7/AbO/Vhlcml8GEri9gLa+sRhZL2ZFvqTOopiRJdC9+eWO+NVtLN+qX8FNXm5y5URSQ=="],
+
+    "react-native-simple-toast": ["react-native-simple-toast@3.3.2", "", { "peerDependencies": { "react": "*", "react-native": ">=0.71.0" } }, "sha512-jtZa5VXLDc3Rr+1a2eYyviakxOXP8U9AFYp1VWlslApi0wkiNeyAQ4yLZbIY8nayrbHTUSkERiDzKoCsy9v7Dw=="],
 
     "react-native-webview": ["react-native-webview@13.16.1", "", { "dependencies": { "escape-string-regexp": "^4.0.0", "invariant": "2.2.4" }, "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-If0eHhoEdOYDcHsX+xBFwHMbWBGK1BvGDQDQdVkwtSIXiq1uiqjkpWVP2uQ1as94J0CzvFE9PUNDuhiX0Z6ubw=="],
 

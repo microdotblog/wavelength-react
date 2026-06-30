@@ -10,6 +10,7 @@ import { place_clip_file } from '../lib/EpisodeStorage';
 import { slice_waveform } from '../lib/merge_episode_waveform';
 import { split_clip_at } from '../lib/episode_audio';
 import { format_duration } from '../lib/format_duration';
+import { show_toast } from '../lib/toast';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const MINIMUM_SEGMENT_SECONDS = 1;
@@ -127,12 +128,14 @@ function SplitScreen({ navigation, route, theme }) {
     try {
       await Episodes.delete_episode(episode_id, { delete_post });
       set_is_delete_modal_visible(false);
+      show_toast(
+        delete_post
+          ? 'Episode and post deleted.'
+          : (episode?.is_published?.() ? 'Episode removed from device.' : 'Episode deleted.'),
+      );
       navigation.goBack();
     } catch (error) {
-      Alert.alert(
-        'Could not delete episode',
-        error?.message || 'Please try again.',
-      );
+      show_toast(error?.message || 'Could not delete episode. Please try again.');
     } finally {
       set_is_deleting_episode(false);
     }

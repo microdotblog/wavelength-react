@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Platform,
   StyleSheet,
   Text,
@@ -19,6 +18,7 @@ import PublishPostToolbar from '../components/PublishPostToolbar';
 import Publishing from '../stores/Publishing';
 import { use_episode_playback } from '../hooks/use_episode_playback';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
+import { show_toast } from '../lib/toast';
 import { header_right_element } from '../theme/wavelengthTheme';
 
 const EDITOR_REVEAL_DELAY_MS = 700;
@@ -129,16 +129,12 @@ function PublishScreen({ navigation, route, theme }) {
     const post_url = await Publishing.publish_episode(episode_id);
 
     if (post_url === null) {
-      Alert.alert('Publish failed', Publishing.error_message || 'Please try again.');
+      show_toast(Publishing.error_message || 'Publish failed. Please try again.');
       return;
     }
 
-    Alert.alert('Published', 'Your episode is on its way to Micro.blog.', [
-      {
-        onPress: () => navigation.goBack(),
-        text: 'OK',
-      },
-    ]);
+    show_toast('Episode published.');
+    navigation.goBack();
   }
 
   function handle_toggle_playback(action = 'play') {

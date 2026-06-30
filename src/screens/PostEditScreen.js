@@ -22,6 +22,7 @@ import Posts from '../stores/Posts';
 import Publishing from '../stores/Publishing';
 import { use_episode_playback } from '../hooks/use_episode_playback';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
+import { show_toast } from '../lib/toast';
 import { header_right_element, is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
 const EDITOR_REVEAL_DELAY_MS = 700;
@@ -171,16 +172,12 @@ function PostEditScreen({ navigation, route, theme }) {
     const updated = await Publishing.update_post();
 
     if (!updated) {
-      Alert.alert('Update failed', Publishing.error_message || 'Please try again.');
+      show_toast(Publishing.error_message || 'Update failed. Please try again.');
       return;
     }
 
-    Alert.alert('Updated', 'Your post has been updated on Micro.blog.', [
-      {
-        onPress: () => navigation.goBack(),
-        text: 'OK',
-      },
-    ]);
+    show_toast('Post updated.');
+    navigation.goBack();
   }
 
   function confirm_delete_post() {
@@ -227,12 +224,10 @@ function PostEditScreen({ navigation, route, theme }) {
         await Episodes.clear_publish_link(linked_episode.id);
       }
 
+      show_toast('Post deleted.');
       navigation.goBack();
     } catch (error) {
-      Alert.alert(
-        'Could not delete post',
-        error?.message || 'Please try again.',
-      );
+      show_toast(error?.message || 'Could not delete post. Please try again.');
     } finally {
       set_is_deleting_post(false);
     }

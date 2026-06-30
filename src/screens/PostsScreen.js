@@ -15,6 +15,7 @@ import PostRow from '../components/PostRow';
 import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
+import { show_toast } from '../lib/toast';
 import Posts from '../stores/Posts';
 
 function PostsScreen({ navigation, theme }) {
@@ -94,11 +95,10 @@ function PostsScreen({ navigation, theme }) {
       if (linked_episode) {
         await Episodes.clear_publish_link(linked_episode.id);
       }
+
+      show_toast('Post deleted.');
     } catch (error) {
-      Alert.alert(
-        'Could not delete post',
-        error?.message || 'Please try again.',
-      );
+      show_toast(error?.message || 'Could not delete post. Please try again.');
     }
   }
 
