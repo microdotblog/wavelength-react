@@ -14,15 +14,32 @@ function read_micropub_property(properties = {}, name = '') {
   return `${value || ''}`.trim();
 }
 
-export function read_micropub_post_id(source_item = null) {
-  const properties = source_item?.properties || {};
-  const value = properties?.uid;
+function read_micropub_property_array(properties = {}, name = '') {
+  const value = properties?.[name];
 
-  if (Array.isArray(value)) {
-    return `${value[0] || ''}`.trim();
+  if (!Array.isArray(value)) {
+    return [];
   }
 
-  return `${value || ''}`.trim();
+  return value.map(entry => `${entry || ''}`.trim()).filter(Boolean);
+}
+
+export function read_micropub_post_id(source_item = null) {
+  return read_micropub_property(source_item?.properties || {}, 'uid');
+}
+
+export function normalize_micropub_post_source(payload = null) {
+  const properties = payload?.properties || {};
+
+  return {
+    categories: read_micropub_property_array(properties, 'category'),
+    content: read_micropub_property(properties, 'content'),
+    post_status: read_micropub_property(properties, 'post-status') || 'published',
+    summary: read_micropub_property(properties, 'summary'),
+    title: read_micropub_property(properties, 'name'),
+    uid: read_micropub_post_id(payload),
+    url: read_micropub_property(properties, 'url'),
+  };
 }
 
 function normalize_micropub_post_item(item = null) {

@@ -4,7 +4,9 @@ import {
   create_episode_post,
   fetch_micropub_categories,
   fetch_micropub_post_id,
+  fetch_micropub_post_source,
   fetch_micropub_syndicate_targets,
+  update_micropub_post,
   upload_episode_audio,
 } from '../api/Micropub';
 import {
@@ -31,12 +33,15 @@ const Publishing = types
     available_categories: types.optional(types.array(types.string), []),
     available_syndicates: types.optional(types.array(SyndicateOption), []),
     error_message: types.maybeNull(types.string),
+    is_editing_post: types.optional(types.boolean, false),
     new_category_text: types.optional(types.string, ''),
     post_categories: types.optional(types.array(types.string), []),
     post_content: types.optional(types.string, ''),
     post_status: types.optional(types.string, 'published'),
     post_syndicates: types.optional(types.array(types.string), []),
     post_title: types.optional(types.string, ''),
+    post_uid: types.maybeNull(types.string),
+    post_url: types.maybeNull(types.string),
     show_title: types.optional(types.boolean, false),
     summary: types.optional(types.string, ''),
     text_selection_end: types.optional(types.number, 0),
@@ -65,17 +70,79 @@ const Publishing = types
 
     reset_editor() {
       self.editor_episode_id = null;
+      self.is_editing_post = false;
       self.new_category_text = '';
       self.post_categories = [];
       self.post_content = '';
       self.post_status = 'published';
       self.post_syndicates = [];
       self.post_title = '';
+      self.post_uid = null;
+      self.post_url = null;
       self.show_title = false;
       self.summary = '';
       self.text_selection_end = 0;
       self.text_selection_start = 0;
     },
+
+    prep_post_edit(post = {}) {
+      const trimmed_uid = `${post?.uid || ''}`.trim();
+      const trimmed_url = `${post?.url || ''}`.trim();
+      const trimmed_title = `${post?.title || ''}`.trim();
+      const linked_episode = Episodes.get_episode_by_post_id(trimmed_uid);
+
+      self.is_editing_post = true;
+      self.post_uid = trimmed_uid || null;
+      self.post_url = trimmed_url || null;
+      self.post_title = trimmed_title;
+      self.post_content = `${post?.content || ''}`;
+      self.post_status = `${post?.post_status || 'published'}`.trim() || 'published';
+      self.post_categories = [];
+      self.post_syndicates = [];
+      self.new_category_text = '';
+      self.show_title = trimmed_title.length > 0;
+      self.summary = '';
+      self.text_selection_end = 0;
+      self.text_selection_start = 0;
+      self.editor_episode_id = linked_episode?.id || null;
+    },
+
+    load_post_source: flow(function* () {
+      const post_url = `${self.post_url || ''}`.trim();
+
+      if (!post_url) {
+        return;
+      }
+
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        return;
+      }
+
+      const destination = `${Auth.default_site || ''}`.trim();
+      const source = yield fetch_micropub_post_source({ destination, post_url, token });
+
+      if (!source) {
+        return;
+      }
+
+      if (source.title) {
+        self.post_title = source.title;
+      }
+
+      if (source.content) {
+        self.post_content = source.content;
+      }
+
+      if (source.post_status) {
+        self.post_status = source.post_status;
+      }
+
+      self.post_categories = source.categories || [];
+      self.summary = source.summary || '';
+      self.show_title = self.show_title || self.post_title.length > 0;
+    }),
 
     prep_editor(episode_id = '') {
       const episode = Episodes.get_episode(episode_id);
@@ -259,9 +326,60 @@ const Publishing = types
         self.is_publishing = false;
       }
     }),
+
+    update_post: flow(function* () {
+      if (self.is_publishing || !self.is_editing_post) {
+        return false;
+      }
+
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        self.set_error('You need to be signed in to Micro.blog to update a post.');
+        return false;
+      }
+
+      const post_url = `${self.post_url || ''}`.trim();
+
+      if (!post_url) {
+        self.set_error('This post is no longer available.');
+        return false;
+      }
+
+      const destination = `${Auth.default_site || ''}`.trim();
+
+      self.is_publishing = true;
+      self.error_message = null;
+
+      try {
+        yield update_micropub_post({
+          categories: self.post_categories,
+          content: self.post_content,
+          destination,
+          post_url,
+          status: self.post_status,
+          summary: self.summary,
+          title: self.post_title,
+          token,
+        });
+        yield Posts.refresh();
+
+        return true;
+      } catch (error) {
+        self.set_error(error?.message || 'We could not update the post. Please try again.');
+
+        return false;
+      } finally {
+        self.is_publishing = false;
+      }
+    }),
   }))
   .views(self => ({
     post_button_label() {
+      if (self.is_editing_post) {
+        return 'Update';
+      }
+
       return self.post_status === 'draft' ? 'Save' : 'Post';
     },
 

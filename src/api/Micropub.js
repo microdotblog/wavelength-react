@@ -1,6 +1,6 @@
 import { File, UploadType } from 'expo-file-system';
 
-import { read_micropub_post_id } from '../lib/micropub_posts';
+import { normalize_micropub_post_source, read_micropub_post_id } from '../lib/micropub_posts';
 
 export const MICRO_BLOG_MICROPUB_URL = 'https://micro.blog/micropub';
 export const MICRO_BLOG_MEDIA_URL = 'https://micro.blog/micropub/media';
@@ -135,38 +135,92 @@ export async function fetch_micropub_posts({ token = '', destination = '' } = {}
   return fetch_micropub_query({ destination, query: 'source', token });
 }
 
+export async function fetch_micropub_post_source({ token = '', destination = '', post_url = '' } = {}) {
+  const payload = await fetch_micropub_post_source_payload({ destination, post_url, token });
+
+  if (!payload) {
+    return null;
+  }
+
+  return normalize_micropub_post_source(payload);
+}
+
 export async function fetch_micropub_post_id({ token = '', destination = '', post_url = '' } = {}) {
-  const trimmed_token = `${token || ''}`.trim();
-  const trimmed_post_url = `${post_url || ''}`.trim();
+  const payload = await fetch_micropub_post_source_payload({ destination, post_url, token });
 
-  if (!trimmed_token || !trimmed_post_url) {
-    return '';
-  }
-
-  const url = new URL(MICRO_BLOG_MICROPUB_URL);
-  url.searchParams.set('q', 'source');
-  url.searchParams.set('url', trimmed_post_url);
-
-  const trimmed_destination = `${destination || ''}`.trim();
-
-  if (trimmed_destination) {
-    url.searchParams.set('mp-destination', trimmed_destination);
-  }
-
-  const response = await fetch(url.toString(), {
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${trimmed_token}`,
-    },
-    method: 'GET',
-  });
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok || payload?.error) {
+  if (!payload) {
     return '';
   }
 
   return read_micropub_post_id(payload);
+}
+
+export async function update_micropub_post({
+  token = '',
+  destination = '',
+  post_url = '',
+  title = '',
+  content = '',
+  status = 'published',
+  categories = [],
+  summary = '',
+} = {}) {
+  const trimmed_token = `${token || ''}`.trim();
+  const trimmed_post_url = `${post_url || ''}`.trim();
+
+  if (!trimmed_token) {
+    throw create_request_error('You need to be signed in to Micro.blog to update a post.');
+  }
+
+  if (!trimmed_post_url) {
+    throw create_request_error('A post URL is required to update this post.');
+  }
+
+  const trimmed_destination = `${destination || ''}`.trim();
+  const safe_categories = Array.isArray(categories)
+    ? categories.map(category => `${category || ''}`.trim()).filter(Boolean)
+    : [];
+  const replace = {
+    category: safe_categories,
+    content: [`${content || ''}`],
+    name: [`${title || ''}`],
+    'post-status': [`${status || 'published'}`.trim() || 'published'],
+  };
+  const trimmed_summary = `${summary || ''}`.trim();
+
+  if (trimmed_summary) {
+    replace.summary = [trimmed_summary];
+  }
+
+  const body = {
+    action: 'update',
+    replace,
+    url: trimmed_post_url,
+  };
+
+  if (trimmed_destination) {
+    body['mp-destination'] = trimmed_destination;
+  }
+
+  const response = await fetch(MICRO_BLOG_MICROPUB_URL, {
+    body: JSON.stringify(body),
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${trimmed_token}`,
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.error) {
+    throw create_request_error(
+      resolve_error_message(payload, 'We could not update the post.'),
+      response.status,
+    );
+  }
+
+  return true;
 }
 
 export async function create_episode_post({
@@ -265,6 +319,40 @@ export async function delete_micropub_post({ token = '', destination = '', post_
   }
 
   return true;
+}
+
+async function fetch_micropub_post_source_payload({ token = '', destination = '', post_url = '' } = {}) {
+  const trimmed_token = `${token || ''}`.trim();
+  const trimmed_post_url = `${post_url || ''}`.trim();
+
+  if (!trimmed_token || !trimmed_post_url) {
+    return null;
+  }
+
+  const url = new URL(MICRO_BLOG_MICROPUB_URL);
+  url.searchParams.set('q', 'source');
+  url.searchParams.set('url', trimmed_post_url);
+
+  const trimmed_destination = `${destination || ''}`.trim();
+
+  if (trimmed_destination) {
+    url.searchParams.set('mp-destination', trimmed_destination);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${trimmed_token}`,
+    },
+    method: 'GET',
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || payload?.error) {
+    return null;
+  }
+
+  return payload;
 }
 
 async function fetch_micropub_query({ token = '', destination = '', query = '' } = {}) {

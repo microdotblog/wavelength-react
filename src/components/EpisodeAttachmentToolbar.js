@@ -40,6 +40,7 @@ function EpisodeAttachmentToolbar({
   episode_title = '',
   is_playing = false,
   is_publishing = false,
+  on_open_episode,
   on_toggle_playback,
   on_seek,
   publish_phase = 'idle',
@@ -67,7 +68,16 @@ function EpisodeAttachmentToolbar({
       ]}
     >
       <View style={styles.headerRow}>
-        <View style={styles.titleWrap}>
+        <Pressable
+          accessibilityHint={on_open_episode ? 'Opens the linked episode editor' : undefined}
+          accessibilityRole={on_open_episode ? 'button' : undefined}
+          disabled={!on_open_episode}
+          onPress={on_open_episode}
+          style={({ pressed }) => [
+            styles.titleWrap,
+            on_open_episode && pressed ? styles.pressed : null,
+          ]}
+        >
           <View style={styles.attachmentLabelRow}>
             <PlatformSymbol
               color={theme.colors.accent}
@@ -84,7 +94,7 @@ function EpisodeAttachmentToolbar({
           >
             {episode_title || 'Untitled episode'}
           </Text>
-        </View>
+        </Pressable>
         <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
           {format_duration(current_time)} / {format_duration(duration_seconds)}
         </Text>

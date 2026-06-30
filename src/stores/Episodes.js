@@ -212,6 +212,16 @@ const Episodes = types
       return self.episodes.find(episode => episode.id === episode_id) || null;
     },
 
+    get_episode_by_post_id(post_id = '') {
+      const trimmed_post_id = `${post_id || ''}`.trim();
+
+      if (!trimmed_post_id) {
+        return null;
+      }
+
+      return self.episodes.find(episode => `${episode.post_id || ''}`.trim() === trimmed_post_id) || null;
+    },
+
     has_episodes() {
       return self.episodes.length > 0;
     },

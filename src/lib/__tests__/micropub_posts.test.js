@@ -1,6 +1,7 @@
 const {
   format_post_date,
   is_audio_post,
+  normalize_micropub_post_source,
   normalize_micropub_posts,
   post_plain_text,
   read_micropub_post_id,
@@ -55,6 +56,28 @@ describe('micropub_posts', () => {
         uid: ['12345'],
       },
     })).toBe('12345');
+  });
+
+  test('normalize_micropub_post_source reads editable post fields', () => {
+    expect(normalize_micropub_post_source({
+      properties: {
+        category: ['microcast', 'notes'],
+        content: ['<audio controls src="https://micro.blog/audio.m4a"></audio><p>Notes</p>'],
+        name: ['Morning microcast'],
+        'post-status': ['published'],
+        summary: ['Short summary'],
+        uid: ['12345'],
+        url: ['https://example.micro.blog/post/1'],
+      },
+    })).toEqual({
+      categories: ['microcast', 'notes'],
+      content: '<audio controls src="https://micro.blog/audio.m4a"></audio><p>Notes</p>',
+      post_status: 'published',
+      summary: 'Short summary',
+      title: 'Morning microcast',
+      uid: '12345',
+      url: 'https://example.micro.blog/post/1',
+    });
   });
 
   test('post_plain_text strips markup', () => {

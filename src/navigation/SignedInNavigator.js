@@ -6,6 +6,7 @@ import { observer } from 'mobx-react';
 import AccountScreen from '../screens/AccountScreen';
 import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
+import PostEditScreen from '../screens/PostEditScreen';
 import PublishOptionsScreen from '../screens/PublishOptionsScreen';
 import PublishScreen from '../screens/PublishScreen';
 import RecordFab from '../components/RecordFab';
@@ -120,6 +121,27 @@ function SignedInNavigator({ theme }) {
       >
         {screen_props => (
           <SplitScreen
+            {...screen_props}
+            theme={theme}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="PostEdit"
+        options={({ navigation }) => ({
+          title: 'Edit Post',
+          headerLargeTitle: false,
+          ...header_left_element(() => (
+            <HeaderPillButton
+              label="Cancel"
+              onPress={() => navigation.goBack()}
+              theme={theme}
+            />
+          )),
+        })}
+      >
+        {screen_props => (
+          <PostEditScreen
             {...screen_props}
             theme={theme}
           />

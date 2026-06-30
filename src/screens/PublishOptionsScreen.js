@@ -73,20 +73,28 @@ function PublishOptionsScreen({ theme }) {
         </OptionsSection>
 
         <OptionsSection label="When sending this post:" theme={theme}>
-          <OptionRow onPress={() => Publishing.handle_post_status_select('published')}>
-            <CheckmarkRowCell
-              is_selected={Publishing.post_status === 'published'}
-              text="Publish to your blog"
-              theme={theme}
-            />
-          </OptionRow>
-          <OptionRow onPress={() => Publishing.handle_post_status_select('draft')}>
-            <CheckmarkRowCell
-              is_selected={Publishing.post_status === 'draft'}
-              text="Save as a draft"
-              theme={theme}
-            />
-          </OptionRow>
+          {!Publishing.is_editing_post ? (
+            <>
+              <OptionRow onPress={() => Publishing.handle_post_status_select('published')}>
+                <CheckmarkRowCell
+                  is_selected={Publishing.post_status === 'published'}
+                  text="Publish to your blog"
+                  theme={theme}
+                />
+              </OptionRow>
+              <OptionRow onPress={() => Publishing.handle_post_status_select('draft')}>
+                <CheckmarkRowCell
+                  is_selected={Publishing.post_status === 'draft'}
+                  text="Save as a draft"
+                  theme={theme}
+                />
+              </OptionRow>
+            </>
+          ) : (
+            <Text style={[styles.destinationValue, { color: theme.colors.ink_soft }]}>
+              Updates apply to the existing post on Micro.blog.
+            </Text>
+          )}
         </OptionsSection>
 
         <OptionsSection label="Select categories for this post:" theme={theme}>

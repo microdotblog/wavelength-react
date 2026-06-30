@@ -67,6 +67,16 @@ const Posts = types
     has_posts() {
       return self.posts.length > 0;
     },
+
+    get_post(post_uid = '') {
+      const trimmed_uid = `${post_uid || ''}`.trim();
+
+      if (!trimmed_uid) {
+        return null;
+      }
+
+      return self.posts.find(post => post.uid === trimmed_uid) || null;
+    },
   }))
   .create();
 

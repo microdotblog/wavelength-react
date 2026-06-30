@@ -2,7 +2,6 @@ import React from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Linking,
   RefreshControl,
   StyleSheet,
   Text,
@@ -13,26 +12,28 @@ import { observer } from 'mobx-react';
 
 import PostRow from '../components/PostRow';
 import Auth from '../stores/Auth';
+import Episodes from '../stores/Episodes';
 import Posts from '../stores/Posts';
 
-function PostsScreen({ theme }) {
+function PostsScreen({ navigation, theme }) {
   const posts = Posts.sorted_posts();
   const destination_label = Auth.default_site || Auth.profile_url || 'your Micro.blog';
 
   useFocusEffect(
     React.useCallback(() => {
       Posts.refresh();
+      Episodes.refresh();
     }, []),
   );
 
-  function open_post(post) {
-    const url = `${post?.url || ''}`.trim();
+  function open_post_edit(post) {
+    const post_uid = `${post?.uid || ''}`.trim();
 
-    if (!url) {
+    if (!post_uid) {
       return;
     }
 
-    Linking.openURL(url);
+    navigation.navigate('PostEdit', { post_uid });
   }
 
   function render_empty_state() {
@@ -97,7 +98,7 @@ function PostsScreen({ theme }) {
       }
       renderItem={({ item }) => (
         <PostRow
-          onPress={() => open_post(item)}
+          onPress={() => open_post_edit(item)}
           post={item}
           theme={theme}
         />

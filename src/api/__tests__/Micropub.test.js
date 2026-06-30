@@ -11,6 +11,7 @@ const { File, UploadType } = require('expo-file-system');
 const {
   build_episode_post_body,
   delete_micropub_post,
+  update_micropub_post,
   upload_episode_audio,
 } = require('../Micropub');
 
@@ -96,5 +97,49 @@ describe('Micropub delete_micropub_post', () => {
         method: 'POST',
       }),
     );
+  });
+});
+
+describe('Micropub update_micropub_post', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({}),
+      ok: true,
+    }));
+  });
+
+  test('posts a micropub update action with replace fields', async () => {
+    await update_micropub_post({
+      categories: ['microcast'],
+      content: '<p>Updated notes</p>',
+      destination: 'https://example.micro.blog',
+      post_url: 'https://example.micro.blog/post/1',
+      status: 'published',
+      summary: 'Updated summary',
+      title: 'Updated title',
+      token: 'token',
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, request] = global.fetch.mock.calls[0];
+
+    expect(url).toBe('https://micro.blog/micropub');
+    expect(request.method).toBe('POST');
+    expect(request.headers).toEqual(expect.objectContaining({
+      Authorization: 'Bearer token',
+      'Content-Type': 'application/json',
+    }));
+    expect(JSON.parse(request.body)).toEqual({
+      action: 'update',
+      'mp-destination': 'https://example.micro.blog',
+      replace: {
+        category: ['microcast'],
+        content: ['<p>Updated notes</p>'],
+        name: ['Updated title'],
+        'post-status': ['published'],
+        summary: ['Updated summary'],
+      },
+      url: 'https://example.micro.blog/post/1',
+    });
   });
 });
