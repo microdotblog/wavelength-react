@@ -4,6 +4,7 @@ import { delete_micropub_post } from '../api/Micropub';
 import {
   append_clip_to_episode,
   delete_episode as remove_episode_from_storage,
+  clear_episode_publish_link as clear_episode_publish_link_in_storage,
   duplicate_episode as copy_episode_in_storage,
   get_episode_clip_uri,
   get_exported_clip_uri,
@@ -142,6 +143,13 @@ const Episodes = types
     duplicate_episode: flow(function* (episode_id = '') {
       const snapshot = yield copy_episode_in_storage(episode_id);
       self.episodes.push(snapshot);
+
+      return snapshot.id;
+    }),
+
+    clear_publish_link: flow(function* (episode_id = '') {
+      const snapshot = yield clear_episode_publish_link_in_storage(episode_id);
+      self.apply_episode_snapshot(snapshot);
 
       return snapshot.id;
     }),

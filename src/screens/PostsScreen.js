@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -11,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
 import PostRow from '../components/PostRow';
+import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
 import Posts from '../stores/Posts';
@@ -18,6 +20,7 @@ import Posts from '../stores/Posts';
 function PostsScreen({ navigation, theme }) {
   const posts = Posts.sorted_posts();
   const destination_label = Auth.default_site || Auth.profile_url || 'your Micro.blog';
+  const open_swipeable_ref = React.useRef(null);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -34,6 +37,58 @@ function PostsScreen({ navigation, theme }) {
     }
 
     navigation.navigate('PostEdit', { post_uid });
+  }
+
+  function handle_swipe_will_open(swipeable) {
+    if (open_swipeable_ref.current && open_swipeable_ref.current !== swipeable) {
+      open_swipeable_ref.current.close?.();
+    }
+
+    open_swipeable_ref.current = swipeable;
+  }
+
+  function confirm_delete_post(post) {
+    Alert.alert(
+      'Delete post?',
+      'This removes the post from Micro.blog.',
+      [
+        {
+          style: 'cancel',
+          text: 'Cancel',
+        },
+        {
+          onPress: () => delete_post(post),
+          style: 'destructive',
+          text: 'Delete',
+        },
+      ],
+    );
+  }
+
+  async function delete_post(post) {
+    const post_uid = `${post?.uid || ''}`.trim();
+
+    if (!post_uid) {
+      return;
+    }
+
+    try {
+      await Posts.delete_post(post_uid);
+
+      const linked_episode = Episodes.get_episode_for_post({
+        post_id: post_uid,
+        post_url: `${post?.url || ''}`.trim(),
+      });
+
+      if (linked_episode) {
+        await Episodes.clear_publish_link(linked_episode.id);
+      }
+    } catch (error) {
+      Alert.alert(
+        'Could not delete post',
+        error?.message || 'Please try again.',
+      );
+    }
   }
 
   function render_empty_state() {
@@ -97,11 +152,16 @@ function PostsScreen({ navigation, theme }) {
         />
       }
       renderItem={({ item }) => (
-        <PostRow
-          onPress={() => open_post_edit(item)}
-          post={item}
-          theme={theme}
-        />
+        <SegmentSwipeRow
+          on_delete={() => confirm_delete_post(item)}
+          on_will_open={handle_swipe_will_open}
+        >
+          <PostRow
+            onPress={() => open_post_edit(item)}
+            post={item}
+            theme={theme}
+          />
+        </SegmentSwipeRow>
       )}
       style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
     />

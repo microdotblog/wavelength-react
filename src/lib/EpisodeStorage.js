@@ -467,6 +467,30 @@ export async function duplicate_episode(episode_id = '') {
   return to_episode_snapshot(info, directory, id);
 }
 
+export async function clear_episode_publish_link(episode_id = '') {
+  const directory = get_episode_directory(episode_id);
+
+  if (!directory) {
+    throw new Error('That episode is no longer available.');
+  }
+
+  const existing = read_episode_from_directory(directory);
+
+  if (!existing) {
+    throw new Error('That episode could not be read.');
+  }
+
+  const info = compose_episode_info({
+    clip_meta: existing.clip_meta,
+    created_at: existing.created_at,
+    title: existing.title,
+  });
+
+  write_episode_info(directory, info);
+
+  return to_episode_snapshot(info, directory, directory.name);
+}
+
 export async function read_episode(episode_id = '') {
   const directory = get_episode_directory(episode_id);
 

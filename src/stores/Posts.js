@@ -1,6 +1,6 @@
 import { applySnapshot, flow, types } from 'mobx-state-tree';
 
-import { fetch_micropub_posts } from '../api/Micropub';
+import { delete_micropub_post, fetch_micropub_posts } from '../api/Micropub';
 import { normalize_micropub_posts } from '../lib/micropub_posts';
 import Auth from './Auth';
 import Tokens from './Tokens';
@@ -55,6 +55,33 @@ const Posts = types
         self.did_hydrate = true;
         self.is_loading = false;
       }
+    }),
+
+    delete_post: flow(function* (post_uid = '') {
+      const post = self.get_post(post_uid);
+      const post_url = `${post?.url || ''}`.trim();
+
+      if (!post_url) {
+        throw new Error('This post is no longer available.');
+      }
+
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        throw new Error('You need to be signed in to Micro.blog to delete a post.');
+      }
+
+      const destination = `${Auth.default_site || ''}`.trim();
+
+      yield delete_micropub_post({
+        destination,
+        post_url,
+        token,
+      });
+
+      self.posts.remove(post);
+
+      return true;
     }),
   }))
   .views(self => ({
