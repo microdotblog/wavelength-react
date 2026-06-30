@@ -39,6 +39,7 @@ function build_ios_post_edit_header_items({ is_updating, on_update }) {
 
 function PostEditScreen({ navigation, route, theme }) {
   const post_uid = route.params?.post_uid;
+  const episode_id = route.params?.episode_id;
   const post = Posts.get_post(post_uid);
   const episode = Publishing.editor_episode_id
     ? Episodes.get_episode(Publishing.editor_episode_id)
@@ -94,7 +95,7 @@ function PostEditScreen({ navigation, route, theme }) {
     let cancelled = false;
 
     async function load_editor() {
-      await Episodes.refresh();
+      await Promise.all([Episodes.refresh(), Posts.refresh()]);
 
       if (cancelled) {
         return;
@@ -106,7 +107,7 @@ function PostEditScreen({ navigation, route, theme }) {
         return;
       }
 
-      Publishing.prep_post_edit(current_post);
+      Publishing.prep_post_edit(current_post, { episode_id });
       await Publishing.load_post_source();
       await Publishing.load_editor_options();
     }
@@ -131,7 +132,7 @@ function PostEditScreen({ navigation, route, theme }) {
 
       Publishing.reset();
     };
-  }, [post_uid]);
+  }, [post_uid, episode_id]);
 
   React.useEffect(() => {
     try_focus_editor();

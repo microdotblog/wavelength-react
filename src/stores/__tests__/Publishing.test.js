@@ -11,6 +11,7 @@ jest.mock('../Episodes', () => ({
     export_merged_audio: jest.fn(async () => 'file:///tmp/exported.m4a'),
     get_episode: jest.fn(),
     get_episode_by_post_id: jest.fn(() => null),
+    get_episode_for_post: jest.fn(() => null),
     mark_episode_published: jest.fn(async () => ({ id: 'episode-1' })),
   },
 }));
@@ -115,7 +116,7 @@ describe('Publishing store', () => {
   });
 
   test('prep_post_edit hydrates the editor and links a local episode by post uid', () => {
-    Episodes.get_episode_by_post_id.mockReturnValueOnce({ id: 'episode-1' });
+    Episodes.get_episode_for_post.mockReturnValueOnce({ id: 'episode-1' });
 
     Publishing.prep_post_edit({
       content: '<p>Notes</p>',
@@ -130,6 +131,19 @@ describe('Publishing store', () => {
     expect(Publishing.post_url).toBe('https://example.micro.blog/post/1');
     expect(Publishing.editor_episode_id).toBe('episode-1');
     expect(Publishing.post_button_label()).toBe('Update');
+  });
+
+  test('prep_post_edit prefers an explicit episode id when provided', () => {
+    Episodes.get_episode.mockReturnValueOnce({ id: 'episode-2' });
+
+    Publishing.prep_post_edit({
+      content: '<p>Notes</p>',
+      uid: '12345',
+      url: 'https://example.micro.blog/post/1',
+    }, { episode_id: 'episode-2' });
+
+    expect(Episodes.get_episode).toHaveBeenCalledWith('episode-2');
+    expect(Publishing.editor_episode_id).toBe('episode-2');
   });
 
   test('update_post sends micropub update and refreshes posts', async () => {

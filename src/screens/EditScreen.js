@@ -516,7 +516,7 @@ function EditScreen({ navigation, route, theme }) {
       return;
     }
 
-    navigation.navigate('PostEdit', { post_uid: published_post_uid });
+    navigation.navigate('PostEdit', { episode_id, post_uid: published_post_uid });
   }
 
   return (

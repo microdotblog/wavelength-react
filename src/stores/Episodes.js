@@ -213,13 +213,30 @@ const Episodes = types
     },
 
     get_episode_by_post_id(post_id = '') {
-      const trimmed_post_id = `${post_id || ''}`.trim();
+      return self.get_episode_for_post({ post_id });
+    },
 
-      if (!trimmed_post_id) {
-        return null;
+    get_episode_for_post({ post_id = '', post_url = '' } = {}) {
+      const trimmed_post_id = `${post_id || ''}`.trim();
+      const trimmed_post_url = `${post_url || ''}`.trim();
+
+      if (trimmed_post_id) {
+        const by_post_id = self.episodes.find(
+          episode => `${episode.post_id || ''}`.trim() === trimmed_post_id,
+        );
+
+        if (by_post_id) {
+          return by_post_id;
+        }
       }
 
-      return self.episodes.find(episode => `${episode.post_id || ''}`.trim() === trimmed_post_id) || null;
+      if (trimmed_post_url) {
+        return self.episodes.find(
+          episode => `${episode.post_url || ''}`.trim() === trimmed_post_url,
+        ) || null;
+      }
+
+      return null;
     },
 
     has_episodes() {

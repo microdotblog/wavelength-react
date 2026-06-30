@@ -85,11 +85,14 @@ const Publishing = types
       self.text_selection_start = 0;
     },
 
-    prep_post_edit(post = {}) {
+    prep_post_edit(post = {}, { episode_id = null } = {}) {
       const trimmed_uid = `${post?.uid || ''}`.trim();
       const trimmed_url = `${post?.url || ''}`.trim();
       const trimmed_title = `${post?.title || ''}`.trim();
-      const linked_episode = Episodes.get_episode_by_post_id(trimmed_uid);
+      const trimmed_episode_id = `${episode_id || ''}`.trim();
+      const linked_episode = trimmed_episode_id
+        ? Episodes.get_episode(trimmed_episode_id)
+        : Episodes.get_episode_for_post({ post_id: trimmed_uid, post_url: trimmed_url });
 
       self.is_editing_post = true;
       self.post_uid = trimmed_uid || null;
@@ -104,6 +107,19 @@ const Publishing = types
       self.summary = '';
       self.text_selection_end = 0;
       self.text_selection_start = 0;
+      self.editor_episode_id = linked_episode?.id || null;
+    },
+
+    relink_editor_episode() {
+      if (!self.is_editing_post) {
+        return;
+      }
+
+      const linked_episode = Episodes.get_episode_for_post({
+        post_id: self.post_uid,
+        post_url: self.post_url,
+      });
+
       self.editor_episode_id = linked_episode?.id || null;
     },
 
@@ -139,9 +155,14 @@ const Publishing = types
         self.post_status = source.post_status;
       }
 
+      if (source.uid) {
+        self.post_uid = `${source.uid}`.trim();
+      }
+
       self.post_categories = source.categories || [];
       self.summary = source.summary || '';
       self.show_title = self.show_title || self.post_title.length > 0;
+      self.relink_editor_episode();
     }),
 
     prep_editor(episode_id = '') {
