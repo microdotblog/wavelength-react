@@ -33,6 +33,10 @@ export const TOOLBAR_SYMBOLS = {
     ios: 'gearshape',
     multicolor: true,
   },
+  trash: {
+    android_label: 'Del',
+    ios: 'trash',
+  },
   waveform: {
     android_label: '〰',
     ios: 'waveform',

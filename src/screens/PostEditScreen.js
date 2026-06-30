@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Alert,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -15,20 +16,33 @@ import EditorKeyboardAvoidingView from '../components/EditorKeyboardAvoidingView
 import EpisodeAttachmentToolbar from '../components/EpisodeAttachmentToolbar';
 import HighlightingText from '../components/text/HighlightingText';
 import HeaderPillButton from '../components/HeaderPillButton';
+import PlatformSymbol from '../components/PlatformSymbol';
 import PublishPostToolbar from '../components/PublishPostToolbar';
 import Posts from '../stores/Posts';
 import Publishing from '../stores/Publishing';
 import { use_episode_playback } from '../hooks/use_episode_playback';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
-import { header_right_element } from '../theme/wavelengthTheme';
+import { header_right_element, is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
 const EDITOR_REVEAL_DELAY_MS = 700;
+const DELETE_ACTION_COLOR = '#FF3B30';
 
-function build_ios_post_edit_header_items({ is_updating, on_update }) {
+function build_ios_post_edit_header_items({ is_deleting, is_updating, on_delete, on_update }) {
+  const is_busy = is_deleting || is_updating;
+
   return [
     {
+      accessibilityLabel: 'Delete post',
+      destructive: true,
+      disabled: is_busy,
+      icon: { name: 'trash', type: 'sfSymbol' },
+      label: '',
+      onPress: on_delete,
+      type: 'button',
+    },
+    {
       accessibilityLabel: 'Update post on Micro.blog',
-      disabled: is_updating,
+      disabled: is_busy,
       label: is_updating ? 'Updating…' : 'Update',
       onPress: on_update,
       type: 'button',
@@ -48,11 +62,13 @@ function PostEditScreen({ navigation, route, theme }) {
   const top_inset = use_stack_top_inset();
   const text_editor_ref = React.useRef(null);
   const update_handler_ref = React.useRef(null);
+  const delete_handler_ref = React.useRef(null);
   const pause_playback_ref = React.useRef(playback.pause);
   const editor_ready_ref = React.useRef(false);
   const reveal_timeout_ref = React.useRef(null);
   const is_mounted_ref = React.useRef(true);
   const [editor_is_visible, set_editor_is_visible] = React.useState(false);
+  const [is_deleting_post, set_is_deleting_post] = React.useState(false);
 
   pause_playback_ref.current = playback.pause;
 
@@ -147,7 +163,7 @@ function PostEditScreen({ navigation, route, theme }) {
   }, [navigation]);
 
   async function handle_update() {
-    if (!post || Publishing.is_publishing) {
+    if (!post || Publishing.is_publishing || is_deleting_post) {
       return;
     }
 
@@ -165,6 +181,61 @@ function PostEditScreen({ navigation, route, theme }) {
         text: 'OK',
       },
     ]);
+  }
+
+  function confirm_delete_post() {
+    Alert.alert(
+      'Delete post?',
+      'This removes the post from Micro.blog.',
+      [
+        {
+          style: 'cancel',
+          text: 'Cancel',
+        },
+        {
+          onPress: () => handle_delete_post(),
+          style: 'destructive',
+          text: 'Delete',
+        },
+      ],
+    );
+  }
+
+  async function handle_delete_post() {
+    if (!post || Publishing.is_publishing || is_deleting_post) {
+      return;
+    }
+
+    const post_uid = `${post?.uid || ''}`.trim();
+
+    if (!post_uid) {
+      return;
+    }
+
+    playback.pause();
+    set_is_deleting_post(true);
+
+    try {
+      await Posts.delete_post(post_uid);
+
+      const linked_episode = Episodes.get_episode_for_post({
+        post_id: post_uid,
+        post_url: `${post?.url || ''}`.trim(),
+      });
+
+      if (linked_episode) {
+        await Episodes.clear_publish_link(linked_episode.id);
+      }
+
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert(
+        'Could not delete post',
+        error?.message || 'Please try again.',
+      );
+    } finally {
+      set_is_deleting_post(false);
+    }
   }
 
   function handle_toggle_playback(action = 'play') {
@@ -195,15 +266,21 @@ function PostEditScreen({ navigation, route, theme }) {
   }
 
   update_handler_ref.current = handle_update;
+  delete_handler_ref.current = confirm_delete_post;
 
   React.useLayoutEffect(() => {
+    const is_busy = Publishing.is_publishing || is_deleting_post;
+    const should_use_liquid_glass = is_liquid_glass();
+
     if (Platform.OS === 'ios') {
       navigation.setOptions({
         headerRight: undefined,
         title: 'Edit Post',
         unstable_headerRightItems: () =>
           build_ios_post_edit_header_items({
+            is_deleting: is_deleting_post,
             is_updating: Publishing.is_publishing,
+            on_delete: () => delete_handler_ref.current?.(),
             on_update: () => update_handler_ref.current?.(),
           }),
       });
@@ -214,16 +291,37 @@ function PostEditScreen({ navigation, route, theme }) {
       title: 'Edit Post',
       unstable_headerRightItems: undefined,
       ...header_right_element(() => (
-        <HeaderPillButton
-          accessibilityLabel="Update post on Micro.blog"
-          disabled={Publishing.is_publishing}
-          label={Publishing.is_publishing ? 'Updating…' : 'Update'}
-          onPress={() => update_handler_ref.current?.()}
-          theme={theme}
-        />
+        <View style={styles.headerActions}>
+          <Pressable
+            accessibilityLabel="Delete post"
+            accessibilityRole="button"
+            disabled={is_busy}
+            onPress={() => delete_handler_ref.current?.()}
+            style={({ pressed }) => [
+              styles.headerIconButton,
+              {
+                backgroundColor: should_use_liquid_glass
+                  ? 'transparent'
+                  : with_color_opacity(theme.colors.paper, theme.is_dark ? 0.72 : 0.84),
+                borderColor: should_use_liquid_glass ? 'transparent' : theme.colors.line,
+                opacity: is_busy ? 0.45 : 1,
+              },
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <PlatformSymbol color={DELETE_ACTION_COLOR} name="trash" size={18} />
+          </Pressable>
+          <HeaderPillButton
+            accessibilityLabel="Update post on Micro.blog"
+            disabled={is_busy}
+            label={Publishing.is_publishing ? 'Updating…' : 'Update'}
+            onPress={() => update_handler_ref.current?.()}
+            theme={theme}
+          />
+        </View>
       )),
     });
-  }, [navigation, theme, Publishing.is_publishing]);
+  }, [navigation, theme, Publishing.is_publishing, is_deleting_post]);
 
   if (!post) {
     return (
@@ -248,7 +346,7 @@ function PostEditScreen({ navigation, route, theme }) {
         {Publishing.should_show_title() ? (
           <TextInput
             accessibilityLabel="Post title"
-            editable={!Publishing.is_publishing}
+            editable={!Publishing.is_publishing && !is_deleting_post}
             keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
             onChangeText={Publishing.set_post_title}
             placeholder="Title"
@@ -269,10 +367,10 @@ function PostEditScreen({ navigation, route, theme }) {
         <HighlightingText
           accessibilityLabel="Show notes"
           bottomOverlayHeight={episode ? 180 : 120}
-          editable={!Publishing.is_publishing}
+          editable={!Publishing.is_publishing && !is_deleting_post}
           onReady={handle_editor_ready}
           onChangeText={({ nativeEvent: { text } }) => {
-            if (!Publishing.is_publishing) {
+            if (!Publishing.is_publishing && !is_deleting_post) {
               Publishing.set_post_content(text);
             }
           }}
@@ -306,7 +404,7 @@ function PostEditScreen({ navigation, route, theme }) {
               duration_seconds={playback.total_duration || episode.duration_seconds}
               episode_title={episode.title}
               is_playing={playback.playing}
-              is_publishing={Publishing.is_publishing}
+              is_publishing={Publishing.is_publishing || is_deleting_post}
               on_open_episode={open_episode}
               on_seek={handle_seek}
               on_toggle_playback={handle_toggle_playback}
@@ -337,6 +435,20 @@ const styles = StyleSheet.create({
   editorHidden: {
     opacity: 0,
   },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerIconButton: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 32,
+    minWidth: 32,
+  },
   missingScreen: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -347,6 +459,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 22,
     textAlign: 'center',
+  },
+  pressed: {
+    opacity: 0.68,
   },
   screen: {
     flex: 1,
