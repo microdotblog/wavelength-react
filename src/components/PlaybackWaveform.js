@@ -34,6 +34,14 @@ function build_display_levels(waveform) {
   return new Array(WAVEFORM_SAMPLE_COUNT).fill(FALLBACK_LEVEL);
 }
 
+function waveform_levels_key(waveform) {
+  if (!Array.isArray(waveform) || waveform.length === 0) {
+    return '';
+  }
+
+  return waveform.join('\u0000');
+}
+
 function BarsLayer({ bar_area_height, color, levels, width }) {
   return (
     <View style={[styles.bars, { height: bar_area_height }, width != null ? { width } : null]}>
@@ -65,10 +73,12 @@ function PlaybackWaveform({
   const is_scrubbing_ref = React.useRef(false);
   const progress = useSharedValue(0);
   const last_synced_fraction_ref = React.useRef(0);
+  const waveform_key = waveform_levels_key(waveform);
   const levels = React.useMemo(() => {
     const base_levels = build_display_levels(waveform);
     return upsample_waveform_levels(base_levels, bar_count_for_width(track_width));
-  }, [track_width, waveform]);
+    // ponytail: MobX episode.waveform keeps the same array reference when clips reorder.
+  }, [track_width, waveform_key]);
 
   on_seek_ref.current = onSeek;
 
