@@ -26,7 +26,14 @@ function EpisodeRow({ episode, onPress, theme }) {
         </Text>
         <Text style={[styles.meta, { color: theme.colors.ink_soft }]}>
           {format_duration(episode.duration_seconds)}
-          {is_published ? ' · Published' : ''}
+          {is_published ? (
+            <>
+              {' · '}
+              <Text style={[styles.publishedMeta, { color: theme.colors.accent_strong }]}>
+                Published
+              </Text>
+            </>
+          ) : null}
         </Text>
       </View>
       <Text style={[styles.chevron, { color: theme.colors.ink_soft }]}>
@@ -51,6 +58,9 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     fontWeight: '600',
     lineHeight: 18,
+  },
+  publishedMeta: {
+    fontWeight: '800',
   },
   pressed: {
     opacity: 0.72,
