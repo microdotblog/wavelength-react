@@ -4,6 +4,13 @@ jest.mock('react-native', () => ({
   Platform: { OS: 'ios', select: options => options.ios ?? options.default },
   StyleSheet: {
     create: styles => styles,
+    flatten: style => {
+      if (Array.isArray(style)) {
+        return Object.assign({}, ...style.filter(Boolean));
+      }
+
+      return style || {};
+    },
     hairlineWidth: 1,
   },
   Text: 'Text',
@@ -166,8 +173,7 @@ jest.mock('../../hooks/use_episode_playback', () => ({
 }));
 
 const React = require('react');
-const TestRenderer = require('react-test-renderer');
-const { act } = TestRenderer;
+const { render } = require('@testing-library/react-native');
 const PublishScreen = require('../PublishScreen').default;
 
 const theme = {
@@ -191,34 +197,25 @@ describe('PublishScreen', () => {
     mock_reset.mockClear();
   });
 
-  test('renders title field, content field, and attached episode toolbar from edit publish entry', () => {
-    let tree;
+  test('renders title field, content field, and attached episode toolbar from edit publish entry', async () => {
+    const { getByLabelText, getByText } = await render(
+      React.createElement(PublishScreen, {
+        navigation: {
+          addListener: jest.fn(() => jest.fn()),
+          goBack: jest.fn(),
+          navigate: jest.fn(),
+          setOptions: jest.fn(),
+        },
+        route: { params: { episode_id: 'ep-1' } },
+        theme,
+      }),
+    );
 
-    act(() => {
-      tree = TestRenderer.create(
-        React.createElement(PublishScreen, {
-          navigation: {
-            addListener: jest.fn(() => jest.fn()),
-            goBack: jest.fn(),
-            navigate: jest.fn(),
-            setOptions: jest.fn(),
-          },
-          route: { params: { episode_id: 'ep-1' } },
-          theme,
-        }),
-      );
-    });
-
-    const labels = tree.root.findAll(node => typeof node.props?.accessibilityLabel === 'string')
-      .map(node => node.props.accessibilityLabel);
-
-    expect(labels).toEqual(expect.arrayContaining([
-      'Episode title',
-      'Show notes',
-      'Play episode preview',
-      'Post options',
-    ]));
-    expect(tree.root.findByProps({ children: 'Attached episode' })).toBeTruthy();
+    expect(getByLabelText('Episode title')).toBeTruthy();
+    expect(getByLabelText('Show notes')).toBeTruthy();
+    expect(getByLabelText('Play episode preview')).toBeTruthy();
+    expect(getByLabelText('Post options')).toBeTruthy();
+    expect(getByText('Attached episode')).toBeTruthy();
     expect(mock_prep_editor).toHaveBeenCalledWith('ep-1');
     expect(mock_load_editor_options).toHaveBeenCalled();
   });

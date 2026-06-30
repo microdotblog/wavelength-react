@@ -4,6 +4,13 @@ jest.mock('react-native', () => ({
   Pressable: 'Pressable',
   StyleSheet: {
     create: styles => styles,
+    flatten: style => {
+      if (Array.isArray(style)) {
+        return Object.assign({}, ...style.filter(Boolean));
+      }
+
+      return style || {};
+    },
     hairlineWidth: 1,
   },
   Text: 'Text',
@@ -21,8 +28,7 @@ jest.mock('../../theme/wavelengthTheme', () => ({
 }));
 
 const React = require('react');
-const TestRenderer = require('react-test-renderer');
-const { act } = TestRenderer;
+const { render } = require('@testing-library/react-native');
 const EpisodeAttachmentToolbar = require('../EpisodeAttachmentToolbar').default;
 
 const theme = {
@@ -36,25 +42,21 @@ const theme = {
 };
 
 describe('EpisodeAttachmentToolbar', () => {
-  test('shows publishing progress instead of playback controls while publishing', () => {
-    let tree;
+  test('shows publishing progress instead of playback controls while publishing', async () => {
+    const { getByLabelText, getByText, queryByLabelText } = await render(
+      React.createElement(EpisodeAttachmentToolbar, {
+        duration_seconds: 15,
+        episode_title: 'Test Episode',
+        is_publishing: true,
+        publish_phase: 'uploading',
+        status_label: 'Uploading audio…',
+        theme,
+        waveform: [0.1, 0.5],
+      }),
+    );
 
-    act(() => {
-      tree = TestRenderer.create(
-        React.createElement(EpisodeAttachmentToolbar, {
-          duration_seconds: 15,
-          episode_title: 'Test Episode',
-          is_publishing: true,
-          publish_phase: 'uploading',
-          status_label: 'Uploading audio…',
-          theme,
-          waveform: [0.1, 0.5],
-        }),
-      );
-    });
-
-    expect(tree.root.findByProps({ children: 'Uploading audio…' })).toBeTruthy();
-    expect(tree.root.findByProps({ accessibilityLabel: 'Publishing progress 60 percent' })).toBeTruthy();
-    expect(() => tree.root.findByProps({ accessibilityLabel: 'Play episode preview' })).toThrow();
+    expect(getByText('Uploading audio…')).toBeTruthy();
+    expect(getByLabelText('Publishing progress 60 percent')).toBeTruthy();
+    expect(queryByLabelText('Play episode preview')).toBeNull();
   });
 });
