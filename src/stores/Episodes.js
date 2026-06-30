@@ -6,6 +6,7 @@ import {
   get_episode_clip_uri,
   get_exported_clip_uri,
   list_episodes,
+  mark_episode_published as persist_episode_published,
   read_episode,
   replace_episode_clips,
   save_episode_from_recording,
@@ -27,6 +28,9 @@ const Episode = types
     duration_seconds: types.optional(types.number, 0),
     folder_uri: types.string,
     id: types.identifier,
+    post_id: types.maybeNull(types.string),
+    post_url: types.maybeNull(types.string),
+    published_at: types.maybeNull(types.string),
     title: types.string,
     waveform: types.optional(types.array(types.number), []),
   })
@@ -49,6 +53,10 @@ const Episode = types
         name: clip.name,
         uri: get_episode_clip_uri(self, clip.name),
       }));
+    },
+
+    is_published() {
+      return `${self.post_id || self.post_url || ''}`.trim().length > 0;
     },
   }));
 
@@ -159,6 +167,13 @@ const Episodes = types
       } catch (error) {
         return '';
       }
+    }),
+
+    mark_episode_published: flow(function* (episode_id = '', publish_result = {}) {
+      const snapshot = yield persist_episode_published(episode_id, publish_result);
+      self.apply_episode_snapshot(snapshot);
+
+      return snapshot;
     }),
   }))
   .views(self => ({

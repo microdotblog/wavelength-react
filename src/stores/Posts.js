@@ -1,0 +1,73 @@
+import { applySnapshot, flow, types } from 'mobx-state-tree';
+
+import { fetch_micropub_posts } from '../api/Micropub';
+import { normalize_micropub_posts } from '../lib/micropub_posts';
+import Auth from './Auth';
+import Tokens from './Tokens';
+
+const Post = types.model('Post', {
+  content: types.optional(types.string, ''),
+  post_status: types.optional(types.string, 'published'),
+  published_at: types.optional(types.string, ''),
+  title: types.optional(types.string, ''),
+  uid: types.identifier,
+  url: types.string,
+});
+
+const Posts = types
+  .model('Posts', {
+    posts: types.array(Post),
+  })
+  .volatile(() => ({
+    did_hydrate: false,
+    error_message: null,
+    is_loading: false,
+  }))
+  .actions(self => ({
+    clear_error() {
+      self.error_message = null;
+    },
+
+    set_error(message = null) {
+      self.error_message = `${message || ''}`.trim() || null;
+    },
+
+    refresh: flow(function* () {
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        applySnapshot(self.posts, []);
+        self.did_hydrate = true;
+        return;
+      }
+
+      const destination = `${Auth.default_site || ''}`.trim();
+
+      self.is_loading = true;
+      self.error_message = null;
+
+      try {
+        const payload = yield fetch_micropub_posts({ destination, token });
+        applySnapshot(self.posts, normalize_micropub_posts(payload));
+      } catch (error) {
+        self.set_error(error?.message || 'We could not load your posts.');
+      } finally {
+        self.did_hydrate = true;
+        self.is_loading = false;
+      }
+    }),
+  }))
+  .views(self => ({
+    sorted_posts() {
+      return self.posts
+        .slice()
+        .sort((first, second) => second.published_at.localeCompare(first.published_at));
+    },
+
+    has_posts() {
+      return self.posts.length > 0;
+    },
+  }))
+  .create();
+
+export default Posts;

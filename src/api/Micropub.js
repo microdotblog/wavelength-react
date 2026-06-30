@@ -1,5 +1,7 @@
 import { File, UploadType } from 'expo-file-system';
 
+import { read_micropub_post_id } from '../lib/micropub_posts';
+
 export const MICRO_BLOG_MICROPUB_URL = 'https://micro.blog/micropub';
 export const MICRO_BLOG_MEDIA_URL = 'https://micro.blog/micropub/media';
 
@@ -127,6 +129,44 @@ export async function fetch_micropub_categories({ token = '', destination = '' }
 
 export async function fetch_micropub_syndicate_targets({ token = '', destination = '' } = {}) {
   return fetch_micropub_query({ destination, query: 'syndicate-to', token });
+}
+
+export async function fetch_micropub_posts({ token = '', destination = '' } = {}) {
+  return fetch_micropub_query({ destination, query: 'source', token });
+}
+
+export async function fetch_micropub_post_id({ token = '', destination = '', post_url = '' } = {}) {
+  const trimmed_token = `${token || ''}`.trim();
+  const trimmed_post_url = `${post_url || ''}`.trim();
+
+  if (!trimmed_token || !trimmed_post_url) {
+    return '';
+  }
+
+  const url = new URL(MICRO_BLOG_MICROPUB_URL);
+  url.searchParams.set('q', 'source');
+  url.searchParams.set('url', trimmed_post_url);
+
+  const trimmed_destination = `${destination || ''}`.trim();
+
+  if (trimmed_destination) {
+    url.searchParams.set('mp-destination', trimmed_destination);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${trimmed_token}`,
+    },
+    method: 'GET',
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || payload?.error) {
+    return '';
+  }
+
+  return read_micropub_post_id(payload);
 }
 
 export async function create_episode_post({

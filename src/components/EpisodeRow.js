@@ -5,6 +5,8 @@ import { observer } from 'mobx-react';
 import { format_duration } from '../lib/format_duration';
 
 function EpisodeRow({ episode, onPress, theme }) {
+  const is_published = episode.is_published();
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -19,9 +21,18 @@ function EpisodeRow({ episode, onPress, theme }) {
       ]}
     >
       <View style={styles.copy}>
-        <Text numberOfLines={1} style={[styles.title, { color: theme.colors.ink }]}>
-          {episode.title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text numberOfLines={1} style={[styles.title, { color: theme.colors.ink }]}>
+            {episode.title}
+          </Text>
+          {is_published ? (
+            <View style={[styles.badge, { backgroundColor: theme.colors.accent_soft }]}>
+              <Text style={[styles.badgeLabel, { color: theme.colors.accent_strong }]}>
+                Published
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <Text style={[styles.duration, { color: theme.colors.ink_soft }]}>
           {format_duration(episode.duration_seconds)}
         </Text>
@@ -34,6 +45,19 @@ function EpisodeRow({ episode, onPress, theme }) {
 }
 
 const styles = StyleSheet.create({
+  badge: {
+    borderCurve: 'continuous',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    lineHeight: 14,
+    textTransform: 'uppercase',
+  },
   chevron: {
     fontSize: 24,
     fontWeight: '600',
@@ -64,9 +88,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   title: {
+    flex: 1,
     fontSize: 17,
     fontWeight: '800',
     lineHeight: 22,
+  },
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
 });
 

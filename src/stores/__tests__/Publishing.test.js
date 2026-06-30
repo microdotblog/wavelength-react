@@ -8,8 +8,16 @@ jest.mock('../Auth', () => ({
 jest.mock('../Episodes', () => ({
   __esModule: true,
   default: {
-    export_merged_audio: jest.fn(),
+    export_merged_audio: jest.fn(async () => 'file:///tmp/exported.m4a'),
     get_episode: jest.fn(),
+    mark_episode_published: jest.fn(async () => ({ id: 'episode-1' })),
+  },
+}));
+
+jest.mock('../Posts', () => ({
+  __esModule: true,
+  default: {
+    refresh: jest.fn(async () => null),
   },
 }));
 
@@ -21,13 +29,22 @@ jest.mock('../Tokens', () => ({
 }));
 
 jest.mock('../../api/Micropub', () => ({
-  create_episode_post: jest.fn(),
+  create_episode_post: jest.fn(async () => 'https://example.micro.blog/post/1'),
   fetch_micropub_categories: jest.fn(async () => ({ categories: ['microcast'] })),
+  fetch_micropub_post_id: jest.fn(async () => '12345'),
   fetch_micropub_syndicate_targets: jest.fn(async () => ({
     'syndicate-to': [{ name: 'Twitter', uid: 'twitter' }],
   })),
-  upload_episode_audio: jest.fn(),
+  upload_episode_audio: jest.fn(async () => 'https://micro.blog/uploaded.m4a'),
 }));
+
+const Episodes = require('../Episodes').default;
+const Posts = require('../Posts').default;
+const {
+  create_episode_post,
+  fetch_micropub_post_id,
+  upload_episode_audio,
+} = require('../../api/Micropub');
 
 const Publishing = require('../Publishing').default;
 
@@ -35,6 +52,12 @@ describe('Publishing store', () => {
   beforeEach(() => {
     Publishing.reset();
     Publishing.reset_editor();
+    Episodes.export_merged_audio.mockClear();
+    Episodes.mark_episode_published.mockClear();
+    Posts.refresh.mockClear();
+    create_episode_post.mockClear();
+    fetch_micropub_post_id.mockClear();
+    upload_episode_audio.mockClear();
   });
 
   test('handle_text_action applies formatting to post_content', () => {
@@ -66,5 +89,16 @@ describe('Publishing store', () => {
 
     expect(Publishing.available_categories).toEqual(['microcast']);
     expect(Publishing.available_syndicates).toEqual([{ name: 'Twitter', uid: 'twitter' }]);
+  });
+
+  test('publish_episode marks the episode published and refreshes posts', async () => {
+    const post_url = await Publishing.publish_episode('episode-1');
+
+    expect(post_url).toBe('https://example.micro.blog/post/1');
+    expect(Episodes.mark_episode_published).toHaveBeenCalledWith('episode-1', {
+      post_id: '12345',
+      post_url: 'https://example.micro.blog/post/1',
+    });
+    expect(Posts.refresh).toHaveBeenCalled();
   });
 });

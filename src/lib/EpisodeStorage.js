@@ -66,8 +66,18 @@ function normalize_clip_meta(clip) {
 
 // A single take always carries the whole episode shape, so the merged values
 // collapse back to that take. Legacy episodes therefore stay identical.
-function compose_episode_info({ clip_meta, created_at, title }) {
+function compose_episode_info({
+  clip_meta,
+  created_at,
+  post_id = null,
+  post_url = null,
+  published_at = null,
+  title,
+}) {
   const safe_meta = clip_meta.map(normalize_clip_meta).filter(clip => clip.name.length > 0);
+  const trimmed_post_id = `${post_id || ''}`.trim();
+  const trimmed_post_url = `${post_url || ''}`.trim();
+  const trimmed_published_at = `${published_at || ''}`.trim();
 
   return {
     clip_meta: safe_meta,
@@ -76,6 +86,9 @@ function compose_episode_info({ clip_meta, created_at, title }) {
     duration_seconds: safe_meta.reduce((sum, clip) => sum + clip.duration_seconds, 0),
     title,
     waveform: merge_episode_waveform(safe_meta, WAVEFORM_SAMPLE_COUNT),
+    ...(trimmed_post_id ? { post_id: trimmed_post_id } : {}),
+    ...(trimmed_post_url ? { post_url: trimmed_post_url } : {}),
+    ...(trimmed_published_at ? { published_at: trimmed_published_at } : {}),
   };
 }
 
@@ -214,6 +227,9 @@ function read_episode_from_directory(directory) {
     const info = compose_episode_info({
       clip_meta,
       created_at: `${parsed.created_at || ''}`,
+      post_id: parsed.post_id,
+      post_url: parsed.post_url,
+      published_at: parsed.published_at,
       title: `${parsed.title || directory.name}`,
     });
 
@@ -249,6 +265,9 @@ export async function save_episode_from_recording(recording_uri = '', duration_s
       },
     ],
     created_at: created_at.toISOString(),
+    post_id: null,
+    post_url: null,
+    published_at: null,
     title: build_episode_title(created_at),
   });
 
@@ -297,6 +316,9 @@ export async function append_clip_to_episode(episode_id = '', recording_uri = ''
   const info = compose_episode_info({
     clip_meta,
     created_at: existing.created_at,
+    post_id: existing.post_id,
+    post_url: existing.post_url,
+    published_at: existing.published_at,
     title: existing.title,
   });
 
@@ -327,6 +349,9 @@ export async function update_episode_title(episode_id = '', title = '') {
   const info = compose_episode_info({
     clip_meta: existing.clip_meta,
     created_at: existing.created_at,
+    post_id: existing.post_id,
+    post_url: existing.post_url,
+    published_at: existing.published_at,
     title: trimmed_title,
   });
 
@@ -346,12 +371,51 @@ export async function replace_episode_clips(episode_id = '', clip_meta = []) {
   const info = compose_episode_info({
     clip_meta,
     created_at: existing ? existing.created_at : new Date().toISOString(),
+    post_id: existing?.post_id,
+    post_url: existing?.post_url,
+    published_at: existing?.published_at,
     title: existing ? existing.title : directory.name,
   });
 
   delete_exported_file(directory);
   write_episode_info(directory, info);
   prune_orphan_clips(directory, info.clips);
+
+  return to_episode_snapshot(info, directory, directory.name);
+}
+
+export async function mark_episode_published(
+  episode_id = '',
+  { post_id = '', post_url = '' } = {},
+) {
+  const directory = get_episode_directory(episode_id);
+  const trimmed_post_id = `${post_id || ''}`.trim();
+  const trimmed_post_url = `${post_url || ''}`.trim();
+
+  if (!directory) {
+    throw new Error('That episode is no longer available.');
+  }
+
+  if (!trimmed_post_id && !trimmed_post_url) {
+    throw new Error('A published post id or URL is required.');
+  }
+
+  const existing = read_episode_from_directory(directory);
+
+  if (!existing) {
+    throw new Error('That episode could not be read.');
+  }
+
+  const info = compose_episode_info({
+    clip_meta: existing.clip_meta,
+    created_at: existing.created_at,
+    post_id: trimmed_post_id || existing.post_id,
+    post_url: trimmed_post_url || existing.post_url,
+    published_at: new Date().toISOString(),
+    title: existing.title,
+  });
+
+  write_episode_info(directory, info);
 
   return to_episode_snapshot(info, directory, directory.name);
 }

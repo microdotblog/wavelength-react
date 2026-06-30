@@ -3,6 +3,7 @@ import { flow, types } from 'mobx-state-tree';
 import {
   create_episode_post,
   fetch_micropub_categories,
+  fetch_micropub_post_id,
   fetch_micropub_syndicate_targets,
   upload_episode_audio,
 } from '../api/Micropub';
@@ -17,6 +18,7 @@ import {
 } from '../lib/publish_editor';
 import Auth from './Auth';
 import Episodes from './Episodes';
+import Posts from './Posts';
 import Tokens from './Tokens';
 
 const SyndicateOption = types.model('SyndicateOption', {
@@ -235,6 +237,17 @@ const Publishing = types
 
         self.phase = 'done';
         self.last_post_url = post_url;
+
+        if (payload.status === 'published' && post_url) {
+          const post_id = yield fetch_micropub_post_id({
+            destination,
+            post_url,
+            token,
+          });
+
+          yield Episodes.mark_episode_published(episode_id, { post_id, post_url });
+          yield Posts.refresh();
+        }
 
         return post_url;
       } catch (error) {

@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -18,6 +19,7 @@ import PlaybackControlButton from '../components/PlaybackControlButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
 import { format_duration } from '../lib/format_duration';
+import { format_post_date } from '../lib/micropub_posts';
 import { use_episode_playback } from '../hooks/use_episode_playback';
 import { header_right_element, with_color_opacity } from '../theme/wavelengthTheme';
 
@@ -373,6 +375,17 @@ function EditScreen({ navigation, route, theme }) {
     playing: playback.playing,
     total_duration: total_seconds,
   });
+  const is_published = episode.is_published();
+  const published_label = format_post_date(episode.published_at || '');
+  const post_url = `${episode.post_url || ''}`.trim();
+
+  function open_published_post() {
+    if (!post_url) {
+      return;
+    }
+
+    Linking.openURL(post_url);
+  }
 
   return (
     <ScrollView
@@ -408,6 +421,53 @@ function EditScreen({ navigation, route, theme }) {
           </Text>
         </View>
       )}
+
+      {is_published ? (
+        <View
+          style={[
+            styles.publishedPanel,
+            {
+              backgroundColor: theme.colors.paper,
+              borderColor: theme.colors.line,
+            },
+          ]}
+        >
+          <View style={styles.publishedHeader}>
+            <View style={[styles.publishedBadge, { backgroundColor: theme.colors.accent_soft }]}>
+              <Text style={[styles.publishedBadgeLabel, { color: theme.colors.accent_strong }]}>
+                Published
+              </Text>
+            </View>
+            {published_label.length > 0 ? (
+              <Text style={[styles.publishedDate, { color: theme.colors.ink_soft }]}>
+                {published_label}
+              </Text>
+            ) : null}
+          </View>
+
+          {post_url.length > 0 ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={open_published_post}
+              style={({ pressed }) => [
+                styles.publishedLinkRow,
+                {
+                  backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.12 : 0.06),
+                  borderColor: theme.colors.line,
+                },
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={[styles.publishedLinkLabel, { color: theme.colors.accent_strong }]}>
+                View on Micro.blog
+              </Text>
+              <Text style={[styles.publishedLinkChevron, { color: theme.colors.accent_strong }]}>
+                ›
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       <View
         style={[
@@ -557,6 +617,61 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+  publishedBadge: {
+    borderCurve: 'continuous',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  publishedBadgeLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    lineHeight: 14,
+    textTransform: 'uppercase',
+  },
+  publishedDate: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 18,
+    textAlign: 'right',
+  },
+  publishedHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  publishedLinkChevron: {
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 26,
+  },
+  publishedLinkLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 19,
+  },
+  publishedLinkRow: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  publishedPanel: {
+    borderCurve: 'continuous',
+    borderRadius: 26,
+    borderWidth: 1,
+    gap: 12,
+    padding: 16,
   },
   renameInput: {
     fontSize: 24,
