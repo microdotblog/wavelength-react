@@ -9,10 +9,10 @@ import WebView from 'react-native-webview';
 
 import {
   build_webview_source_uri,
-  get_base_webview_path,
   is_signin_webview_path,
   is_webview_endpoint_url,
   normalise_theme,
+  resolve_webview_navigation,
   should_attempt_webview_recovery,
 } from '../lib/webview';
 import { tab_bar_bottom_inset, web_view_top_inset } from '../lib/webview_ui';
@@ -42,7 +42,12 @@ function WebViewErrorView({ error_name, theme }) {
   );
 }
 
-function HybridWebView({ endpoint, loading_text = 'Loading microcasts...', theme }) {
+function HybridWebView({
+  endpoint,
+  loading_text = 'Loading microcasts...',
+  show_actions = true,
+  theme,
+}) {
   const insets = useSafeAreaInsets();
   const header_height = useHeaderHeight();
   const web_view_ref = React.useRef(null);
@@ -62,6 +67,7 @@ function HybridWebView({ endpoint, loading_text = 'Loading microcasts...', theme
   const source_uri = build_webview_source_uri({
     did_load_one_or_more_webviews: WebViewStore.did_load_one_or_more_webviews,
     endpoint,
+    show_actions,
     theme: theme_name,
     token: Tokens.get_user_token(),
     web_url: MICRO_BLOG_WEB_URL,
@@ -171,19 +177,19 @@ function HybridWebView({ endpoint, loading_text = 'Loading microcasts...', theme
   };
 
   const on_should_start_load_with_request = event => {
-    const url = event.url;
-    const url_base_path = get_base_webview_path(url);
-    const endpoint_base_path = get_base_webview_path(endpoint);
+    const navigation = resolve_webview_navigation({
+      endpoint,
+      url: event.url,
+    });
 
-    if (url_base_path === 'hybrid/signin') {
+    if (navigation.action === 'allow') {
       return true;
     }
 
-    if (url_base_path === endpoint_base_path) {
-      return true;
+    if (navigation.open_url) {
+      open_external_url(navigation.open_url);
     }
 
-    open_external_url(url);
     return false;
   };
 

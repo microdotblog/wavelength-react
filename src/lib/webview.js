@@ -75,7 +75,7 @@ export function is_webview_endpoint_url({ endpoint = '', url = '' }) {
   return get_base_webview_path(endpoint) === get_base_webview_path(url);
 }
 
-export function build_webview_endpoint({ endpoint = '', theme = DEFAULT_THEME }) {
+export function build_webview_endpoint({ endpoint = '', show_actions = true, theme = DEFAULT_THEME }) {
   const hash_parts = `${endpoint}`.split('#');
   const path_and_query = hash_parts[0] ?? '';
   const hash = hash_parts.length > 1 ? `#${hash_parts.slice(1).join('#')}` : '';
@@ -87,7 +87,7 @@ export function build_webview_endpoint({ endpoint = '', theme = DEFAULT_THEME })
   params = set_query_param(params, 'theme', normalise_theme(theme));
 
   if (!hash) {
-    if (!has_query_param(params, 'show_actions')) {
+    if (show_actions && !has_query_param(params, 'show_actions')) {
       params.push(['show_actions', 'true']);
     }
 
@@ -104,22 +104,28 @@ export function build_webview_endpoint({ endpoint = '', theme = DEFAULT_THEME })
 export function build_webview_source_uri({
   did_load_one_or_more_webviews = false,
   endpoint = '',
+  show_actions = true,
   theme = DEFAULT_THEME,
   token = '',
   web_url = '',
 }) {
-  const prepared_endpoint = build_webview_endpoint({ endpoint, theme });
+  const prepared_endpoint = build_webview_endpoint({ endpoint, show_actions, theme });
 
   if (did_load_one_or_more_webviews) {
     return `${web_url}/${prepared_endpoint}`;
   }
 
-  const query_string = serialise_query_params([
+  const signin_params = [
     ['token', token],
     ['redirect_to', prepared_endpoint],
     ['theme', normalise_theme(theme)],
-    ['show_actions', 'true'],
-  ]);
+  ];
+
+  if (show_actions) {
+    signin_params.push(['show_actions', 'true']);
+  }
+
+  const query_string = serialise_query_params(signin_params);
 
   return `${web_url}/hybrid/signin?${query_string}`;
 }
@@ -134,4 +140,65 @@ export function should_attempt_webview_recovery({
   }
 
   return !is_signin_webview_path(url);
+}
+
+const decode_webview_tap_payload = (value = '') => {
+  try {
+    return decodeURI(value);
+  } catch {
+    return value;
+  }
+};
+
+export function resolve_webview_tap_url(url = '') {
+  const trimmed = `${url}`.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const scheme_match = trimmed.match(/^microblog:\/\/([^/?#]+)\/?(.*)$/i);
+
+  if (!scheme_match) {
+    return null;
+  }
+
+  const action = `${scheme_match[1]}`.toLowerCase();
+  const action_data = scheme_match[2] ?? '';
+
+  switch (action) {
+    case 'open':
+    case 'reply':
+      return action_data ? `https://micro.blog/${action_data}` : null;
+    case 'user':
+      return action_data ? `https://micro.blog/${action_data}` : null;
+    case 'photo':
+      return decode_webview_tap_payload(
+        trimmed.includes('://photo/') ? trimmed.split('://photo/')[1] : action_data,
+      );
+    case 'video':
+      return decode_webview_tap_payload(
+        trimmed.includes('://video/') ? trimmed.split('://video/')[1] : action_data,
+      );
+    default:
+      return null;
+  }
+}
+
+export function resolve_webview_navigation({ endpoint = '', url = '' }) {
+  if (is_signin_webview_path(url)) {
+    return { action: 'allow' };
+  }
+
+  if (is_webview_endpoint_url({ endpoint, url })) {
+    return { action: 'allow' };
+  }
+
+  const tap_url = resolve_webview_tap_url(url);
+
+  if (tap_url) {
+    return { action: 'block', open_url: tap_url };
+  }
+
+  return { action: 'block', open_url: url };
 }

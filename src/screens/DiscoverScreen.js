@@ -16,6 +16,7 @@ function DiscoverScreen({ theme }) {
         <HybridWebView
           endpoint={DISCOVER_PODCASTS_ENDPOINT}
           loading_text="Loading microcasts..."
+          show_actions={false}
           theme={theme}
         />
       ) : null}
