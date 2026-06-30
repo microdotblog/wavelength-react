@@ -8,14 +8,19 @@ import * as WebBrowser from 'expo-web-browser';
 import WebView from 'react-native-webview';
 
 import {
+  build_web_view_runtime_javascript,
   build_webview_source_uri,
+  hybrid_web_view_background_color,
   is_signin_webview_path,
   is_webview_endpoint_url,
   normalise_theme,
   resolve_webview_navigation,
   should_attempt_webview_recovery,
 } from '../lib/webview';
-import { tab_bar_bottom_inset, web_view_top_inset } from '../lib/webview_ui';
+import {
+  tab_bar_bottom_inset,
+  web_view_top_inset,
+} from '../lib/webview_ui';
 import Tokens from '../stores/Tokens';
 import WebViewStore from '../stores/WebView';
 import WebViewLoadingBanner from './WebViewLoadingBanner';
@@ -27,7 +32,7 @@ function WebViewErrorView({ error_name, theme }) {
     <View
       style={{
         alignItems: 'center',
-        backgroundColor: theme.colors.canvas,
+        backgroundColor: hybrid_web_view_background_color(theme),
         flex: 1,
         height: '100%',
         justifyContent: 'center',
@@ -62,6 +67,7 @@ function HybridWebView({
   });
 
   const theme_name = normalise_theme(theme.is_dark ? 'dark' : 'light');
+  const web_view_background_color = hybrid_web_view_background_color(theme);
   const web_view_key =
     Platform.OS === 'android' ? `${endpoint}:${WebViewStore.web_view_epoch}` : endpoint;
   const source_uri = build_webview_source_uri({
@@ -72,56 +78,39 @@ function HybridWebView({
     token: Tokens.get_user_token(),
     web_url: MICRO_BLOG_WEB_URL,
   });
-  const should_inject_web_view_padding = Platform.OS === 'ios' || Platform.OS === 'android';
   const web_view_bottom_padding = tab_bar_bottom_inset(insets.bottom);
   const web_view_top_padding = web_view_top_inset({
     header_height,
     top_safe_area_inset: insets.top,
   });
-  const web_view_css_properties_javascript = `
-    (() => {
-      const bottom_padding = '${web_view_bottom_padding}px'
-      const top_padding = '${web_view_top_padding}px'
-      const apply_webview_padding = () => {
-        document.documentElement.style.setProperty('--microblog-webview-bottom-padding', bottom_padding)
-        document.documentElement.style.setProperty('--microblog-webview-top-padding', top_padding)
-
-        if (document.body) {
-          document.body.style.setProperty('padding-bottom', 'var(--microblog-webview-bottom-padding)')
-          document.body.style.setProperty('padding-top', 'var(--microblog-webview-top-padding)')
-        }
-      }
-
-      apply_webview_padding()
-
-      if (!document.body) {
-        document.addEventListener('DOMContentLoaded', apply_webview_padding, { once: true })
-      }
-    })()
-    true
-  `;
+  const should_inject_web_view_runtime = Platform.OS === 'ios' || Platform.OS === 'android';
+  const web_view_runtime_javascript = should_inject_web_view_runtime
+    ? build_web_view_runtime_javascript({
+        bottom_padding: `${web_view_bottom_padding}px`,
+        is_dark: theme.is_dark,
+        top_padding: `${web_view_top_padding}px`,
+      })
+    : null;
   const web_view_injected_javascript =
     Platform.OS === 'ios'
       ? `
-    const meta = document.createElement('meta')
-    meta.setAttribute('content', 'width=width, initial-scale=1')
-    meta.setAttribute('name', 'viewport')
-    document.getElementsByTagName('head')[0].appendChild(meta)
-    ${web_view_css_properties_javascript}
+    const meta = document.createElement('meta');
+    meta.setAttribute('content', 'width=width, initial-scale=1');
+    meta.setAttribute('name', 'viewport');
+    document.getElementsByTagName('head')[0].appendChild(meta);
+    ${web_view_runtime_javascript}
   `
-      : should_inject_web_view_padding
-        ? web_view_css_properties_javascript
-        : null;
+      : web_view_runtime_javascript;
 
   React.useEffect(() => {
     has_attempted_recovery_ref.current = false;
   }, [endpoint]);
 
   React.useEffect(() => {
-    if (should_inject_web_view_padding) {
-      web_view_ref.current?.injectJavaScript(web_view_css_properties_javascript);
+    if (web_view_runtime_javascript) {
+      web_view_ref.current?.injectJavaScript(web_view_runtime_javascript);
     }
-  }, [should_inject_web_view_padding, web_view_css_properties_javascript]);
+  }, [web_view_runtime_javascript]);
 
   const loading_banner_top_offset =
     web_view_top_padding + (Platform.OS === 'ios' ? 12 : 8);
@@ -213,7 +202,7 @@ function HybridWebView({
           />
         }
         style={{
-          backgroundColor: theme.colors.canvas,
+          backgroundColor: web_view_background_color,
           flex: 1,
           height: '100%',
           width: '100%',
@@ -225,9 +214,7 @@ function HybridWebView({
           containerStyle={{ flex: 1 }}
           decelerationRate={0.998}
           injectedJavaScript={web_view_injected_javascript}
-          injectedJavaScriptBeforeContentLoaded={
-            should_inject_web_view_padding ? web_view_css_properties_javascript : null
-          }
+          injectedJavaScriptBeforeContentLoaded={web_view_runtime_javascript || null}
           nestedScrollEnabled
           onContentProcessDidTerminate={() => web_view_ref.current?.reload()}
           onError={event => {
@@ -241,50 +228,50 @@ function HybridWebView({
             const is_signin_url = is_signin_webview_path(url);
             const is_actual_endpoint = is_webview_endpoint_url({ endpoint, url });
 
-            set_state(prev_state => {
-              if (is_actual_endpoint && !is_signin_url) {
-                if (!has_set_did_load_ref.current && !WebViewStore.did_load_one_or_more_webviews) {
-                  WebViewStore.set_did_load_one_or_more_webviews();
-                  has_set_did_load_ref.current = true;
+            if (!is_actual_endpoint || is_signin_url) {
+              return;
+            }
+
+            if (!has_set_did_load_ref.current && !WebViewStore.did_load_one_or_more_webviews) {
+              WebViewStore.set_did_load_one_or_more_webviews();
+              has_set_did_load_ref.current = true;
+            }
+
+            has_attempted_recovery_ref.current = false;
+            const should_fade_in_after_load = state.is_initial_load && theme.is_dark;
+            set_state(prev_state => ({ ...prev_state, loading_progress: 1 }));
+
+            setTimeout(() => {
+              set_state(next_state => {
+                if (next_state.is_initial_load) {
+                  if (!theme.is_dark) {
+                    return {
+                      ...next_state,
+                      is_initial_load: false,
+                      is_loading: false,
+                      loading_progress: 1,
+                      opacity: 1,
+                    };
+                  }
+
+                  return { ...next_state, is_loading: false, loading_progress: 1 };
                 }
 
-                has_attempted_recovery_ref.current = false;
+                web_view_ref.current?.injectJavaScript('window.scrollTo({ top: 0, behavior: "smooth" })');
+                return { ...next_state, is_loading: false, loading_progress: 1 };
+              });
+            }, 300);
 
-                setTimeout(() => {
-                  set_state(next_state => {
-                    if (next_state.is_initial_load) {
-                      if (!theme.is_dark) {
-                        return {
-                          ...next_state,
-                          is_initial_load: false,
-                          is_loading: false,
-                          loading_progress: 1,
-                          opacity: 1,
-                        };
-                      }
-
-                      setTimeout(() => {
-                        set_state(prev => ({
-                          ...prev,
-                          is_initial_load: false,
-                          is_loading: false,
-                          opacity: 1,
-                        }));
-                      }, 200);
-
-                      return { ...next_state, is_loading: false, loading_progress: 1 };
-                    }
-
-                    web_view_ref.current?.injectJavaScript('window.scrollTo({ top: 0, behavior: "smooth" })');
-                    return { ...next_state, is_loading: false, loading_progress: 1 };
-                  });
-                }, 300);
-
-                return { ...prev_state, loading_progress: 1 };
-              }
-
-              return prev_state;
-            });
+            if (should_fade_in_after_load) {
+              setTimeout(() => {
+                set_state(prev_state => ({
+                  ...prev_state,
+                  is_initial_load: false,
+                  is_loading: false,
+                  opacity: 1,
+                }));
+              }, 500);
+            }
           }}
           onLoadProgress={event => {
             if (event?.nativeEvent && typeof event.nativeEvent.progress === 'number') {
@@ -317,11 +304,11 @@ function HybridWebView({
           renderError={(name, code, description) => (
             <WebViewErrorView error_name={description} theme={theme} />
           )}
-          renderLoading={() => <View style={{ backgroundColor: theme.colors.canvas, flex: 1 }} />}
+          renderLoading={() => <View style={{ backgroundColor: web_view_background_color, flex: 1 }} />}
           source={{ uri: source_uri }}
           startInLoadingState
           style={{
-            backgroundColor: theme.colors.canvas,
+            backgroundColor: web_view_background_color,
             flex: 1,
             opacity: state.opacity,
           }}

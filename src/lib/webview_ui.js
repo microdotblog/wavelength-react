@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 
 import { stack_screen_top_inset } from './screen_top_inset';
 import { is_liquid_glass } from '../theme/wavelengthTheme';
+
 const LIQUID_GLASS_WEBVIEW_TAB_BAR_PADDING = 56;
 const ANDROID_TAB_BAR_PADDING = 96;
 

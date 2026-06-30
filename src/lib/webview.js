@@ -1,5 +1,65 @@
 const DEFAULT_THEME = 'light';
 
+// Matches hybrid/_head.erb mobile dark mode background.
+export const HYBRID_DARK_BACKGROUND_COLOR = '#000000';
+
+export function hybrid_web_view_background_color(theme) {
+  if (theme?.is_dark) {
+    return HYBRID_DARK_BACKGROUND_COLOR;
+  }
+
+  return theme?.colors?.canvas ?? '#ffffff';
+}
+
+export function build_web_view_runtime_javascript({
+  bottom_padding = '0px',
+  is_dark = false,
+  top_padding = '0px',
+} = {}) {
+  const dark_mode_javascript = is_dark
+    ? `
+      const background_color = '${HYBRID_DARK_BACKGROUND_COLOR}'
+      const apply_dark_mode_background = () => {
+        document.documentElement.style.colorScheme = 'dark'
+        document.documentElement.style.setProperty('background-color', background_color, 'important')
+
+        if (document.body) {
+          document.body.style.setProperty('background-color', background_color, 'important')
+        }
+      }
+
+      apply_dark_mode_background()
+
+      if (!document.body) {
+        document.addEventListener('DOMContentLoaded', apply_dark_mode_background, { once: true })
+      }
+    `
+    : '';
+
+  return `
+    (() => {${dark_mode_javascript}
+      const bottom_padding = '${bottom_padding}'
+      const top_padding = '${top_padding}'
+      const apply_webview_padding = () => {
+        document.documentElement.style.setProperty('--microblog-webview-bottom-padding', bottom_padding)
+        document.documentElement.style.setProperty('--microblog-webview-top-padding', top_padding)
+
+        if (document.body) {
+          document.body.style.setProperty('padding-bottom', 'var(--microblog-webview-bottom-padding)')
+          document.body.style.setProperty('padding-top', 'var(--microblog-webview-top-padding)')
+        }
+      }
+
+      apply_webview_padding()
+
+      if (!document.body) {
+        document.addEventListener('DOMContentLoaded', apply_webview_padding, { once: true })
+      }
+    })();
+    true;
+  `;
+}
+
 export function normalise_theme(theme = null) {
   return theme === 'dark' ? 'dark' : DEFAULT_THEME;
 }

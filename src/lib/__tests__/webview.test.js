@@ -1,6 +1,9 @@
 const {
   build_webview_endpoint,
   build_webview_source_uri,
+  build_web_view_runtime_javascript,
+  HYBRID_DARK_BACKGROUND_COLOR,
+  hybrid_web_view_background_color,
   resolve_webview_navigation,
   resolve_webview_tap_url,
 } = require('../webview');
@@ -33,6 +36,49 @@ describe('build_webview_source_uri', () => {
     })).toBe(
       'https://micro.blog/hybrid/signin?token=abc123&redirect_to=hybrid%2Fdiscover%2Fpodcasts%3Ftheme%3Dlight%26fontsize%3D17&theme=light',
     );
+  });
+});
+
+describe('hybrid_web_view_background_color', () => {
+  test('uses the hybrid dark background in dark mode', () => {
+    expect(hybrid_web_view_background_color({
+      is_dark: true,
+      colors: { canvas: '#15100b' },
+    })).toBe(HYBRID_DARK_BACKGROUND_COLOR);
+  });
+
+  test('uses the app canvas in light mode', () => {
+    expect(hybrid_web_view_background_color({
+      is_dark: false,
+      colors: { canvas: '#fffaf0' },
+    })).toBe('#fffaf0');
+  });
+});
+
+describe('build_web_view_runtime_javascript', () => {
+  test('includes padding adjustments in a single injected script', () => {
+    expect(build_web_view_runtime_javascript({
+      bottom_padding: '90px',
+      top_padding: '122px',
+    })).toContain('--microblog-webview-bottom-padding');
+    expect(build_web_view_runtime_javascript({
+      bottom_padding: '90px',
+      top_padding: '122px',
+    })).toMatch(/\(\(\) => \{[\s\S]*\}\)\(\);\s*true;/);
+  });
+
+  test('forces the hybrid dark background in dark mode', () => {
+    const javascript = build_web_view_runtime_javascript({
+      bottom_padding: '90px',
+      is_dark: true,
+      top_padding: '122px',
+    });
+
+    expect(javascript).toContain(
+      "document.body.style.setProperty('background-color', background_color, 'important')",
+    );
+    expect(javascript).toContain("background_color = '#000000'");
+    expect(javascript).not.toMatch(/true\s*\(\(\)/);
   });
 });
 
