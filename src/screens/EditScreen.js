@@ -46,31 +46,6 @@ function merge_published_post_details({ cached_post = null, post_id = '', source
   };
 }
 
-function PublishedPostActionRow({ accessibility_label, label, onPress, theme }) {
-  return (
-    <Pressable
-      accessibilityLabel={accessibility_label}
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.publishedLinkRow,
-        {
-          backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.12 : 0.06),
-          borderColor: theme.colors.line,
-        },
-        pressed ? styles.pressed : null,
-      ]}
-    >
-      <Text style={[styles.publishedLinkLabel, { color: theme.colors.accent_strong }]}>
-        {label}
-      </Text>
-      <Text style={[styles.publishedLinkChevron, { color: theme.colors.accent_strong }]}>
-        ›
-      </Text>
-    </Pressable>
-  );
-}
-
 function build_ios_episode_header_items({
   is_editing_title,
   is_published,
@@ -623,71 +598,111 @@ function EditScreen({ navigation, route, theme }) {
             {segment_count_label}
             {' · '}
             {total_label}
+            {is_published ? (
+              <>
+                {' · '}
+                {published_label.length > 0 ? published_label : 'Published'}
+              </>
+            ) : null}
           </Text>
         </View>
       )}
 
       {is_published ? (
-        <View
-          style={[
-            styles.publishedPanel,
-            {
-              backgroundColor: theme.colors.paper,
-              borderColor: theme.colors.line,
-            },
-          ]}
-        >
-          <View style={styles.publishedHeader}>
-            <View style={[styles.publishedBadge, { backgroundColor: theme.colors.accent_soft }]}>
-              <Text style={[styles.publishedBadgeLabel, { color: theme.colors.accent_strong }]}>
-                Published
-              </Text>
-            </View>
-            {published_label.length > 0 ? (
-              <Text style={[styles.publishedDate, { color: theme.colors.ink_soft }]}>
-                {published_label}
-              </Text>
-            ) : null}
-          </View>
+        <View style={styles.publishedSection}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.ink }]}>
+            On Micro.blog
+          </Text>
 
-          {published_post_details.is_loading ? (
-            <View style={styles.publishedLoadingRow}>
-              <ActivityIndicator color={theme.colors.accent} size="small" />
-              <Text style={[styles.publishedLoadingLabel, { color: theme.colors.ink_soft }]}>
-                Loading post details…
-              </Text>
-            </View>
+          {post_url.length > 0 ? (
+            <Pressable
+              accessibilityLabel="View published post on Micro.blog"
+              accessibilityRole="button"
+              onPress={open_published_post}
+              style={({ pressed }) => [
+                styles.publishedPostCard,
+                {
+                  backgroundColor: theme.colors.paper,
+                  borderColor: theme.colors.line,
+                },
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              {published_post_details.is_loading ? (
+                <View style={styles.publishedLoadingRow}>
+                  <ActivityIndicator color={theme.colors.accent} size="small" />
+                  <Text style={[styles.publishedLoadingLabel, { color: theme.colors.ink_soft }]}>
+                    Loading post…
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.publishedPostCopy}>
+                    <Text numberOfLines={1} style={[styles.publishedPostTitle, { color: theme.colors.ink }]}>
+                      {published_post_title}
+                    </Text>
+                    {published_post_summary.length > 0 ? (
+                      <Text
+                        numberOfLines={2}
+                        style={[styles.publishedPostSummary, { color: theme.colors.ink_soft }]}
+                      >
+                        {published_post_summary}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.publishedPostChevron, { color: theme.colors.ink_soft }]}>
+                    ›
+                  </Text>
+                </>
+              )}
+            </Pressable>
           ) : (
-            <View style={styles.publishedCopy}>
-              <Text style={[styles.publishedPostTitle, { color: theme.colors.ink }]}>
-                {published_post_title}
-              </Text>
-              {published_post_summary.length > 0 ? (
-                <Text style={[styles.publishedPostSummary, { color: theme.colors.ink_soft }]}>
-                  {published_post_summary}
-                </Text>
-              ) : null}
+            <View
+              style={[
+                styles.publishedPostCard,
+                {
+                  backgroundColor: theme.colors.paper,
+                  borderColor: theme.colors.line,
+                },
+              ]}
+            >
+              {published_post_details.is_loading ? (
+                <View style={styles.publishedLoadingRow}>
+                  <ActivityIndicator color={theme.colors.accent} size="small" />
+                  <Text style={[styles.publishedLoadingLabel, { color: theme.colors.ink_soft }]}>
+                    Loading post…
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.publishedPostCopy}>
+                  <Text numberOfLines={1} style={[styles.publishedPostTitle, { color: theme.colors.ink }]}>
+                    {published_post_title}
+                  </Text>
+                  {published_post_summary.length > 0 ? (
+                    <Text
+                      numberOfLines={2}
+                      style={[styles.publishedPostSummary, { color: theme.colors.ink_soft }]}
+                    >
+                      {published_post_summary}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
             </View>
           )}
 
-          <View style={styles.publishedActions}>
-            {post_url.length > 0 ? (
-              <PublishedPostActionRow
-                accessibility_label="View published post on Micro.blog"
-                label="View on Micro.blog"
-                onPress={open_published_post}
-                theme={theme}
-              />
-            ) : null}
-            {published_post_uid.length > 0 ? (
-              <PublishedPostActionRow
-                accessibility_label="Edit published post"
-                label="Edit post"
-                onPress={open_post_edit}
-                theme={theme}
-              />
-            ) : null}
-          </View>
+          {published_post_uid.length > 0 ? (
+            <Pressable
+              accessibilityLabel="Edit published post"
+              accessibilityRole="button"
+              onPress={open_post_edit}
+              style={({ pressed }) => [styles.publishedSecondaryAction, pressed ? styles.pressed : null]}
+            >
+              <Text style={[styles.publishedSecondaryActionLabel, { color: theme.colors.accent_strong }]}>
+                Edit post
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -757,17 +772,16 @@ function EditScreen({ navigation, route, theme }) {
             disabled={is_duplicating_episode}
             onPress={duplicate_episode}
             style={({ pressed }) => [
-              styles.addSegmentRow,
+              styles.secondarySegmentRow,
               {
-                backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.14 : 0.08),
+                backgroundColor: theme.colors.glass,
                 borderTopColor: theme.colors.line,
               },
               pressed && !is_duplicating_episode ? styles.pressed : null,
               is_duplicating_episode ? styles.disabledRow : null,
             ]}
           >
-            <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
-            <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
+            <Text style={[styles.secondarySegmentLabel, { color: theme.colors.ink_soft }]}>
               {is_duplicating_episode ? 'Duplicating…' : 'Duplicate to edit'}
             </Text>
           </Pressable>
@@ -878,38 +892,6 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
-  publishedBadge: {
-    borderCurve: 'continuous',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  publishedBadgeLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-    lineHeight: 14,
-    textTransform: 'uppercase',
-  },
-  publishedDate: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 18,
-    textAlign: 'right',
-  },
-  publishedHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-  },
-  publishedActions: {
-    gap: 8,
-  },
-  publishedCopy: {
-    gap: 6,
-  },
   publishedLoadingLabel: {
     fontSize: 14,
     fontWeight: '600',
@@ -919,45 +901,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
+    width: '100%',
+  },
+  publishedPostCard: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 68,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  publishedPostChevron: {
+    fontSize: 24,
+    fontWeight: '600',
+    lineHeight: 28,
+  },
+  publishedPostCopy: {
+    flex: 1,
+    gap: 4,
   },
   publishedPostSummary: {
-    fontSize: 15,
-    fontWeight: '500',
-    lineHeight: 21,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 19,
   },
   publishedPostTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    lineHeight: 24,
+    lineHeight: 22,
   },
-  publishedLinkChevron: {
-    fontSize: 22,
-    fontWeight: '600',
-    lineHeight: 26,
+  publishedSecondaryAction: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 2,
+    paddingVertical: 2,
   },
-  publishedLinkLabel: {
-    flex: 1,
+  publishedSecondaryActionLabel: {
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 19,
   },
-  publishedLinkRow: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    minHeight: 48,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  publishedPanel: {
-    borderCurve: 'continuous',
-    borderRadius: 26,
-    borderWidth: 1,
-    gap: 12,
-    padding: 16,
+  publishedSection: {
+    gap: 10,
   },
   renameInput: {
     fontSize: 24,
@@ -968,6 +955,25 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
+  },
+  secondarySegmentLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 19,
+  },
+  secondarySegmentRow: {
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 19,
+    paddingHorizontal: 4,
   },
   segmentsPanel: {
     borderCurve: 'continuous',

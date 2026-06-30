@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -8,7 +9,18 @@ import {
   View,
 } from 'react-native';
 
-function DeleteOptionRow({
+import { with_color_opacity } from '../theme/wavelengthTheme';
+
+const DESTRUCTIVE_COLOR = '#ef4444';
+
+function confirm_delete({ message, on_confirm, title }) {
+  Alert.alert(title, message, [
+    { style: 'cancel', text: 'Cancel' },
+    { onPress: on_confirm, style: 'destructive', text: 'Delete' },
+  ]);
+}
+
+function DeleteOptionButton({
   detail = '',
   disabled = false,
   is_busy = false,
@@ -23,9 +35,14 @@ function DeleteOptionRow({
       disabled={disabled || is_busy}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.optionRow,
+        styles.optionButton,
         {
-          borderColor: theme.colors.line,
+          backgroundColor: is_destructive
+            ? with_color_opacity(DESTRUCTIVE_COLOR, theme.is_dark ? 0.14 : 0.08)
+            : theme.colors.glass,
+          borderColor: is_destructive
+            ? with_color_opacity(DESTRUCTIVE_COLOR, theme.is_dark ? 0.42 : 0.28)
+            : theme.colors.line,
           opacity: disabled || is_busy ? 0.5 : 1,
         },
         pressed && !disabled && !is_busy ? styles.pressed : null,
@@ -35,7 +52,7 @@ function DeleteOptionRow({
         <Text
           style={[
             styles.optionLabel,
-            { color: is_destructive ? '#ef4444' : theme.colors.ink },
+            { color: is_destructive ? DESTRUCTIVE_COLOR : theme.colors.ink },
           ]}
         >
           {label}
@@ -47,7 +64,10 @@ function DeleteOptionRow({
         ) : null}
       </View>
       {is_busy ? (
-        <ActivityIndicator color={is_destructive ? '#ef4444' : theme.colors.accent} size="small" />
+        <ActivityIndicator
+          color={is_destructive ? DESTRUCTIVE_COLOR : theme.colors.accent}
+          size="small"
+        />
       ) : null}
     </Pressable>
   );
@@ -64,6 +84,32 @@ function DeleteEpisodeModal({
   visible = false,
 }) {
   const trimmed_title = `${episode_title || ''}`.trim() || 'This episode';
+
+  function request_delete_device_only() {
+    if (is_busy) {
+      return;
+    }
+
+    confirm_delete({
+      message: has_published_post
+        ? `"${trimmed_title}" will be removed from this device. Your Micro.blog post will stay published.`
+        : `"${trimmed_title}" will be permanently removed from this device.`,
+      on_confirm: on_delete_device_only,
+      title: has_published_post ? 'Delete from device?' : 'Delete episode?',
+    });
+  }
+
+  function request_delete_everywhere() {
+    if (is_busy) {
+      return;
+    }
+
+    confirm_delete({
+      message: `"${trimmed_title}" and its Micro.blog post will be permanently removed.`,
+      on_confirm: on_delete_device_and_post,
+      title: 'Delete everywhere?',
+    });
+  }
 
   return (
     <Modal
@@ -96,68 +142,54 @@ function DeleteEpisodeModal({
             </Text>
             <Text style={[styles.body, { color: theme.colors.ink_soft }]}>
               {has_published_post
-                ? `"${trimmed_title}" will be removed from this device. You can also delete its published post on Micro.blog.`
+                ? `"${trimmed_title}" will be removed from this device.`
                 : `"${trimmed_title}" will be permanently removed from this device.`}
             </Text>
           </View>
 
-          <View
-            style={[
-              styles.optionsPanel,
-              {
-                backgroundColor: theme.colors.paper_alt,
-                borderColor: theme.colors.line,
-              },
-            ]}
-          >
+          <View style={styles.actions}>
             {has_published_post ? (
               <>
-                <DeleteOptionRow
-                  detail="Keep the post on Micro.blog"
+                <DeleteOptionButton
+                  detail="Keeps the post on Micro.blog"
                   is_busy={is_busy}
-                  label="Delete from device only"
-                  onPress={on_delete_device_only}
+                  label="On device only"
+                  onPress={request_delete_device_only}
                   theme={theme}
                 />
-                <View style={[styles.optionDivider, { backgroundColor: theme.colors.line }]} />
-                <DeleteOptionRow
-                  detail="Remove the post from your blog too"
+                <DeleteOptionButton
+                  detail="Also removes the post from your blog"
                   is_busy={is_busy}
                   is_destructive
-                  label="Delete from device and Micro.blog"
-                  onPress={on_delete_device_and_post}
+                  label="Everywhere"
+                  onPress={request_delete_everywhere}
                   theme={theme}
                 />
               </>
             ) : (
-              <DeleteOptionRow
+              <DeleteOptionButton
                 is_busy={is_busy}
                 is_destructive
-                label="Delete from device"
-                onPress={on_delete_device_only}
+                label="Delete episode"
+                onPress={request_delete_device_only}
                 theme={theme}
               />
             )}
-          </View>
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={is_busy}
-            onPress={on_cancel}
-            style={({ pressed }) => [
-              styles.cancelButton,
-              {
-                backgroundColor: theme.colors.glass,
-                borderColor: theme.colors.line,
-                opacity: is_busy ? 0.5 : 1,
-              },
-              pressed && !is_busy ? styles.pressed : null,
-            ]}
-          >
-            <Text style={[styles.cancelLabel, { color: theme.colors.ink }]}>
-              Cancel
-            </Text>
-          </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={is_busy}
+              onPress={on_cancel}
+              style={({ pressed }) => [
+                styles.cancelAction,
+                pressed && !is_busy ? styles.pressed : null,
+              ]}
+            >
+              <Text style={[styles.cancelLabel, { color: theme.colors.ink_soft }]}>
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
@@ -165,6 +197,9 @@ function DeleteEpisodeModal({
 }
 
 const styles = StyleSheet.create({
+  actions: {
+    gap: 10,
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -173,17 +208,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 22,
   },
-  cancelButton: {
+  cancelAction: {
     alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 16,
-    borderWidth: 1,
     justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 16,
+    minHeight: 34,
+    paddingTop: 4,
   },
   cancelLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     lineHeight: 20,
   },
@@ -199,38 +231,34 @@ const styles = StyleSheet.create({
   header: {
     gap: 8,
   },
+  optionButton: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   optionCopy: {
+    alignItems: 'center',
     flex: 1,
-    gap: 3,
-    paddingRight: 12,
+    gap: 2,
   },
   optionDetail: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    lineHeight: 19,
-  },
-  optionDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: 14,
+    lineHeight: 17,
+    textAlign: 'center',
   },
   optionLabel: {
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 21,
-  },
-  optionRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    minHeight: 58,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  optionsPanel: {
-    borderCurve: 'continuous',
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: 'hidden',
+    textAlign: 'center',
   },
   overlay: {
     alignItems: 'center',
