@@ -129,25 +129,17 @@ function PostsScreen({ navigation, theme }) {
     );
   }
 
-  if (posts.length === 0) {
-    return (
-      <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
-        {Posts.error_message ? (
-          <Text style={[styles.error, { color: theme.colors.ink_soft }]}>
-            {Posts.error_message}
-          </Text>
-        ) : null}
-        {render_empty_state()}
-      </View>
-    );
-  }
-
   return (
     <FlatList
-      contentContainerStyle={styles.content}
+      contentContainerStyle={
+        posts.length === 0
+          ? [styles.content, styles.emptyContent]
+          : styles.content
+      }
       contentInsetAdjustmentBehavior="automatic"
       data={posts}
       keyExtractor={item => item.uid}
+      ListEmptyComponent={render_empty_state}
       ListHeaderComponent={
         Posts.error_message ? (
           <Text style={[styles.error, { color: theme.colors.ink_soft }]}>
@@ -190,8 +182,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     gap: 8,
-    marginHorizontal: 20,
-    marginTop: 18,
     padding: 18,
   },
   content: {
@@ -199,6 +189,9 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     paddingHorizontal: 20,
     paddingTop: 18,
+  },
+  emptyContent: {
+    flexGrow: 1,
   },
   emptyState: {
     alignItems: 'center',
