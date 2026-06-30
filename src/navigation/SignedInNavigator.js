@@ -46,7 +46,8 @@ function SignedInNavigator({ theme }) {
       <Stack.Screen
         name="Account"
         options={({ navigation }) => ({
-          title: 'Account',
+          title: 'Settings',
+          headerLargeTitle: false,
           ...header_left_element(() => (
             <HeaderPillButton
               label="Done"
