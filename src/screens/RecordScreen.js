@@ -302,6 +302,7 @@ function RecordScreen({ navigation, route, theme }) {
         </View>
 
         <RecordingWaveform
+          attention={recording_phase === 'idle'}
           is_recording={is_active_recording}
           levels={waveform_levels}
           theme={theme}

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { normalize_metering } from '../lib/normalize_metering';
 
 export const BAR_COUNT = 48;
-const IDLE_LEVEL = 0.08;
+export const IDLE_LEVEL = 0.08;
 const TICK_MS = 60;
 const SAMPLE_SMOOTHING = 0.4;
 const IDLE_DECAY = 0.18;
