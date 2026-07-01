@@ -39,6 +39,10 @@ const Discover = types
     },
 
     refresh: flow(function* () {
+      if (self.is_loading) {
+        return;
+      }
+
       self.is_loading = true;
       self.error_message = null;
       self.has_more = true;

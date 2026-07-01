@@ -3,6 +3,7 @@ import { Alert, FlatList, Linking, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
+import Discover from '../stores/Discover';
 import Episodes from '../stores/Episodes';
 import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import EpisodeRow from '../components/EpisodeRow';
@@ -20,6 +21,10 @@ function RecordingsScreen({ navigation, theme }) {
   useFocusEffect(
     React.useCallback(() => {
       Episodes.refresh();
+
+      if (!Discover.did_hydrate) {
+        Discover.refresh();
+      }
     }, []),
   );
 

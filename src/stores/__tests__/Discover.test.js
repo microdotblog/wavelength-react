@@ -52,6 +52,25 @@ describe('Discover store', () => {
     expect(Discover.posts[0].author_avatar).toBe('https://cdn.micro.blog/avatar.jpg');
   });
 
+  test('refresh skips duplicate in-flight requests', async () => {
+    let resolve_fetch;
+
+    fetch_discover_posts.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolve_fetch = resolve;
+        }),
+    );
+
+    const first_refresh = Discover.refresh();
+    const second_refresh = Discover.refresh();
+
+    expect(fetch_discover_posts).toHaveBeenCalledTimes(1);
+
+    resolve_fetch({ items: [] });
+    await Promise.all([first_refresh, second_refresh]);
+  });
+
   test('load_more requests older posts using before_id', async () => {
     fetch_discover_posts.mockResolvedValueOnce({
       items: Array.from({ length: 40 }, (_, index) => ({
