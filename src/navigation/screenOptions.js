@@ -18,7 +18,7 @@ export function build_stack_screen_options(theme) {
     headerLargeTitleShadowVisible: false,
     headerShadowVisible: false,
     headerStyle: {
-      backgroundColor: Platform.OS === 'ios' ? 'transparent' : theme.colors.paper,
+      backgroundColor: Platform.OS === 'ios' ? 'transparent' : theme.colors.canvas,
     },
     headerTintColor: theme.colors.ink,
     headerTitleStyle: {

@@ -56,7 +56,13 @@ function TabNavigator({ theme }) {
       screenOptions={{
         tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.ink_soft,
-        ...(Platform.OS === 'ios' ? { tabBarMinimizeBehavior: 'onScrollDown' } : null),
+        ...(Platform.OS === 'ios'
+          ? { tabBarMinimizeBehavior: 'onScrollDown' }
+          : {
+              tabBarStyle: {
+                backgroundColor: theme.colors.canvas,
+              },
+            }),
       }}
     >
       <Tab.Screen
