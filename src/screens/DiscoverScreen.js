@@ -29,9 +29,12 @@ function DiscoverScreen({ theme }) {
   const should_play = Boolean(active_post);
 
   const playback = use_discover_playback({
+    artist_name: active_post?.author_name || '',
+    artwork_url: active_post?.author_avatar || '',
     audio_url: active_post?.audio_url || '',
     duration_seconds: active_post?.duration_seconds || 0,
     should_play,
+    title: active_post?.title || '',
   });
 
   useFocusEffect(

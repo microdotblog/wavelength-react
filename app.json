@@ -47,7 +47,7 @@
         {
           "microphonePermission": "Allow Wavelength to record microcasts.",
           "enableBackgroundRecording": false,
-          "enableBackgroundPlayback": false
+          "enableBackgroundPlayback": true
         }
       ],
       [
