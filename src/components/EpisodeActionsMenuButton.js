@@ -1,6 +1,7 @@
 import React from 'react';
 import { MenuView } from '@react-native-menu/menu';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
+import { SFSymbol } from 'react-native-sfsymbols';
 
 import { is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
@@ -39,6 +40,28 @@ function EpisodeActionsMenuButton({ is_published = false, on_delete, on_duplicat
     title: 'Delete Episode',
   });
 
+  function render_trigger_icon() {
+    if (Platform.OS === 'android') {
+      const { MaterialIcons } = require('@expo/vector-icons');
+
+      return (
+        <MaterialIcons
+          color={theme.colors.ink}
+          name="more-vert"
+          size={24}
+        />
+      );
+    }
+
+    return (
+      <SFSymbol
+        color={theme.colors.accent_strong}
+        name="ellipsis"
+        style={styles.iosIcon}
+      />
+    );
+  }
+
   return (
     <MenuView
       accessibilityLabel="Episode actions"
@@ -50,27 +73,37 @@ function EpisodeActionsMenuButton({ is_published = false, on_delete, on_duplicat
         accessibilityLabel="Episode actions"
         accessibilityRole="button"
         style={({ pressed }) => [
-          styles.trigger,
-          {
-            backgroundColor: should_use_liquid_glass
-              ? 'transparent'
-              : with_color_opacity(theme.colors.paper, theme.is_dark ? 0.72 : 0.84),
-            borderColor: should_use_liquid_glass ? 'transparent' : theme.colors.line,
-          },
+          Platform.OS === 'android' ? styles.androidTrigger : styles.iosTrigger,
+          Platform.OS === 'ios'
+            ? {
+                backgroundColor: should_use_liquid_glass
+                  ? 'transparent'
+                  : with_color_opacity(theme.colors.paper, theme.is_dark ? 0.72 : 0.84),
+                borderColor: should_use_liquid_glass ? 'transparent' : theme.colors.line,
+              }
+            : null,
           pressed ? styles.pressed : null,
         ]}
       >
-        <Text style={[styles.triggerGlyph, { color: theme.colors.accent_strong }]}>⋮</Text>
+        {render_trigger_icon()}
       </Pressable>
     </MenuView>
   );
 }
 
 const styles = StyleSheet.create({
-  pressed: {
-    opacity: 0.68,
+  androidTrigger: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    minWidth: 40,
+    paddingHorizontal: 4,
   },
-  trigger: {
+  iosIcon: {
+    height: 18,
+    width: 22,
+  },
+  iosTrigger: {
     alignItems: 'center',
     borderCurve: 'continuous',
     borderRadius: 16,
@@ -80,10 +113,8 @@ const styles = StyleSheet.create({
     minWidth: 32,
     paddingHorizontal: 8,
   },
-  triggerGlyph: {
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 22,
+  pressed: {
+    opacity: 0.68,
   },
 });
 

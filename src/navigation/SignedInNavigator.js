@@ -52,6 +52,7 @@ function SignedInNavigator({ theme }) {
             <HeaderPillButton
               label="Done"
               onPress={() => navigation.goBack()}
+              placement="leading"
               theme={theme}
             />
           )),
@@ -73,6 +74,7 @@ function SignedInNavigator({ theme }) {
             <HeaderPillButton
               label="Done"
               onPress={() => navigation.goBack()}
+              placement="leading"
               theme={theme}
             />
           )),
@@ -95,6 +97,7 @@ function SignedInNavigator({ theme }) {
             <HeaderPillButton
               label="Done"
               onPress={() => navigation.goBack()}
+              placement="leading"
               theme={theme}
             />
           )),
@@ -117,6 +120,7 @@ function SignedInNavigator({ theme }) {
             <HeaderPillButton
               label="Done"
               onPress={() => navigation.goBack()}
+              placement="leading"
               theme={theme}
             />
           )),
@@ -138,6 +142,7 @@ function SignedInNavigator({ theme }) {
             <HeaderPillButton
               label="Cancel"
               onPress={() => navigation.goBack()}
+              placement="leading"
               theme={theme}
             />
           )),
@@ -159,6 +164,7 @@ function SignedInNavigator({ theme }) {
             <HeaderPillButton
               label="Cancel"
               onPress={() => navigation.goBack()}
+              placement="leading"
               theme={theme}
             />
           )),
@@ -180,6 +186,7 @@ function SignedInNavigator({ theme }) {
             <HeaderPillButton
               label="Done"
               onPress={() => navigation.goBack()}
+              placement="leading"
               theme={theme}
             />
           )),

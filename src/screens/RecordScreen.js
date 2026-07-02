@@ -97,6 +97,7 @@ function RecordScreen({ navigation, route, theme }) {
         <HeaderPillButton
           label="Done"
           onPress={() => done_handler_ref.current?.()}
+          placement="leading"
           theme={theme}
         />
       )),
