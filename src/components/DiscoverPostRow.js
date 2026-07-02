@@ -2,7 +2,9 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
+import PlatformSymbol from './PlatformSymbol';
 import { resolve_discover_avatar_url } from '../lib/discover_posts';
+import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const FEED_AVATAR_SIZE = 26;
 const FEED_AVATAR_TRANSITION_MS = 180;
@@ -65,6 +67,8 @@ export default function DiscoverPostRow({
   accessibility_label = '',
   avatar_url = '',
   display_title = '',
+  is_active = false,
+  is_playable = false,
   onPress,
   secondary_source_label = '',
   source_label = 'Micro.blog',
@@ -72,6 +76,13 @@ export default function DiscoverPostRow({
   theme,
   timestamp = '',
 }) {
+  const border_color = is_active
+    ? theme.colors.accent
+    : theme.colors.line;
+  const background_color = is_active
+    ? with_color_opacity(theme.colors.accent, theme.is_dark ? 0.12 : 0.08)
+    : theme.colors.paper;
+
   return (
     <Pressable
       accessibilityLabel={accessibility_label || display_title}
@@ -81,8 +92,8 @@ export default function DiscoverPostRow({
         return [
           styles.rowCard,
           {
-            backgroundColor: theme.colors.paper,
-            borderColor: theme.colors.line,
+            backgroundColor: background_color,
+            borderColor: border_color,
             opacity: pressed ? 0.92 : 1,
           },
         ];
@@ -95,15 +106,33 @@ export default function DiscoverPostRow({
           theme={theme}
         />
         <View style={styles.rowContent}>
-          <Text
-            numberOfLines={2}
-            style={[
-              styles.rowTitle,
-              { color: theme.colors.ink },
-            ]}
-          >
-            {display_title}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text
+              numberOfLines={2}
+              style={[
+                styles.rowTitle,
+                { color: theme.colors.ink },
+              ]}
+            >
+              {display_title}
+            </Text>
+            {is_playable ? (
+              <View
+                style={[
+                  styles.playableBadge,
+                  {
+                    backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.2 : 0.12),
+                  },
+                ]}
+              >
+                <PlatformSymbol
+                  color={theme.colors.accent}
+                  name="waveform"
+                  size={12}
+                />
+              </View>
+            ) : null}
+          </View>
           {summary ? (
             <Text
               numberOfLines={3}
@@ -173,14 +202,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 15,
   },
+  playableBadge: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 12,
+    flexShrink: 0,
+    height: 24,
+    justifyContent: 'center',
+    width: 24,
+  },
   rowContent: {
     flex: 1,
     gap: 8,
   },
   rowTitle: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 22,
+  },
+  titleRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 8,
   },
   rowSummary: {
     fontSize: 15,

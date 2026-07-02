@@ -42,4 +42,8 @@ export const TOOLBAR_SYMBOLS = {
     ios: 'waveform',
     multicolor: true,
   },
+  xmark: {
+    android_label: '×',
+    ios: 'xmark',
+  },
 };

@@ -52,6 +52,34 @@ describe('Discover store', () => {
     expect(Discover.posts[0].author_avatar).toBe('https://cdn.micro.blog/avatar.jpg');
   });
 
+  test('play_post selects playable posts and ignores missing audio', () => {
+    applySnapshot(Discover, {
+      posts: [
+        {
+          audio_url: 'https://micro.blog/audio.m4a',
+          id: '12345',
+          url: 'https://micro.blog/12345',
+        },
+        {
+          audio_url: '',
+          id: '67890',
+          url: 'https://micro.blog/67890',
+        },
+      ],
+      topic: 'podcasts',
+    });
+
+    Discover.play_post('67890');
+    expect(Discover.active_post_id).toBeNull();
+
+    Discover.play_post('12345');
+    expect(Discover.active_post_id).toBe('12345');
+    expect(Discover.active_post()?.audio_url).toBe('https://micro.blog/audio.m4a');
+
+    Discover.clear_playback();
+    expect(Discover.active_post_id).toBeNull();
+  });
+
   test('refresh skips duplicate in-flight requests', async () => {
     let resolve_fetch;
 

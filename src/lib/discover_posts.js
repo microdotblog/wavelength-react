@@ -156,6 +156,32 @@ export function resolve_discover_post_content(post = null) {
   };
 }
 
+function normalize_discover_audio(item = null) {
+  const audio = item?._microblog?.audio;
+
+  if (!audio || typeof audio !== 'object') {
+    return {
+      audio_url: '',
+      duration_display: '',
+      duration_seconds: 0,
+    };
+  }
+
+  const duration_seconds = Number.parseInt(`${audio.duration_seconds ?? ''}`, 10);
+
+  return {
+    audio_url: `${audio.url || ''}`.trim(),
+    duration_display: `${audio.duration_display || ''}`.trim(),
+    duration_seconds: Number.isFinite(duration_seconds) && duration_seconds > 0
+      ? duration_seconds
+      : 0,
+  };
+}
+
+export function is_playable_discover_post(post = null) {
+  return `${post?.audio_url || ''}`.trim().length > 0;
+}
+
 function normalize_discover_post_item(item = null) {
   const id = `${item?.id || ''}`.trim();
   const url = `${item?.url || ''}`.trim();
@@ -166,14 +192,19 @@ function normalize_discover_post_item(item = null) {
 
   const content_html = `${item?.content_html || ''}`.trim();
   const title = extract_discover_title(content_html);
+  const audio = normalize_discover_audio(item);
 
   return {
     author_avatar: resolve_discover_avatar_url(item?.author?.avatar),
     author_name: `${item?.author?.name || ''}`.trim(),
     author_url: `${item?.author?.url || ''}`.trim(),
     author_username: `${item?.author?._microblog?.username || ''}`.trim(),
+    audio_url: audio.audio_url,
     date_relative: `${item?._microblog?.date_relative || ''}`.trim(),
+    duration_display: audio.duration_display,
+    duration_seconds: audio.duration_seconds,
     id,
+    is_podcast: item?._microblog?.is_podcast === true,
     published_at: `${item?.date_published || ''}`.trim(),
     summary: normalize_entry_text(item?.summary),
     title,

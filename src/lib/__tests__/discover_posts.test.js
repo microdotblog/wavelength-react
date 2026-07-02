@@ -1,6 +1,7 @@
 const {
   extract_discover_title,
   format_discover_timestamp,
+  is_playable_discover_post,
   normalize_discover_posts,
   resolve_discover_avatar_url,
   resolve_discover_post_content,
@@ -27,7 +28,13 @@ describe('discover_posts', () => {
             summary: '',
             url: 'https://johnarthurnichol.com/2026/07/01/sascha-martins-ripping-news-the.html',
             _microblog: {
+              audio: {
+                duration_display: '00:03:59',
+                duration_seconds: 239,
+                url: 'https://johnarthurnichol.com/uploads/2026/teaser.mp3',
+              },
               date_relative: '04:03',
+              is_podcast: true,
             },
           },
           {
@@ -43,14 +50,23 @@ describe('discover_posts', () => {
         author_name: 'John Arthur Nichol',
         author_url: 'https://johnarthurnichol.com',
         author_username: 'JohnAN',
+        audio_url: 'https://johnarthurnichol.com/uploads/2026/teaser.mp3',
         date_relative: '04:03',
+        duration_display: '00:03:59',
+        duration_seconds: 239,
         id: '93223982',
+        is_podcast: true,
         published_at: '2026-07-01T04:03:09+00:00',
         summary: '',
         title: "Sascha Martin's Ripping News, the Podcast: Teaser 3",
         url: 'https://johnarthurnichol.com/2026/07/01/sascha-martins-ripping-news-the.html',
       },
     ]);
+  });
+
+  test('is_playable_discover_post checks for audio_url', () => {
+    expect(is_playable_discover_post({ audio_url: 'https://micro.blog/audio.m4a' })).toBe(true);
+    expect(is_playable_discover_post({ audio_url: '' })).toBe(false);
   });
 
   test('resolve_discover_avatar_url unwraps cdn.micro.blog photo URLs', () => {
