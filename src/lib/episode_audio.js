@@ -41,7 +41,12 @@ export async function split_clip_at(source_uri = '', split_seconds = 0, duration
   }
 
   const split_millis = Math.round(Math.max(split_seconds, 0) * 1000);
+  const duration_millis = Math.round(Math.max(duration_seconds, 0) * 1000);
   const stamp = Date.now();
+
+  if (duration_millis <= split_millis) {
+    throw new Error('Split point must be before the end of the clip.');
+  }
 
   const first = await trimAudio({
     endTimeMs: split_millis,
@@ -53,6 +58,7 @@ export async function split_clip_at(source_uri = '', split_seconds = 0, duration
   });
 
   const second = await trimAudio({
+    endTimeMs: duration_millis,
     fileUri: trimmed_uri,
     mode: 'single',
     outputFileName: `split-${stamp}-2`,
