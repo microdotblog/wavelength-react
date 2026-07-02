@@ -110,8 +110,18 @@ function RecordScreen({ navigation, route, theme }) {
     }
 
     captured_samples_ref.current = [];
-    await audio_recorder.prepareToRecordAsync(RECORDING_OPTIONS);
-    audio_recorder.record();
+
+    try {
+      await audio_recorder.prepareToRecordAsync(RECORDING_OPTIONS);
+      audio_recorder.record();
+    } catch (error) {
+      Alert.alert(
+        'Recording failed',
+        'Wavelength could not start recording. Check that a microphone is available, then try again.',
+      );
+      return;
+    }
+
     set_recording_phase('recording');
   }
 
