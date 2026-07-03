@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  LayoutAnimation,
   Linking,
   RefreshControl,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
+import Animated, { Easing, FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
 import DiscoverPlaybackToolbar from '../components/DiscoverPlaybackToolbar';
 import DiscoverPostRow from '../components/DiscoverPostRow';
@@ -25,6 +27,11 @@ import Discover from '../stores/Discover';
 
 const PLAYBACK_DOCK_GAP = 10;
 const PLAYBACK_DOCK_HEIGHT = 118;
+const PLAYBACK_DOCK_ENTERING = FadeInDown.springify()
+  .damping(22)
+  .mass(0.75)
+  .stiffness(260);
+const PLAYBACK_DOCK_EXITING = FadeOutDown.duration(240).easing(Easing.in(Easing.cubic));
 
 function DiscoverScreen({ theme }) {
   const posts = Discover.sorted_posts();
@@ -99,12 +106,17 @@ function DiscoverScreen({ theme }) {
     playback.seek(seek_seconds_from_fraction(fraction, playback.duration_seconds));
   }
 
-  const playback_dock_offset = active_post
+  const has_active_playback = Boolean(active_post);
+  const playback_dock_offset = has_active_playback
     ? tab_bar_height + PLAYBACK_DOCK_GAP
     : 0;
-  const list_bottom_padding = active_post
+  const list_bottom_padding = has_active_playback
     ? tab_bar_height + PLAYBACK_DOCK_HEIGHT + PLAYBACK_DOCK_GAP + 24
     : 36;
+
+  React.useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [has_active_playback]);
 
   function render_empty_state() {
     if (Discover.is_loading && !Discover.did_hydrate) {
@@ -203,7 +215,9 @@ function DiscoverScreen({ theme }) {
       />
 
       {active_post ? (
-        <View
+        <Animated.View
+          entering={PLAYBACK_DOCK_ENTERING}
+          exiting={PLAYBACK_DOCK_EXITING}
           pointerEvents="box-none"
           style={[
             styles.playbackDock,
@@ -229,7 +243,7 @@ function DiscoverScreen({ theme }) {
             post_title={active_post.title}
             theme={theme}
           />
-        </View>
+        </Animated.View>
       ) : null}
     </View>
   );
