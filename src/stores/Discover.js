@@ -14,6 +14,7 @@ const DiscoverPost = types.model('DiscoverPost', {
   duration_display: types.optional(types.string, ''),
   duration_seconds: types.optional(types.number, 0),
   id: types.identifier,
+  image_url: types.optional(types.string, ''),
   is_podcast: types.optional(types.boolean, false),
   published_at: types.optional(types.string, ''),
   summary: types.optional(types.string, ''),

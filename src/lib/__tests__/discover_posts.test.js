@@ -1,9 +1,11 @@
 const {
+  extract_discover_image_url,
   extract_discover_title,
   format_discover_timestamp,
   is_playable_discover_post,
   normalize_discover_posts,
   resolve_discover_avatar_url,
+  resolve_discover_playback_artwork_url,
   resolve_discover_post_content,
 } = require('../discover_posts');
 
@@ -55,6 +57,7 @@ describe('discover_posts', () => {
         duration_display: '00:03:59',
         duration_seconds: 239,
         id: '93223982',
+        image_url: '',
         is_podcast: true,
         published_at: '2026-07-01T04:03:09+00:00',
         summary: '',
@@ -67,6 +70,30 @@ describe('discover_posts', () => {
   test('is_playable_discover_post checks for audio_url', () => {
     expect(is_playable_discover_post({ audio_url: 'https://micro.blog/audio.m4a' })).toBe(true);
     expect(is_playable_discover_post({ audio_url: '' })).toBe(false);
+  });
+
+  test('extract_discover_image_url reads the first image src from content_html', () => {
+    expect(
+      extract_discover_image_url(
+        '<p>Episode cover</p><p><img src="https://example.com/cover.jpg" alt="Cover"></p>',
+      ),
+    ).toBe('https://example.com/cover.jpg');
+    expect(extract_discover_image_url('<p>No image here</p>')).toBe('');
+  });
+
+  test('resolve_discover_playback_artwork_url prefers post image over author avatar', () => {
+    expect(
+      resolve_discover_playback_artwork_url({
+        author_avatar: 'https://avatars.micro.blog/avatar.jpg',
+        image_url: 'https://example.com/cover.jpg',
+      }),
+    ).toBe('https://example.com/cover.jpg');
+    expect(
+      resolve_discover_playback_artwork_url({
+        author_avatar: 'https://avatars.micro.blog/avatar.jpg',
+        image_url: '',
+      }),
+    ).toBe('https://avatars.micro.blog/avatar.jpg');
   });
 
   test('resolve_discover_avatar_url unwraps cdn.micro.blog photo URLs', () => {

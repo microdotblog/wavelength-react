@@ -21,6 +21,9 @@ jest.mock('mobx-react', () => ({
   observer: component => component,
 }));
 
+jest.mock('../DiscoverPostRow', () => ({
+  DiscoverSourceAvatar: 'DiscoverSourceAvatar',
+}));
 jest.mock('../PlatformSymbol', () => 'PlatformSymbol');
 jest.mock('../PlaybackProgressBar', () => 'PlaybackProgressBar');
 jest.mock('../../theme/wavelengthTheme', () => ({

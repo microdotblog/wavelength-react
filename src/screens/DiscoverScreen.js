@@ -15,12 +15,16 @@ import DiscoverPlaybackToolbar from '../components/DiscoverPlaybackToolbar';
 import DiscoverPostRow from '../components/DiscoverPostRow';
 import { use_discover_playback } from '../hooks/use_discover_playback';
 import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
-import { is_playable_discover_post, resolve_discover_post_content } from '../lib/discover_posts';
+import {
+  is_playable_discover_post,
+  resolve_discover_playback_artwork_url,
+  resolve_discover_post_content,
+} from '../lib/discover_posts';
 import { seek_seconds_from_fraction } from '../lib/publish_editor';
 import Discover from '../stores/Discover';
 
 const PLAYBACK_DOCK_GAP = 10;
-const PLAYBACK_DOCK_HEIGHT = 128;
+const PLAYBACK_DOCK_HEIGHT = 118;
 
 function DiscoverScreen({ theme }) {
   const posts = Discover.sorted_posts();
@@ -28,10 +32,14 @@ function DiscoverScreen({ theme }) {
   const tab_bar_height = use_tab_bar_bottom_offset();
   const [is_pull_refreshing, set_is_pull_refreshing] = React.useState(false);
   const should_play = Boolean(active_post);
+  const playback_artwork_url = resolve_discover_playback_artwork_url({
+    author_avatar: active_post?.author_avatar || '',
+    image_url: active_post?.image_url || '',
+  });
 
   const playback = use_discover_playback({
     artist_name: active_post?.author_name || '',
-    artwork_url: active_post?.author_avatar || '',
+    artwork_url: playback_artwork_url,
     audio_url: active_post?.audio_url || '',
     duration_seconds: active_post?.duration_seconds || 0,
     should_play,
@@ -205,6 +213,7 @@ function DiscoverScreen({ theme }) {
           ]}
         >
           <DiscoverPlaybackToolbar
+            artwork_url={playback_artwork_url}
             author_name={active_post.author_name}
             current_time={playback.current_time}
             duration_seconds={playback.duration_seconds}

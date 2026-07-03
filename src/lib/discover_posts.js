@@ -87,6 +87,38 @@ function extract_preview_text(content = '') {
 const TRAILING_LINK_LABEL_PATTERN =
   /\s*:\s*[\w.-]+\.(com|blog|org|net|io|co|dev|app|micro\.blog)\/?\s*$/i;
 
+const DISCOVER_IMAGE_SRC_PATTERN = /<img[^>]+src=["']([^"']+)["']/i;
+
+export function extract_discover_image_url(content_html = '') {
+  const html = `${content_html || ''}`.trim();
+
+  if (!html) {
+    return '';
+  }
+
+  const image_match = html.match(DISCOVER_IMAGE_SRC_PATTERN);
+
+  if (!image_match?.[1]) {
+    return '';
+  }
+
+  return decode_html_entities(image_match[1]).trim();
+}
+
+export function resolve_discover_playback_artwork_url({
+  author_avatar = '',
+  image_url = '',
+} = {}) {
+  const trimmed_image_url = `${image_url || ''}`.trim();
+  const trimmed_author_avatar = `${author_avatar || ''}`.trim();
+
+  if (trimmed_image_url) {
+    return trimmed_image_url;
+  }
+
+  return resolve_discover_avatar_url(trimmed_author_avatar);
+}
+
 export function extract_discover_title(content_html = '') {
   const preview = extract_preview_text(content_html);
 
@@ -193,6 +225,7 @@ function normalize_discover_post_item(item = null) {
   const content_html = `${item?.content_html || ''}`.trim();
   const title = extract_discover_title(content_html);
   const audio = normalize_discover_audio(item);
+  const image_url = extract_discover_image_url(content_html);
 
   return {
     author_avatar: resolve_discover_avatar_url(item?.author?.avatar),
@@ -204,6 +237,7 @@ function normalize_discover_post_item(item = null) {
     duration_display: audio.duration_display,
     duration_seconds: audio.duration_seconds,
     id,
+    image_url,
     is_podcast: item?._microblog?.is_podcast === true,
     published_at: `${item?.date_published || ''}`.trim(),
     summary: normalize_entry_text(item?.summary),

@@ -11,11 +11,17 @@ const FEED_AVATAR_TRANSITION_MS = 180;
 const ROW_PLAY_BUTTON_SIZE = 44;
 const ROW_PLAY_ICON_SIZE = 18;
 
-function DiscoverSourceAvatar({ avatar_url = '', source = '', theme }) {
+function DiscoverSourceAvatar({
+  avatar_url = '',
+  size = FEED_AVATAR_SIZE,
+  source = '',
+  theme,
+}) {
   const resolved_avatar_url = resolve_discover_avatar_url(avatar_url);
   const [did_fail_to_load, set_did_fail_to_load] = React.useState(false);
   const initial = get_source_avatar_initial(source);
   const should_show_image = resolved_avatar_url && !did_fail_to_load;
+  const initial_font_size = Math.max(12, Math.round(size * 0.54));
 
   React.useEffect(() => {
     set_did_fail_to_load(false);
@@ -27,6 +33,9 @@ function DiscoverSourceAvatar({ avatar_url = '', source = '', theme }) {
         styles.sourceAvatarFrame,
         {
           backgroundColor: theme.colors.accent_soft,
+          borderRadius: size / 2,
+          height: size,
+          width: size,
         },
       ]}
     >
@@ -37,14 +46,21 @@ function DiscoverSourceAvatar({ avatar_url = '', source = '', theme }) {
           onError={() => set_did_fail_to_load(true)}
           recyclingKey={resolved_avatar_url}
           source={{ uri: resolved_avatar_url }}
-          style={styles.sourceAvatarImage}
+          style={{
+            height: size,
+            width: size,
+          }}
           transition={FEED_AVATAR_TRANSITION_MS}
         />
       ) : (
         <Text
           style={[
             styles.sourceAvatarInitial,
-            { color: theme.colors.accent_strong },
+            {
+              color: theme.colors.accent_strong,
+              fontSize: initial_font_size,
+              lineHeight: initial_font_size + 1,
+            },
           ]}
         >
           {initial}
@@ -112,6 +128,8 @@ function get_source_avatar_initial(source = '') {
     return 'M';
   }
 }
+
+export { DiscoverSourceAvatar };
 
 export default function DiscoverPostRow({
   accessibility_label = '',
@@ -254,21 +272,12 @@ const styles = StyleSheet.create({
   },
   sourceAvatarFrame: {
     alignItems: 'center',
-    borderRadius: FEED_AVATAR_SIZE / 2,
     flexShrink: 0,
-    height: FEED_AVATAR_SIZE,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: FEED_AVATAR_SIZE,
-  },
-  sourceAvatarImage: {
-    height: FEED_AVATAR_SIZE,
-    width: FEED_AVATAR_SIZE,
   },
   sourceAvatarInitial: {
-    fontSize: 14,
     fontWeight: '700',
-    lineHeight: 15,
   },
   rowContent: {
     flex: 1,
