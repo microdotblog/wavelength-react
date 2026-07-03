@@ -161,7 +161,7 @@ function DiscoverScreen({ theme }) {
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
+    <>
       <FlatList
         ref={list_ref}
         contentContainerStyle={
@@ -215,7 +215,7 @@ function DiscoverScreen({ theme }) {
             />
           );
         }}
-        style={styles.list}
+        style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
       />
 
       {active_post ? (
@@ -249,7 +249,7 @@ function DiscoverScreen({ theme }) {
           />
         </Animated.View>
       ) : null}
-    </View>
+    </>
   );
 }
 
@@ -289,9 +289,6 @@ const styles = StyleSheet.create({
   footerLoader: {
     alignItems: 'center',
     paddingVertical: 16,
-  },
-  list: {
-    flex: 1,
   },
   playbackDock: {
     left: 16,
