@@ -42,6 +42,20 @@ function PlatformSymbol({
     );
   }
 
+  if (symbol.android_icon) {
+    const { MaterialIcons } = require('@expo/vector-icons');
+    const icon_size = size + (symbol.android_size_adjustment || 0);
+
+    return (
+      <MaterialIcons
+        color={color}
+        name={symbol.android_icon}
+        size={icon_size}
+        style={[symbol.android_style, style]}
+      />
+    );
+  }
+
   if (symbol.android_label) {
     return (
       <Text

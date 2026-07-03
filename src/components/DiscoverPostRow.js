@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import PlatformSymbol from './PlatformSymbol';
@@ -9,7 +9,7 @@ import { with_color_opacity } from '../theme/wavelengthTheme';
 const FEED_AVATAR_SIZE = 26;
 const FEED_AVATAR_TRANSITION_MS = 180;
 const ROW_PLAY_BUTTON_SIZE = 40;
-const ROW_PLAY_ICON_SIZE = 16;
+const ROW_PLAY_ICON_SIZE = Platform.select({ android: 22, default: 16 });
 
 function DiscoverSourceAvatar({
   avatar_url = '',

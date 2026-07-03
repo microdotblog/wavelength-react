@@ -10,7 +10,7 @@ import { resolve_playback_toggle_action } from '../lib/publish_editor';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const PLAYBACK_ARTWORK_SIZE = 26;
-const PLAYBACK_ICON_SIZE = 20;
+const PLAYBACK_ICON_SIZE = Platform.select({ android: 24, default: 20 });
 const PLAYBACK_CONTROL_SIZE = 28;
 const PLAYBACK_PROGRESS_BAR_HEIGHT = 28;
 

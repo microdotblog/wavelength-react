@@ -17,11 +17,15 @@ export const TOOLBAR_SYMBOLS = {
     multicolor: true,
   },
   pause: {
-    android_label: '❚❚',
+    android_icon: 'pause',
     ios: 'pause.fill',
   },
   play: {
-    android_label: '▶',
+    android_icon: 'play-arrow',
+    android_size_adjustment: 2,
+    android_style: {
+      marginLeft: 1,
+    },
     ios: 'play.fill',
   },
   quote: {
