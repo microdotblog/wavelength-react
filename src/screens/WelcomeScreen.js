@@ -136,6 +136,7 @@ function WelcomeScreen({ theme }) {
               ) : null}
 
               <PrimaryButton
+                accessibilityHint="Long press to sign in with an app token."
                 disabled={is_signing_in}
                 label={is_signing_in ? 'Connecting to Micro.blog...' : 'Sign in with Micro.blog'}
                 leadingIconSource={MICRO_BLOG_LOGO}
@@ -143,21 +144,6 @@ function WelcomeScreen({ theme }) {
                 onPress={Auth.sign_in_with_micro_blog}
                 theme={theme}
               />
-
-              <Pressable
-                accessibilityLabel="Use an app token"
-                accessibilityRole="button"
-                disabled={is_signing_in}
-                onPress={open_token_modal}
-                style={({ pressed }) => [
-                  styles.tokenLink,
-                  pressed && !is_signing_in ? styles.pressed : null,
-                ]}
-              >
-                <Text style={[styles.tokenLinkText, { color: theme.colors.ink_soft }]}>
-                  Use an app token
-                </Text>
-              </Pressable>
             </Animated.View>
           </View>
         </ScrollView>
@@ -178,6 +164,7 @@ function WelcomeScreen({ theme }) {
 }
 
 function PrimaryButton({
+  accessibilityHint = null,
   disabled = false,
   label,
   leadingIconSource = null,
@@ -248,6 +235,7 @@ function PrimaryButton({
   return (
     <Animated.View style={animated_style}>
       <Pressable
+        accessibilityHint={accessibilityHint}
         accessibilityLabel={label}
         accessibilityRole="button"
         disabled={disabled}
@@ -551,16 +539,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     lineHeight: 38,
     maxWidth: 360,
-  },
-  tokenLink: {
-    alignItems: 'center',
-    minHeight: 34,
-    justifyContent: 'center',
-  },
-  tokenLinkText: {
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 20,
   },
 });
 
