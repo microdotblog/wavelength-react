@@ -10,8 +10,8 @@ import { resolve_playback_toggle_action } from '../lib/publish_editor';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const PLAYBACK_ARTWORK_SIZE = 26;
-const PLAYBACK_ICON_SIZE = Platform.select({ android: 22, default: 16 });
-const PLAYBACK_CONTROL_SIZE = 32;
+const PLAYBACK_ICON_SIZE = Platform.select({ android: 24, default: 20 });
+const PLAYBACK_CONTROL_SIZE = 28;
 const PLAYBACK_PROGRESS_BAR_HEIGHT = 28;
 
 function playback_dock_surface(theme) {
@@ -44,18 +44,11 @@ function playback_dock_shadow(theme) {
 }
 
 function CompactPlaybackButton({ is_buffering = false, is_playing = false, onPress, theme }) {
-  const control_surface = {
-    backgroundColor: is_buffering
-      ? with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12)
-      : theme.colors.accent,
-    borderColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35),
-  };
-
   if (is_buffering) {
     return (
       <View
         accessibilityLabel="Buffering audio"
-        style={[styles.playbackControl, control_surface]}
+        style={styles.playbackControl}
       >
         <ActivityIndicator color={theme.colors.accent} size="small" />
       </View>
@@ -70,12 +63,11 @@ function CompactPlaybackButton({ is_buffering = false, is_playing = false, onPre
       onPress={onPress}
       style={({ pressed }) => [
         styles.playbackControl,
-        control_surface,
         pressed ? styles.pressed : null,
       ]}
     >
       <PlatformSymbol
-        color={theme.colors.button_text}
+        color={theme.colors.accent}
         name={is_playing ? 'pause' : 'play'}
         size={PLAYBACK_ICON_SIZE}
       />
@@ -248,9 +240,6 @@ const styles = StyleSheet.create({
   },
   playbackControl: {
     alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: PLAYBACK_CONTROL_SIZE / 2,
-    borderWidth: 2,
     flexShrink: 0,
     height: PLAYBACK_CONTROL_SIZE,
     justifyContent: 'center',
