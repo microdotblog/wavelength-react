@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
 import PostRow from '../components/PostRow';
@@ -19,10 +19,13 @@ import { show_toast } from '../lib/toast';
 import Posts from '../stores/Posts';
 
 function PostsScreen({ navigation, theme }) {
+  const list_ref = React.useRef(null);
   const posts = Posts.sorted_posts();
   const destination_label = Auth.default_site || Auth.profile_url || 'your Micro.blog';
   const open_swipeable_ref = React.useRef(null);
   const [is_pull_refreshing, set_is_pull_refreshing] = React.useState(false);
+
+  useScrollToTop(list_ref);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -131,6 +134,7 @@ function PostsScreen({ navigation, theme }) {
 
   return (
     <FlatList
+      ref={list_ref}
       contentContainerStyle={
         posts.length === 0
           ? [styles.content, styles.emptyContent]

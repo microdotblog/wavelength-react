@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, FlatList, Linking, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
 import Discover from '../stores/Discover';
@@ -12,8 +12,11 @@ import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import { show_toast } from '../lib/toast';
 
 function RecordingsScreen({ navigation, theme }) {
+  const list_ref = React.useRef(null);
   const episodes = Episodes.sorted_episodes();
   const open_swipeable_ref = React.useRef(null);
+
+  useScrollToTop(list_ref);
   const [delete_episode, set_delete_episode] = React.useState(null);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
@@ -170,6 +173,7 @@ function RecordingsScreen({ navigation, theme }) {
   return (
     <>
       <FlatList
+        ref={list_ref}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         data={episodes}

@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 import Animated, { Easing, FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
@@ -34,10 +34,13 @@ const PLAYBACK_DOCK_ENTERING = FadeInDown.springify()
 const PLAYBACK_DOCK_EXITING = FadeOutDown.duration(240).easing(Easing.in(Easing.cubic));
 
 function DiscoverScreen({ theme }) {
+  const list_ref = React.useRef(null);
   const posts = Discover.sorted_posts();
   const active_post = Discover.active_post();
   const tab_bar_height = use_tab_bar_bottom_offset();
   const [is_pull_refreshing, set_is_pull_refreshing] = React.useState(false);
+
+  useScrollToTop(list_ref);
   const should_play = Boolean(active_post);
   const playback_artwork_url = resolve_discover_playback_artwork_url({
     author_avatar: active_post?.author_avatar || '',
@@ -160,6 +163,7 @@ function DiscoverScreen({ theme }) {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
       <FlatList
+        ref={list_ref}
         contentContainerStyle={
           posts.length === 0
             ? [styles.content, styles.emptyContent, { paddingBottom: list_bottom_padding }]
