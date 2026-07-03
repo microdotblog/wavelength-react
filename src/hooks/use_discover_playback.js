@@ -41,9 +41,10 @@ export function use_discover_playback({
 } = {}) {
   const trimmed_audio_url = `${audio_url || ''}`.trim();
   const [wants_playback, set_wants_playback] = React.useState(false);
-  const auto_play_url_ref = React.useRef('');
+  const [is_preparing_track, set_is_preparing_track] = React.useState(false);
   const pending_play_ref = React.useRef(false);
   const lock_screen_active_ref = React.useRef(false);
+  const previous_audio_url_ref = React.useRef('');
   const metadata_key = lock_screen_metadata_key({
     artist_name,
     artwork_url,
@@ -57,28 +58,23 @@ export function use_discover_playback({
   const status = useAudioPlayerStatus(player);
 
   React.useEffect(() => {
-    auto_play_url_ref.current = '';
-    set_wants_playback(false);
-    pending_play_ref.current = false;
-  }, [trimmed_audio_url]);
+    const url_changed = previous_audio_url_ref.current !== trimmed_audio_url;
+    previous_audio_url_ref.current = trimmed_audio_url;
 
-  React.useEffect(() => {
     if (!should_play || !trimmed_audio_url) {
-      auto_play_url_ref.current = '';
+      set_is_preparing_track(false);
       set_wants_playback(false);
       pending_play_ref.current = false;
       safe_audio_player_call(status.isLoaded, () => player.pause());
       return;
     }
 
-    if (auto_play_url_ref.current === trimmed_audio_url) {
-      return;
+    if (url_changed) {
+      set_is_preparing_track(true);
+      set_wants_playback(true);
+      pending_play_ref.current = true;
     }
-
-    auto_play_url_ref.current = trimmed_audio_url;
-    set_wants_playback(true);
-    pending_play_ref.current = true;
-  }, [player, should_play, trimmed_audio_url, status.isLoaded]);
+  }, [player, should_play, status.isLoaded, trimmed_audio_url]);
 
   React.useEffect(() => {
     if (!should_play || !wants_playback || !status.isLoaded || status.playing) {
@@ -96,14 +92,24 @@ export function use_discover_playback({
 
     if (status.playing) {
       set_wants_playback(true);
+      set_is_preparing_track(false);
       pending_play_ref.current = false;
       return;
     }
 
-    if (!status.isBuffering && !pending_play_ref.current) {
+    if (!status.isBuffering && !pending_play_ref.current && !is_preparing_track) {
       set_wants_playback(false);
     }
-  }, [should_play, status.isBuffering, status.isLoaded, status.playing]);
+  }, [is_preparing_track, should_play, status.isBuffering, status.isLoaded, status.playing]);
+
+  React.useEffect(() => {
+    if (!is_preparing_track || !status.playing) {
+      return;
+    }
+
+    set_is_preparing_track(false);
+    pending_play_ref.current = false;
+  }, [is_preparing_track, status.playing]);
 
   React.useEffect(() => {
     if (!status.didJustFinish) {
@@ -111,6 +117,7 @@ export function use_discover_playback({
     }
 
     set_wants_playback(false);
+    set_is_preparing_track(false);
     pending_play_ref.current = false;
   }, [status.didJustFinish]);
 
@@ -171,7 +178,10 @@ export function use_discover_playback({
     ? status.duration
     : Math.max(duration_seconds, 0);
   const current_time = clamp(status.currentTime || 0, 0, resolved_duration || status.currentTime || 0);
-  const is_buffering = should_play && wants_playback && (!status.isLoaded || status.isBuffering);
+  const is_buffering = should_play && (
+    is_preparing_track
+    || (wants_playback && (!status.isLoaded || status.isBuffering))
+  );
 
   function play() {
     if (!trimmed_audio_url || !should_play) {
@@ -179,16 +189,21 @@ export function use_discover_playback({
     }
 
     set_wants_playback(true);
-    pending_play_ref.current = true;
 
-    if (status.isLoaded) {
-      safe_audio_player_call(status.isLoaded, () => player.play());
-      pending_play_ref.current = false;
+    if (!status.isLoaded) {
+      set_is_preparing_track(true);
+      pending_play_ref.current = true;
+      return;
     }
+
+    pending_play_ref.current = true;
+    safe_audio_player_call(status.isLoaded, () => player.play());
+    pending_play_ref.current = false;
   }
 
   function pause() {
     set_wants_playback(false);
+    set_is_preparing_track(false);
     pending_play_ref.current = false;
     safe_audio_player_call(status.isLoaded, () => player.pause());
   }
