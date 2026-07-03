@@ -11,8 +11,13 @@ import {
 import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
+import {
+  discover_playback_content_padding,
+  use_discover_playback_dock,
+} from '../components/DiscoverPlaybackProvider';
 import PostRow from '../components/PostRow';
 import SegmentSwipeRow from '../components/SegmentSwipeRow';
+import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
 import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
 import { show_toast } from '../lib/toast';
@@ -24,8 +29,15 @@ function PostsScreen({ navigation, theme }) {
   const destination_label = Auth.default_site || Auth.profile_url || 'your Micro.blog';
   const open_swipeable_ref = React.useRef(null);
   const [is_pull_refreshing, set_is_pull_refreshing] = React.useState(false);
+  const tab_bar_height = use_tab_bar_bottom_offset();
+  const { has_active_playback } = use_discover_playback_dock() || {};
 
   useScrollToTop(list_ref);
+
+  const list_bottom_padding = discover_playback_content_padding({
+    has_active_playback,
+    tab_bar_height,
+  });
 
   useFocusEffect(
     React.useCallback(() => {
@@ -137,8 +149,8 @@ function PostsScreen({ navigation, theme }) {
       ref={list_ref}
       contentContainerStyle={
         posts.length === 0
-          ? [styles.content, styles.emptyContent]
-          : styles.content
+          ? [styles.content, styles.emptyContent, { paddingBottom: list_bottom_padding }]
+          : [styles.content, { paddingBottom: list_bottom_padding }]
       }
       contentInsetAdjustmentBehavior="automatic"
       data={posts}

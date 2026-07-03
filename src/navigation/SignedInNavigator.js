@@ -9,6 +9,7 @@ import HeaderPillButton from '../components/HeaderPillButton';
 import PostEditScreen from '../screens/PostEditScreen';
 import PublishOptionsScreen from '../screens/PublishOptionsScreen';
 import PublishScreen from '../screens/PublishScreen';
+import DiscoverPlaybackProvider from '../components/DiscoverPlaybackProvider';
 import RecordFab from '../components/RecordFab';
 import RecordScreen from '../screens/RecordScreen';
 import SplitScreen from '../screens/SplitScreen';
@@ -30,10 +31,12 @@ function SignedInNavigator({ theme }) {
       >
         {screen_props => (
           <View style={{ flex: 1 }}>
-            <TabNavigator
-              {...screen_props}
-              theme={theme}
-            />
+            <DiscoverPlaybackProvider theme={theme}>
+              <TabNavigator
+                {...screen_props}
+                theme={theme}
+              />
+            </DiscoverPlaybackProvider>
             {Platform.OS === 'android' ? (
               <RecordFab
                 onPress={() => screen_props.navigation.navigate('Record')}

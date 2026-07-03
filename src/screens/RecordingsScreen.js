@@ -3,9 +3,14 @@ import { Alert, FlatList, Linking, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
+import {
+  discover_playback_content_padding,
+  use_discover_playback_dock,
+} from '../components/DiscoverPlaybackProvider';
 import Discover from '../stores/Discover';
 import Episodes from '../stores/Episodes';
 import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
+import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
 import EpisodeRow from '../components/EpisodeRow';
 import RecordControlButton from '../components/RecordControlButton';
 import SegmentSwipeRow from '../components/SegmentSwipeRow';
@@ -17,6 +22,12 @@ function RecordingsScreen({ navigation, theme }) {
   const open_swipeable_ref = React.useRef(null);
 
   useScrollToTop(list_ref);
+  const tab_bar_height = use_tab_bar_bottom_offset();
+  const { has_active_playback } = use_discover_playback_dock() || {};
+  const list_bottom_padding = discover_playback_content_padding({
+    has_active_playback,
+    tab_bar_height,
+  });
   const [delete_episode, set_delete_episode] = React.useState(null);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
@@ -174,7 +185,7 @@ function RecordingsScreen({ navigation, theme }) {
     <>
       <FlatList
         ref={list_ref}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: list_bottom_padding }]}
         contentInsetAdjustmentBehavior="automatic"
         data={episodes}
         keyExtractor={item => item.id}
