@@ -10,16 +10,52 @@ import { resolve_playback_toggle_action } from '../lib/publish_editor';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const PLAYBACK_ARTWORK_SIZE = 26;
-const PLAYBACK_ICON_SIZE = Platform.select({ android: 24, default: 20 });
-const PLAYBACK_CONTROL_SIZE = 28;
+const PLAYBACK_ICON_SIZE = Platform.select({ android: 22, default: 16 });
+const PLAYBACK_CONTROL_SIZE = 32;
 const PLAYBACK_PROGRESS_BAR_HEIGHT = 28;
 
+function playback_dock_surface(theme) {
+  if (theme.is_dark) {
+    return {
+      backgroundColor: theme.colors.paper_alt,
+      borderColor: with_color_opacity(theme.colors.accent, 0.55),
+    };
+  }
+
+  return {
+    backgroundColor: with_color_opacity(theme.colors.paper, 0.96),
+    borderColor: theme.colors.line,
+  };
+}
+
+function playback_dock_shadow(theme) {
+  if (Platform.OS === 'android') {
+    return {
+      elevation: theme.is_dark ? 6 : 3,
+    };
+  }
+
+  return {
+    shadowColor: theme.is_dark ? '#000000' : '#24180d',
+    shadowOffset: { height: theme.is_dark ? 6 : 4, width: 0 },
+    shadowOpacity: theme.is_dark ? 0.42 : 0.12,
+    shadowRadius: theme.is_dark ? 18 : 14,
+  };
+}
+
 function CompactPlaybackButton({ is_buffering = false, is_playing = false, onPress, theme }) {
+  const control_surface = {
+    backgroundColor: is_buffering
+      ? with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12)
+      : theme.colors.accent,
+    borderColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35),
+  };
+
   if (is_buffering) {
     return (
       <View
         accessibilityLabel="Buffering audio"
-        style={styles.playbackControl}
+        style={[styles.playbackControl, control_surface]}
       >
         <ActivityIndicator color={theme.colors.accent} size="small" />
       </View>
@@ -34,11 +70,12 @@ function CompactPlaybackButton({ is_buffering = false, is_playing = false, onPre
       onPress={onPress}
       style={({ pressed }) => [
         styles.playbackControl,
+        control_surface,
         pressed ? styles.pressed : null,
       ]}
     >
       <PlatformSymbol
-        color={theme.colors.accent}
+        color={theme.colors.button_text}
         name={is_playing ? 'pause' : 'play'}
         size={PLAYBACK_ICON_SIZE}
       />
@@ -76,15 +113,14 @@ function DiscoverPlaybackToolbar({
     ? 'Buffering…'
     : `${format_duration(current_time)} / ${format_duration(duration_seconds)}`;
 
+  const dock_surface = playback_dock_surface(theme);
+
   return (
     <View
       style={[
         styles.container,
-        styles.shadow,
-        {
-          backgroundColor: theme.is_dark ? 'rgba(55, 65, 81, 0.92)' : 'rgba(255, 255, 255, 0.9)',
-          borderColor: theme.is_dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(31, 41, 55, 0.12)',
-        },
+        playback_dock_shadow(theme),
+        dock_surface,
       ]}
     >
       <View style={styles.headerRow}>
@@ -120,12 +156,21 @@ function DiscoverPlaybackToolbar({
             accessibilityRole="button"
             hitSlop={8}
             onPress={on_close}
-            style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
+            style={({ pressed }) => [
+              styles.closeButton,
+              {
+                backgroundColor: with_color_opacity(
+                  theme.colors.ink_soft,
+                  theme.is_dark ? 0.14 : 0.1,
+                ),
+              },
+              pressed ? styles.pressed : null,
+            ]}
           >
             <PlatformSymbol
               color={theme.colors.ink_soft}
               name="xmark"
-              size={12}
+              size={13}
             />
           </Pressable>
         ) : null}
@@ -182,11 +227,11 @@ const styles = StyleSheet.create({
   },
   container: {
     borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   controlsRow: {
     alignItems: 'center',
@@ -203,6 +248,10 @@ const styles = StyleSheet.create({
   },
   playbackControl: {
     alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: PLAYBACK_CONTROL_SIZE / 2,
+    borderWidth: 2,
+    flexShrink: 0,
     height: PLAYBACK_CONTROL_SIZE,
     justifyContent: 'center',
     width: PLAYBACK_CONTROL_SIZE,
@@ -242,18 +291,6 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.72,
   },
-  shadow: Platform.select({
-    android: {
-      elevation: 3,
-    },
-    default: {},
-    ios: {
-      shadowColor: '#000',
-      shadowOffset: { height: 4, width: 0 },
-      shadowOpacity: 0.1,
-      shadowRadius: 14,
-    },
-  }),
   titleWrap: {
     alignItems: 'center',
     flex: 1,

@@ -16,7 +16,7 @@ import { seek_seconds_from_fraction } from '../lib/publish_editor';
 import Discover from '../stores/Discover';
 
 export const PLAYBACK_DOCK_GAP = 10;
-export const PLAYBACK_DOCK_HEIGHT = 80;
+export const PLAYBACK_DOCK_HEIGHT = 86;
 const PLAYBACK_DOCK_HORIZONTAL_INSET = 16;
 
 const PLAYBACK_DOCK_ENTERING = FadeInDown.springify()
