@@ -2,8 +2,9 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ANDROID_RECORD_FAB_LAYOUT, native_tab_bar_bottom_offset } from '../lib/tab_bar_inset';
+
 const MIC_ICON = require('../../assets/icons/tab_bar/mic.png');
-const ANDROID_TAB_BAR_HEIGHT = 80;
 
 function RecordFab({ onPress, theme }) {
   const insets = useSafeAreaInsets();
@@ -11,7 +12,12 @@ function RecordFab({ onPress, theme }) {
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.container, { bottom: insets.bottom + ANDROID_TAB_BAR_HEIGHT + 16 }]}
+      style={[
+        styles.container,
+        {
+          bottom: native_tab_bar_bottom_offset(insets.bottom) + ANDROID_RECORD_FAB_LAYOUT.bottom_gap,
+        },
+      ]}
     >
       <Pressable
         accessibilityLabel="New recording"
@@ -42,15 +48,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     left: 0,
     position: 'absolute',
-    right: 20,
+    right: ANDROID_RECORD_FAB_LAYOUT.right_inset,
   },
   fab: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: 30,
-    height: 60,
+    borderRadius: ANDROID_RECORD_FAB_LAYOUT.size / 2,
+    height: ANDROID_RECORD_FAB_LAYOUT.size,
     justifyContent: 'center',
-    width: 60,
+    width: ANDROID_RECORD_FAB_LAYOUT.size,
   },
   icon: {
     height: 28,

@@ -10,11 +10,13 @@ import {
   is_playable_discover_post,
   resolve_discover_playback_artwork_url,
 } from '../lib/discover_posts';
+import { android_record_fab_reserved_width } from '../lib/tab_bar_inset';
 import { seek_seconds_from_fraction } from '../lib/publish_editor';
 import Discover from '../stores/Discover';
 
 export const PLAYBACK_DOCK_GAP = 10;
 export const PLAYBACK_DOCK_HEIGHT = 80;
+const PLAYBACK_DOCK_HORIZONTAL_INSET = 16;
 
 const PLAYBACK_DOCK_ENTERING = FadeInDown.springify()
   .damping(22)
@@ -62,6 +64,7 @@ function DiscoverPlaybackProvider({ children, theme }) {
   const playback_dock_offset = has_active_playback
     ? tab_bar_height + PLAYBACK_DOCK_GAP
     : 0;
+  const playback_dock_right_inset = PLAYBACK_DOCK_HORIZONTAL_INSET + android_record_fab_reserved_width();
 
   React.useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -129,6 +132,8 @@ function DiscoverPlaybackProvider({ children, theme }) {
             styles.playbackDock,
             {
               bottom: playback_dock_offset,
+              left: PLAYBACK_DOCK_HORIZONTAL_INSET,
+              right: playback_dock_right_inset,
             },
           ]}
         >
@@ -154,9 +159,7 @@ function DiscoverPlaybackProvider({ children, theme }) {
 
 const styles = StyleSheet.create({
   playbackDock: {
-    left: 16,
     position: 'absolute',
-    right: 16,
   },
 });
 
