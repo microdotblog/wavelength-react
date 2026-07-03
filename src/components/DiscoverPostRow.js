@@ -8,8 +8,8 @@ import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const FEED_AVATAR_SIZE = 26;
 const FEED_AVATAR_TRANSITION_MS = 180;
-const ROW_PLAY_BUTTON_SIZE = 44;
-const ROW_PLAY_ICON_SIZE = 18;
+const ROW_PLAY_BUTTON_SIZE = 40;
+const ROW_PLAY_ICON_SIZE = 16;
 
 function DiscoverSourceAvatar({
   avatar_url = '',
