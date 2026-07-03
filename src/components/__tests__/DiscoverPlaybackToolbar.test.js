@@ -22,7 +22,7 @@ jest.mock('mobx-react', () => ({
 }));
 
 jest.mock('../PlatformSymbol', () => 'PlatformSymbol');
-jest.mock('../PlaybackWaveform', () => 'PlaybackWaveform');
+jest.mock('../PlaybackProgressBar', () => 'PlaybackProgressBar');
 jest.mock('../../theme/wavelengthTheme', () => ({
   with_color_opacity: (color, opacity) => color,
 }));

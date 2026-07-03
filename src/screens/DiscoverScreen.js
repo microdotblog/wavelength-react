@@ -16,10 +16,11 @@ import DiscoverPostRow from '../components/DiscoverPostRow';
 import { use_discover_playback } from '../hooks/use_discover_playback';
 import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
 import { is_playable_discover_post, resolve_discover_post_content } from '../lib/discover_posts';
+import { seek_seconds_from_fraction } from '../lib/publish_editor';
 import Discover from '../stores/Discover';
 
 const PLAYBACK_DOCK_GAP = 10;
-const PLAYBACK_DOCK_HEIGHT = 118;
+const PLAYBACK_DOCK_HEIGHT = 128;
 
 function DiscoverScreen({ theme }) {
   const posts = Discover.sorted_posts();
@@ -86,8 +87,8 @@ function DiscoverScreen({ theme }) {
     }
   }
 
-  function handle_seek(target_seconds = 0) {
-    playback.seek(target_seconds);
+  function handle_seek(fraction = 0) {
+    playback.seek(seek_seconds_from_fraction(fraction, playback.duration_seconds));
   }
 
   const playback_dock_offset = active_post
