@@ -61,9 +61,8 @@ function DiscoverScreen({ theme }) {
     }
   }
 
-  function handle_post_press(post) {
+  function handle_play_press(post) {
     if (!is_playable_discover_post(post)) {
-      open_post(post);
       return;
     }
 
@@ -170,18 +169,19 @@ function DiscoverScreen({ theme }) {
           const row_content = resolve_discover_post_content(item);
           const is_playable = is_playable_discover_post(item);
 
+          const is_active = Discover.active_post_id === item.id;
+
           return (
             <DiscoverPostRow
-              accessibility_label={
-                is_playable
-                  ? `Play ${row_content.display_title}`
-                  : `Open ${row_content.display_title}`
-              }
+              accessibility_label={`Open ${row_content.display_title}`}
               avatar_url={item.author_avatar}
               display_title={row_content.display_title}
-              is_active={Discover.active_post_id === item.id}
+              is_active={is_active}
+              is_buffering={is_active && playback.is_buffering}
               is_playable={is_playable}
-              onPress={() => handle_post_press(item)}
+              is_playing={is_active && playback.playing}
+              on_play_press={() => handle_play_press(item)}
+              onPress={() => open_post(item)}
               secondary_source_label={row_content.secondary_source_label}
               source_label={row_content.source_label}
               summary={row_content.summary}
