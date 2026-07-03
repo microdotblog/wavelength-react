@@ -48,7 +48,7 @@ export function use_discover_playback({
   const [is_preparing_track, set_is_preparing_track] = React.useState(false);
   const pending_play_ref = React.useRef(false);
   const lock_screen_active_ref = React.useRef(false);
-  const previous_audio_url_ref = React.useRef('');
+  const previous_audio_url_ref = React.useRef(trimmed_audio_url);
   const metadata_key = lock_screen_metadata_key({
     artist_name,
     artwork_url,
@@ -74,9 +74,10 @@ export function use_discover_playback({
     }
 
     if (url_changed) {
-      set_is_preparing_track(true);
-      set_wants_playback(true);
-      pending_play_ref.current = true;
+      set_is_preparing_track(false);
+      set_wants_playback(false);
+      pending_play_ref.current = false;
+      safe_audio_player_call(status.isLoaded, () => player.pause());
     }
   }, [player, should_play, status.isLoaded, trimmed_audio_url]);
 

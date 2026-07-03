@@ -10,6 +10,7 @@ import {
   is_playable_discover_post,
   resolve_discover_playback_artwork_url,
 } from '../lib/discover_posts';
+import { reset_stale_playback_on_start } from '../lib/playback_audio_mode';
 import { android_record_fab_reserved_width } from '../lib/tab_bar_inset';
 import { seek_seconds_from_fraction } from '../lib/publish_editor';
 import Discover from '../stores/Discover';
@@ -42,7 +43,11 @@ export function discover_playback_content_padding({
   return tab_bar_height + PLAYBACK_DOCK_HEIGHT + PLAYBACK_DOCK_GAP + 24;
 }
 
-function DiscoverPlaybackProvider({ children, theme }) {
+const DiscoverPlaybackProviderInner = observer(function DiscoverPlaybackProviderInner({
+  children,
+  theme,
+}) {
+  const pending_play_post_id_ref = React.useRef(null);
   const active_post = Discover.active_post();
   const tab_bar_height = use_tab_bar_bottom_offset();
   const should_play = Boolean(active_post);
@@ -65,6 +70,17 @@ function DiscoverPlaybackProvider({ children, theme }) {
     ? tab_bar_height + PLAYBACK_DOCK_GAP
     : 0;
   const playback_dock_right_inset = PLAYBACK_DOCK_HORIZONTAL_INSET + android_record_fab_reserved_width();
+
+  React.useEffect(() => {
+    const pending_post_id = pending_play_post_id_ref.current;
+
+    if (!pending_post_id || Discover.active_post_id !== pending_post_id || !active_post) {
+      return;
+    }
+
+    pending_play_post_id_ref.current = null;
+    playback.play();
+  }, [active_post, playback]);
 
   React.useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -92,6 +108,7 @@ function DiscoverPlaybackProvider({ children, theme }) {
       return;
     }
 
+    pending_play_post_id_ref.current = post.id;
     Discover.play_post(post.id);
   }
 
@@ -155,6 +172,25 @@ function DiscoverPlaybackProvider({ children, theme }) {
       ) : null}
     </DiscoverPlaybackContext.Provider>
   );
+});
+
+function DiscoverPlaybackProvider({ children, theme }) {
+  const did_reset_session_ref = React.useRef(false);
+
+  if (!did_reset_session_ref.current) {
+    did_reset_session_ref.current = true;
+    Discover.clear_playback();
+  }
+
+  React.useLayoutEffect(() => {
+    reset_stale_playback_on_start().catch(() => {});
+  }, []);
+
+  return (
+    <DiscoverPlaybackProviderInner theme={theme}>
+      {children}
+    </DiscoverPlaybackProviderInner>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -163,4 +199,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default observer(DiscoverPlaybackProvider);
+export default DiscoverPlaybackProvider;
