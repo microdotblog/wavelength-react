@@ -1,6 +1,10 @@
 import React from 'react';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
+import {
+  should_auto_resume_discover_playback,
+  should_sync_discover_playback_intent,
+} from '../lib/discover_playback_intent';
 import { build_discover_lock_screen_metadata } from '../lib/lock_screen_metadata';
 import {
   disable_playback_audio_mode,
@@ -77,27 +81,39 @@ export function use_discover_playback({
   }, [player, should_play, status.isLoaded, trimmed_audio_url]);
 
   React.useEffect(() => {
-    if (!should_play || !wants_playback || !status.isLoaded || status.playing) {
+    if (
+      !should_auto_resume_discover_playback({
+        is_loaded: status.isLoaded,
+        pending_play: pending_play_ref.current,
+        playing: status.playing,
+        should_play,
+      })
+    ) {
       return;
     }
 
     safe_audio_player_call(status.isLoaded, () => player.play());
     pending_play_ref.current = false;
-  }, [player, should_play, status.isLoaded, status.playing, wants_playback]);
+  }, [player, should_play, status.isLoaded, status.playing]);
 
   React.useEffect(() => {
-    if (!should_play || !status.isLoaded) {
-      return;
-    }
+    const synced_wants_playback = should_sync_discover_playback_intent({
+      is_buffering: status.isBuffering,
+      is_loaded: status.isLoaded,
+      is_preparing_track,
+      pending_play: pending_play_ref.current,
+      playing: status.playing,
+      should_play,
+    });
 
-    if (status.playing) {
+    if (synced_wants_playback === true) {
       set_wants_playback(true);
       set_is_preparing_track(false);
       pending_play_ref.current = false;
       return;
     }
 
-    if (!status.isBuffering && !pending_play_ref.current && !is_preparing_track) {
+    if (synced_wants_playback === false) {
       set_wants_playback(false);
     }
   }, [is_preparing_track, should_play, status.isBuffering, status.isLoaded, status.playing]);
