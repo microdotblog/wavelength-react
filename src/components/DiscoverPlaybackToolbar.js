@@ -9,9 +9,10 @@ import { format_duration } from '../lib/format_duration';
 import { resolve_playback_toggle_action } from '../lib/publish_editor';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
-const PLAYBACK_ARTWORK_SIZE = 30;
-const PLAYBACK_ICON_SIZE = 22;
-const PLAYBACK_CONTROL_SIZE = 32;
+const PLAYBACK_ARTWORK_SIZE = 26;
+const PLAYBACK_ICON_SIZE = 20;
+const PLAYBACK_CONTROL_SIZE = 28;
+const PLAYBACK_PROGRESS_BAR_HEIGHT = 28;
 
 function CompactPlaybackButton({ is_buffering = false, is_playing = false, onPress, theme }) {
   if (is_buffering) {
@@ -130,14 +131,14 @@ function DiscoverPlaybackToolbar({
         ) : null}
       </View>
 
-      <View style={styles.controlsSection}>
-        <View style={styles.controlsRow}>
-          <CompactPlaybackButton
-            is_buffering={is_buffering}
-            is_playing={is_playing}
-            onPress={handle_toggle_playback}
-            theme={theme}
-          />
+      <View style={styles.controlsRow}>
+        <CompactPlaybackButton
+          is_buffering={is_buffering}
+          is_playing={is_playing}
+          onPress={handle_toggle_playback}
+          theme={theme}
+        />
+        <View style={styles.progressCluster}>
           <View
             style={[
               styles.progressBarSlot,
@@ -149,6 +150,7 @@ function DiscoverPlaybackToolbar({
             ]}
           >
             <PlaybackProgressBar
+              bar_area_height={PLAYBACK_PROGRESS_BAR_HEIGHT}
               current_time={current_time}
               duration_seconds={duration_seconds}
               is_playing={is_playing && !is_buffering}
@@ -156,13 +158,14 @@ function DiscoverPlaybackToolbar({
               theme={theme}
             />
           </View>
+          <Text
+            numberOfLines={1}
+            pointerEvents="none"
+            style={[styles.progressTimeLabel, { color: theme.colors.ink_soft }]}
+          >
+            {progress_time_label}
+          </Text>
         </View>
-        <Text
-          pointerEvents="none"
-          style={[styles.progressTimeLabel, { color: theme.colors.ink_soft }]}
-        >
-          {progress_time_label}
-        </Text>
       </View>
     </View>
   );
@@ -179,21 +182,24 @@ const styles = StyleSheet.create({
   },
   container: {
     borderCurve: 'continuous',
-    borderRadius: 22,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   controlsRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     minHeight: PLAYBACK_CONTROL_SIZE,
   },
-  controlsSection: {
-    paddingBottom: 14,
-    position: 'relative',
+  progressCluster: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minWidth: 0,
   },
   playbackControl: {
     alignItems: 'center',
@@ -203,33 +209,34 @@ const styles = StyleSheet.create({
   },
   progressBarSlot: {
     borderCurve: 'continuous',
-    borderRadius: 14,
+    borderRadius: 12,
     flex: 1,
     justifyContent: 'center',
-    minHeight: PLAYBACK_CONTROL_SIZE,
+    minHeight: PLAYBACK_PROGRESS_BAR_HEIGHT,
+    minWidth: 0,
     overflow: 'visible',
     paddingHorizontal: 2,
   },
   progressTimeLabel: {
-    bottom: 0,
+    flexShrink: 0,
     fontSize: 11,
     fontVariant: ['tabular-nums'],
     fontWeight: '600',
     lineHeight: 14,
-    position: 'absolute',
-    right: 0,
+    maxWidth: 96,
   },
   headerRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     justifyContent: 'space-between',
+    minHeight: PLAYBACK_ARTWORK_SIZE,
   },
   postTitle: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    lineHeight: 20,
+    lineHeight: 18,
     minWidth: 0,
   },
   pressed: {
@@ -251,7 +258,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     minWidth: 0,
   },
 });

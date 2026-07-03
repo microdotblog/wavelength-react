@@ -26,7 +26,7 @@ import { seek_seconds_from_fraction } from '../lib/publish_editor';
 import Discover from '../stores/Discover';
 
 const PLAYBACK_DOCK_GAP = 10;
-const PLAYBACK_DOCK_HEIGHT = 118;
+const PLAYBACK_DOCK_HEIGHT = 80;
 const PLAYBACK_DOCK_ENTERING = FadeInDown.springify()
   .damping(22)
   .mass(0.75)
