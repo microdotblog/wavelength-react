@@ -13,18 +13,56 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { observer } from 'mobx-react';
+import Animated, {
+  Easing,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import AuthBackground from '../components/auth/AuthBackground';
 import Auth from '../stores/Auth';
 
 const MICRO_BLOG_LOGO = require('../../assets/mb_logo.png');
 const WAVELENGTH_ICON = require('../../assets/icon.png');
+
+const FOOTER_ENTRANCE_DELAY_MS = 620;
 
 function WelcomeScreen({ theme }) {
   const is_signing_in = Auth.is_loading();
   const error_message = Auth.error_message;
   const [is_token_modal_visible, set_is_token_modal_visible] = React.useState(false);
   const [token_value, set_token_value] = React.useState('');
+  const footer_opacity = useSharedValue(0);
+  const footer_translate_y = useSharedValue(26);
+
+  React.useEffect(() => {
+    footer_opacity.value = withDelay(
+      FOOTER_ENTRANCE_DELAY_MS,
+      withTiming(1, {
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+    footer_translate_y.value = withDelay(
+      FOOTER_ENTRANCE_DELAY_MS,
+      withTiming(0, {
+        duration: 360,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+  }, [footer_opacity, footer_translate_y]);
+
+  const footer_animated_style = useAnimatedStyle(() => {
+    return {
+      opacity: footer_opacity.value,
+      transform: [{ translateY: footer_translate_y.value }],
+    };
+  }, []);
 
   function open_token_modal() {
     Auth.clear_error();
@@ -63,6 +101,7 @@ function WelcomeScreen({ theme }) {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
+      <AuthBackground theme={theme} />
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <ScrollView
           bounces={false}
@@ -70,7 +109,7 @@ function WelcomeScreen({ theme }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.hero}>
+          <Animated.View entering={FadeInUp.duration(680)} style={styles.hero}>
             <Image source={WAVELENGTH_ICON} style={styles.appIcon} />
             <View style={styles.heroCopy}>
               <Text style={[styles.kicker, { color: theme.colors.accent_strong }]}>
@@ -83,41 +122,43 @@ function WelcomeScreen({ theme }) {
                 Sign in with Micro.blog to get started.
               </Text>
             </View>
-          </View>
+          </Animated.View>
 
           <View style={styles.footer}>
-            {footer_error_message ? (
-              <Text
-                selectable
-                style={[styles.errorMessage, { color: theme.colors.accent_strong }]}
+            <Animated.View pointerEvents="box-none" style={[styles.footerActions, footer_animated_style]}>
+              {footer_error_message ? (
+                <Text
+                  selectable
+                  style={[styles.errorMessage, { color: theme.colors.accent_strong }]}
+                >
+                  {footer_error_message}
+                </Text>
+              ) : null}
+
+              <PrimaryButton
+                disabled={is_signing_in}
+                label={is_signing_in ? 'Connecting to Micro.blog...' : 'Sign in with Micro.blog'}
+                leadingIconSource={MICRO_BLOG_LOGO}
+                onLongPress={open_token_modal}
+                onPress={Auth.sign_in_with_micro_blog}
+                theme={theme}
+              />
+
+              <Pressable
+                accessibilityLabel="Use an app token"
+                accessibilityRole="button"
+                disabled={is_signing_in}
+                onPress={open_token_modal}
+                style={({ pressed }) => [
+                  styles.tokenLink,
+                  pressed && !is_signing_in ? styles.pressed : null,
+                ]}
               >
-                {footer_error_message}
-              </Text>
-            ) : null}
-
-            <PrimaryButton
-              disabled={is_signing_in}
-              label={is_signing_in ? 'Connecting to Micro.blog...' : 'Sign in with Micro.blog'}
-              leadingIconSource={MICRO_BLOG_LOGO}
-              onLongPress={open_token_modal}
-              onPress={Auth.sign_in_with_micro_blog}
-              theme={theme}
-            />
-
-            <Pressable
-              accessibilityLabel="Use an app token"
-              accessibilityRole="button"
-              disabled={is_signing_in}
-              onPress={open_token_modal}
-              style={({ pressed }) => [
-                styles.tokenLink,
-                pressed && !is_signing_in ? styles.pressed : null,
-              ]}
-            >
-              <Text style={[styles.tokenLinkText, { color: theme.colors.ink_soft }]}>
-                Use an app token
-              </Text>
-            </Pressable>
+                <Text style={[styles.tokenLinkText, { color: theme.colors.ink_soft }]}>
+                  Use an app token
+                </Text>
+              </Pressable>
+            </Animated.View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -145,50 +186,112 @@ function PrimaryButton({
   theme,
 }) {
   const should_show_leading_icon = leadingIconSource != null;
+  const scale = useSharedValue(1);
+  const did_long_press_ref = React.useRef(false);
+
+  const animated_style = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+    };
+  }, []);
+
+  function handle_press_in() {
+    if (disabled) {
+      return;
+    }
+
+    scale.value = withSpring(0.985, {
+      damping: 18,
+      stiffness: 240,
+    });
+  }
+
+  function handle_press_out() {
+    if (disabled) {
+      return;
+    }
+
+    scale.value = withSpring(1, {
+      damping: 16,
+      stiffness: 220,
+    });
+
+    if (did_long_press_ref.current) {
+      setTimeout(() => {
+        did_long_press_ref.current = false;
+      }, 0);
+    }
+  }
+
+  function handle_press(event) {
+    if (disabled) {
+      return;
+    }
+
+    if (did_long_press_ref.current) {
+      did_long_press_ref.current = false;
+      return;
+    }
+
+    onPress?.(event);
+  }
+
+  function handle_long_press(event) {
+    if (disabled || !onLongPress) {
+      return;
+    }
+
+    did_long_press_ref.current = true;
+    onLongPress(event);
+  }
 
   return (
-    <Pressable
-      accessibilityLabel={label}
-      accessibilityRole="button"
-      disabled={disabled}
-      onLongPress={onLongPress}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.primaryButton,
-        {
-          backgroundColor: disabled ? theme.colors.paper_alt : theme.colors.accent,
-          boxShadow: disabled
-            ? 'none'
-            : theme.is_dark
-              ? '0 10px 18px rgba(0, 0, 0, 0.28)'
-              : '0 10px 18px rgba(95, 53, 0, 0.18)',
-        },
-        pressed && !disabled ? styles.primaryButtonPressed : null,
-      ]}
-    >
-      {should_show_leading_icon ? (
-        <View
-          style={[
-            styles.primaryButtonIcon,
-            { backgroundColor: theme.colors.button_icon_background },
-          ]}
-        >
-          {disabled ? (
-            <ActivityIndicator color={theme.colors.accent_strong} size="small" />
-          ) : (
-            <Image source={leadingIconSource} style={styles.primaryButtonLogo} />
-          )}
-        </View>
-      ) : null}
-      <Text
-        style={[
-          styles.primaryButtonLabel,
-          { color: disabled ? theme.colors.ink_soft : theme.colors.button_text },
+    <Animated.View style={animated_style}>
+      <Pressable
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        disabled={disabled}
+        onLongPress={onLongPress ? handle_long_press : undefined}
+        onPress={handle_press}
+        onPressIn={handle_press_in}
+        onPressOut={handle_press_out}
+        style={({ pressed }) => [
+          styles.primaryButton,
+          {
+            backgroundColor: disabled ? theme.colors.paper_alt : theme.colors.accent,
+            boxShadow: disabled
+              ? 'none'
+              : theme.is_dark
+                ? '0 10px 18px rgba(0, 0, 0, 0.28)'
+                : '0 10px 18px rgba(95, 53, 0, 0.18)',
+          },
+          pressed && !disabled ? styles.primaryButtonPressed : null,
         ]}
       >
-        {label}
-      </Text>
-    </Pressable>
+        {should_show_leading_icon ? (
+          <View
+            style={[
+              styles.primaryButtonIcon,
+              { backgroundColor: theme.colors.button_icon_background },
+            ]}
+          >
+            {disabled ? (
+              <ActivityIndicator color={theme.colors.accent_strong} size="small" />
+            ) : (
+              <Image source={leadingIconSource} style={styles.primaryButtonLogo} />
+            )}
+          </View>
+        ) : null}
+        <Text
+          style={[
+            styles.primaryButtonLabel,
+            { color: disabled ? theme.colors.ink_soft : theme.colors.button_text },
+          ]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -328,7 +431,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   footer: {
+    justifyContent: 'flex-end',
+    minHeight: 112,
+    paddingBottom: 4,
+  },
+  footerActions: {
     gap: 14,
+    width: '100%',
   },
   hero: {
     gap: 24,
@@ -428,7 +537,7 @@ const styles = StyleSheet.create({
     width: 20,
   },
   primaryButtonPressed: {
-    transform: [{ scale: 0.99 }],
+    opacity: 0.96,
   },
   safeArea: {
     flex: 1,
