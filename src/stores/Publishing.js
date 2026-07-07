@@ -18,6 +18,11 @@ import {
   should_show_title,
   toggle_list_item,
 } from '../lib/publish_editor';
+import {
+  build_upload_size_limit_message,
+  is_over_upload_limit,
+} from '../lib/episode_upload_size';
+import { read_file_size_bytes } from '../lib/EpisodeStorage';
 import Auth from './Auth';
 import Episodes from './Episodes';
 import Posts from './Posts';
@@ -301,6 +306,12 @@ const Publishing = types
 
         if (!exported_uri) {
           throw new Error('We could not prepare this episode for publishing.');
+        }
+
+        const exported_size_bytes = read_file_size_bytes(exported_uri);
+
+        if (is_over_upload_limit(exported_size_bytes)) {
+          throw new Error(build_upload_size_limit_message(exported_size_bytes));
         }
 
         self.phase = 'uploading';

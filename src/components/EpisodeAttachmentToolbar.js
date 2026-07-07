@@ -38,6 +38,7 @@ function EpisodeAttachmentToolbar({
   current_time = 0,
   duration_seconds = 0,
   episode_title = '',
+  file_size_label = '',
   is_playing = false,
   is_publishing = false,
   on_open_episode,
@@ -46,6 +47,7 @@ function EpisodeAttachmentToolbar({
   publish_phase = 'idle',
   status_label = '',
   theme,
+  upload_warning = '',
   waveform = [],
 }) {
   function handle_toggle_playback() {
@@ -55,6 +57,11 @@ function EpisodeAttachmentToolbar({
 
   const publish_progress = resolve_publish_progress(publish_phase);
   const publishing_status = `${status_label || ''}`.trim() || 'Publishing…';
+  const trimmed_upload_warning = `${upload_warning || ''}`.trim();
+  const trimmed_file_size_label = `${file_size_label || ''}`.trim();
+  const time_label = trimmed_file_size_label.length > 0
+    ? `${format_duration(current_time)} / ${format_duration(duration_seconds)} · ${trimmed_file_size_label}`
+    : `${format_duration(current_time)} / ${format_duration(duration_seconds)}`;
 
   return (
     <View
@@ -101,9 +108,15 @@ function EpisodeAttachmentToolbar({
           </Text>
         </Pressable>
         <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
-          {format_duration(current_time)} / {format_duration(duration_seconds)}
+          {time_label}
         </Text>
       </View>
+
+      {trimmed_upload_warning.length > 0 ? (
+        <Text style={[styles.uploadWarning, { color: theme.colors.accent_strong }]}>
+          {trimmed_upload_warning}
+        </Text>
+      ) : null}
 
       <View style={styles.controlsRow}>
         {is_publishing ? (
@@ -261,6 +274,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 16,
     marginTop: 2,
+  },
+  uploadWarning: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 17,
   },
   titleWrap: {
     flex: 1,

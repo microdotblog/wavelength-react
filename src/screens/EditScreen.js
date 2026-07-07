@@ -25,6 +25,7 @@ import PlaybackControlButton from '../components/PlaybackControlButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
 import { format_duration } from '../lib/format_duration';
+import { build_upload_size_limit_message } from '../lib/episode_upload_size';
 import { format_post_date } from '../lib/micropub_posts';
 import { show_toast } from '../lib/toast';
 import { use_episode_playback } from '../hooks/use_episode_playback';
@@ -124,6 +125,7 @@ function clip_meta_snapshot(episode) {
   return episode.clip_meta.map(clip => ({
     duration_seconds: clip.duration_seconds,
     name: clip.name,
+    size_bytes: clip.size_bytes,
     waveform: clip.waveform.slice(),
   }));
 }
@@ -577,6 +579,11 @@ function EditScreen({ navigation, route, theme }) {
   const published_post_title = published_post_details.title || 'Microcast';
   const published_post_summary = published_post_details.summary;
   const published_post_uid = published_post_details.post_uid;
+  const audio_size_label = episode.formatted_audio_size();
+  const is_over_upload_limit = episode.is_over_upload_limit();
+  const upload_limit_message = is_over_upload_limit
+    ? build_upload_size_limit_message(episode.total_audio_size_bytes())
+    : '';
 
   function open_published_post() {
     if (!post_url) {
@@ -626,6 +633,8 @@ function EditScreen({ navigation, route, theme }) {
             {segment_count_label}
             {' · '}
             {total_label}
+            {' · '}
+            {audio_size_label}
             {is_published ? (
               <>
                 {' · '}
@@ -633,6 +642,11 @@ function EditScreen({ navigation, route, theme }) {
               </>
             ) : null}
           </Text>
+          {is_over_upload_limit ? (
+            <Text style={[styles.uploadLimitWarning, { color: theme.colors.accent_strong }]}>
+              {upload_limit_message}
+            </Text>
+          ) : null}
         </View>
       )}
 
@@ -901,6 +915,11 @@ const styles = StyleSheet.create({
   heroHeader: {
     gap: 6,
     paddingHorizontal: 4,
+  },
+  uploadLimitWarning: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 19,
   },
   missingScreen: {
     alignItems: 'center',

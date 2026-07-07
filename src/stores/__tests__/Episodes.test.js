@@ -79,7 +79,7 @@ const Tokens = require('../Tokens').default;
 const Episodes = require('../Episodes').default;
 
 const EPISODE_BY_ID = {
-  clip_meta: [{ duration_seconds: 60, name: 'segment.m4a', waveform: [0.1, 0.5] }],
+  clip_meta: [{ duration_seconds: 60, name: 'segment.m4a', size_bytes: 40_000_000, waveform: [0.1, 0.5] }],
   clips: ['segment.m4a'],
   created_at: '2026-06-01T12:00:00Z',
   duration_seconds: 60,
@@ -93,7 +93,7 @@ const EPISODE_BY_ID = {
 };
 
 const EPISODE_BY_URL = {
-  clip_meta: [{ duration_seconds: 30, name: 'segment.m4a', waveform: [0.2] }],
+  clip_meta: [{ duration_seconds: 30, name: 'segment.m4a', size_bytes: 80_000_000, waveform: [0.2] }],
   clips: ['segment.m4a'],
   created_at: '2026-06-01T13:00:00Z',
   duration_seconds: 30,
@@ -161,6 +161,24 @@ describe('Episodes store', () => {
     test('returns true when post id or post url is present', () => {
       expect(Episodes.get_episode('episode-1').is_published()).toBe(true);
       expect(Episodes.get_episode('episode-2').is_published()).toBe(true);
+    });
+  });
+
+  describe('audio size views', () => {
+    test('sums clip sizes and formats the total', () => {
+      const episode = Episodes.get_episode('episode-1');
+
+      expect(episode.total_audio_size_bytes()).toBe(40_000_000);
+      expect(episode.formatted_audio_size()).toBe('40 MB');
+      expect(episode.is_over_upload_limit()).toBe(false);
+    });
+
+    test('flags episodes over the upload limit', () => {
+      const episode = Episodes.get_episode('episode-2');
+
+      expect(episode.total_audio_size_bytes()).toBe(80_000_000);
+      expect(episode.formatted_audio_size()).toBe('80 MB');
+      expect(episode.is_over_upload_limit()).toBe(true);
     });
   });
 

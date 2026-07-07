@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { WAVEFORM_SAMPLE_COUNT } from './downsample_waveform';
+import { sanitize_size_bytes } from './episode_upload_size';
 import { merge_episode_waveform } from './merge_episode_waveform';
 
 const EPISODES_DIR_NAME = 'episodes';
@@ -60,8 +61,40 @@ function normalize_clip_meta(clip) {
   return {
     duration_seconds: sanitize_duration(clip?.duration_seconds),
     name: `${clip?.name || ''}`,
+    size_bytes: sanitize_size_bytes(clip?.size_bytes),
     waveform: sanitize_waveform(clip?.waveform),
   };
+}
+
+function read_clip_size_bytes(directory, clip_name = '') {
+  const trimmed_name = `${clip_name || ''}`.trim();
+
+  if (!directory || !trimmed_name) {
+    return 0;
+  }
+
+  const clip_file = new File(directory, trimmed_name);
+
+  if (!clip_file.exists) {
+    return 0;
+  }
+
+  return sanitize_size_bytes(clip_file.size);
+}
+
+function hydrate_clip_meta(directory, clip_meta = []) {
+  return clip_meta.map(clip => {
+    const normalized = normalize_clip_meta(clip);
+
+    if (normalized.size_bytes > 0) {
+      return normalized;
+    }
+
+    return {
+      ...normalized,
+      size_bytes: read_clip_size_bytes(directory, normalized.name),
+    };
+  });
 }
 
 // A single take always carries the whole episode shape, so the merged values
@@ -235,7 +268,7 @@ function read_episode_from_directory(directory) {
       return null;
     }
 
-    const clip_meta = migrate_clip_meta(parsed, clips);
+    const clip_meta = hydrate_clip_meta(directory, migrate_clip_meta(parsed, clips));
     const info = compose_episode_info({
       clip_meta,
       created_at: `${parsed.created_at || ''}`,
@@ -273,6 +306,7 @@ export async function save_episode_from_recording(recording_uri = '', duration_s
       {
         duration_seconds,
         name: segment_name,
+        size_bytes: read_clip_size_bytes(directory, segment_name),
         waveform,
       },
     ],
@@ -323,7 +357,12 @@ export async function append_clip_to_episode(episode_id = '', recording_uri = ''
   const segment_name = await place_clip_file(episode_id, recording_uri);
   const clip_meta = [
     ...existing.clip_meta,
-    { duration_seconds, name: segment_name, waveform },
+    {
+      duration_seconds,
+      name: segment_name,
+      size_bytes: read_clip_size_bytes(directory, segment_name),
+      waveform,
+    },
   ];
   const info = compose_episode_info({
     clip_meta,
@@ -381,7 +420,7 @@ export async function replace_episode_clips(episode_id = '', clip_meta = []) {
 
   const existing = read_episode_from_directory(directory);
   const info = compose_episode_info({
-    clip_meta,
+    clip_meta: hydrate_clip_meta(directory, clip_meta),
     created_at: existing ? existing.created_at : new Date().toISOString(),
     post_id: existing?.post_id,
     post_url: existing?.post_url,
@@ -456,6 +495,7 @@ export async function duplicate_episode(episode_id = '') {
     clip_meta: existing.clip_meta.map(clip => ({
       duration_seconds: clip.duration_seconds,
       name: clip.name,
+      size_bytes: clip.size_bytes,
       waveform: clip.waveform.slice(),
     })),
     created_at: created_at.toISOString(),
@@ -547,4 +587,20 @@ export function get_exported_clip_uri(episode = null) {
   }
 
   return `${normalize_folder_uri(episode.folder_uri)}${EXPORTED_FILENAME}`;
+}
+
+export function read_file_size_bytes(file_uri = '') {
+  const trimmed_uri = `${file_uri || ''}`.trim();
+
+  if (!trimmed_uri) {
+    return 0;
+  }
+
+  const file = new File(trimmed_uri);
+
+  if (!file.exists) {
+    return 0;
+  }
+
+  return sanitize_size_bytes(file.size);
 }

@@ -50,6 +50,15 @@ jest.mock('../../api/Micropub', () => ({
   upload_episode_audio: jest.fn(async () => 'https://micro.blog/uploaded.m4a'),
 }));
 
+jest.mock('../../lib/episode_upload_size', () => ({
+  build_upload_size_limit_message: jest.fn(size_bytes => `This episode is ${size_bytes} bytes. Micro.blog uploads must be 75 MB or smaller.`),
+  is_over_upload_limit: jest.fn(size_bytes => size_bytes > 75_000_000),
+}));
+
+jest.mock('../../lib/EpisodeStorage', () => ({
+  read_file_size_bytes: jest.fn(() => 1_000_000),
+}));
+
 const Episodes = require('../Episodes').default;
 const Posts = require('../Posts').default;
 const {
@@ -59,6 +68,10 @@ const {
   update_micropub_post,
   upload_episode_audio,
 } = require('../../api/Micropub');
+const {
+  build_upload_size_limit_message,
+} = require('../../lib/episode_upload_size');
+const { read_file_size_bytes } = require('../../lib/EpisodeStorage');
 
 const Publishing = require('../Publishing').default;
 
@@ -73,7 +86,10 @@ describe('Publishing store', () => {
     fetch_micropub_post_id.mockClear();
     fetch_micropub_post_source.mockClear();
     upload_episode_audio.mockClear();
+    read_file_size_bytes.mockClear();
+    build_upload_size_limit_message.mockClear();
     Episodes.export_merged_audio.mockResolvedValue('file:///tmp/exported.m4a');
+    read_file_size_bytes.mockReturnValue(1_000_000);
     Episodes.get_episode_for_post.mockReturnValue(null);
   });
 
@@ -194,6 +210,18 @@ describe('Publishing store', () => {
     expect(post_url).toBeNull();
     expect(Publishing.phase).toBe('idle');
     expect(Publishing.error_message).toBe('We could not prepare this episode for publishing.');
+    expect(create_episode_post).not.toHaveBeenCalled();
+  });
+
+  test('publish_episode blocks oversized exported audio before upload', async () => {
+    read_file_size_bytes.mockReturnValueOnce(80_000_000);
+
+    const post_url = await Publishing.publish_episode('episode-1');
+
+    expect(post_url).toBeNull();
+    expect(Publishing.phase).toBe('idle');
+    expect(Publishing.error_message).toBe('This episode is 80000000 bytes. Micro.blog uploads must be 75 MB or smaller.');
+    expect(upload_episode_audio).not.toHaveBeenCalled();
     expect(create_episode_post).not.toHaveBeenCalled();
   });
 

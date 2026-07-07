@@ -16,6 +16,11 @@ import {
   update_episode_title,
 } from '../lib/EpisodeStorage';
 import { merge_episode_clips } from '../lib/episode_audio';
+import {
+  format_file_size,
+  is_over_upload_limit,
+  sanitize_size_bytes,
+} from '../lib/episode_upload_size';
 import Auth from './Auth';
 import Posts from './Posts';
 import Tokens from './Tokens';
@@ -23,6 +28,7 @@ import Tokens from './Tokens';
 const ClipMeta = types.model('ClipMeta', {
   duration_seconds: types.optional(types.number, 0),
   name: types.string,
+  size_bytes: types.optional(types.number, 0),
   waveform: types.optional(types.array(types.number), []),
 });
 
@@ -63,6 +69,21 @@ const Episode = types
 
     is_published() {
       return `${self.post_id || self.post_url || ''}`.trim().length > 0;
+    },
+
+    total_audio_size_bytes() {
+      return self.clip_meta.reduce(
+        (sum, clip) => sum + sanitize_size_bytes(clip.size_bytes),
+        0,
+      );
+    },
+
+    formatted_audio_size() {
+      return format_file_size(self.total_audio_size_bytes());
+    },
+
+    is_over_upload_limit() {
+      return is_over_upload_limit(self.total_audio_size_bytes());
     },
   }));
 

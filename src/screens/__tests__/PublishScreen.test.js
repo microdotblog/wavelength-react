@@ -141,10 +141,14 @@ jest.mock('../../stores/Episodes', () => ({
   __esModule: true,
   default: {
     get_episode: jest.fn(() => ({
+      clip_meta: [{ duration_seconds: 60, name: 'clip-1', size_bytes: 1_000_000, waveform: [0.1] }],
       duration_seconds: 60,
+      formatted_audio_size: () => '1.0 MB',
       id: 'ep-1',
+      is_over_upload_limit: () => false,
       playback_clips: () => [{ duration_seconds: 60, name: 'clip-1', uri: 'file:///clip.m4a' }],
       title: 'Test Episode',
+      total_audio_size_bytes: () => 1_000_000,
       waveform: [0.1, 0.5, 0.2],
     })),
   },

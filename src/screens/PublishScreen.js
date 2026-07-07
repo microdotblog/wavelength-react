@@ -19,15 +19,16 @@ import Publishing from '../stores/Publishing';
 import { use_episode_playback } from '../hooks/use_episode_playback';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
 import { show_toast } from '../lib/toast';
+import { build_upload_size_limit_message } from '../lib/episode_upload_size';
 import { header_right_element } from '../theme/wavelengthTheme';
 
 const EDITOR_REVEAL_DELAY_MS = 700;
 
-function build_ios_publish_header_items({ is_publishing, on_post, post_label }) {
+function build_ios_publish_header_items({ is_post_disabled, is_publishing, on_post, post_label }) {
   return [
     {
       accessibilityLabel: 'Post episode to Micro.blog',
-      disabled: is_publishing,
+      disabled: is_post_disabled || is_publishing,
       label: is_publishing ? 'Posting…' : post_label,
       onPress: on_post,
       type: 'button',
@@ -121,7 +122,7 @@ function PublishScreen({ navigation, route, theme }) {
   }, [navigation]);
 
   async function handle_post() {
-    if (!episode || Publishing.is_publishing) {
+    if (!episode || Publishing.is_publishing || episode.is_over_upload_limit()) {
       return;
     }
 
@@ -160,6 +161,7 @@ function PublishScreen({ navigation, route, theme }) {
 
   React.useLayoutEffect(() => {
     const post_label = Publishing.post_button_label();
+    const is_post_disabled = episode?.is_over_upload_limit() ?? false;
 
     if (Platform.OS === 'ios') {
       navigation.setOptions({
@@ -167,6 +169,7 @@ function PublishScreen({ navigation, route, theme }) {
         title: 'New Post',
         unstable_headerRightItems: () =>
           build_ios_publish_header_items({
+            is_post_disabled,
             is_publishing: Publishing.is_publishing,
             on_post: () => post_handler_ref.current?.(),
             post_label,
@@ -181,14 +184,14 @@ function PublishScreen({ navigation, route, theme }) {
       ...header_right_element(() => (
         <HeaderPillButton
           accessibilityLabel="Post episode to Micro.blog"
-          disabled={Publishing.is_publishing}
+          disabled={is_post_disabled || Publishing.is_publishing}
           label={Publishing.is_publishing ? 'Posting…' : post_label}
           onPress={() => post_handler_ref.current?.()}
           theme={theme}
         />
       )),
     });
-  }, [navigation, theme, Publishing.is_publishing, Publishing.phase, Publishing.post_status]);
+  }, [navigation, theme, episode?.clip_meta, Publishing.is_publishing, Publishing.phase, Publishing.post_status]);
 
   if (!episode) {
     return (
@@ -201,6 +204,10 @@ function PublishScreen({ navigation, route, theme }) {
   }
 
   const status_label = Publishing.status_label();
+  const is_over_upload_limit = episode.is_over_upload_limit();
+  const upload_limit_message = is_over_upload_limit
+    ? build_upload_size_limit_message(episode.total_audio_size_bytes())
+    : '';
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
@@ -271,6 +278,7 @@ function PublishScreen({ navigation, route, theme }) {
             current_time={playback.current_time}
             duration_seconds={playback.total_duration || episode.duration_seconds}
             episode_title={episode.title}
+            file_size_label={episode.formatted_audio_size()}
             is_playing={playback.playing}
             is_publishing={Publishing.is_publishing}
             on_seek={handle_seek}
@@ -278,6 +286,7 @@ function PublishScreen({ navigation, route, theme }) {
             publish_phase={Publishing.phase}
             status_label={status_label}
             theme={theme}
+            upload_warning={upload_limit_message}
             waveform={episode.waveform}
           />
           <PublishPostToolbar
