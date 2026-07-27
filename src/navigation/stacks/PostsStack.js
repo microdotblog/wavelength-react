@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HeaderProfileButton from '../../components/HeaderProfileButton';
 import PostsScreen from '../../screens/PostsScreen';
 import { build_stack_screen_options } from '../screenOptions';
-import { header_right_element } from '../../theme/wavelengthTheme';
+import { header_left_element } from '../../theme/wavelengthTheme';
 
 const Stack = createNativeStackNavigator();
 
@@ -16,7 +16,7 @@ function PostsStack({ theme }) {
         options={({ navigation }) => ({
           title: 'Posts',
           headerLargeTitle: false,
-          ...header_right_element(() => (
+          ...header_left_element(() => (
             <HeaderProfileButton
               onPress={() => navigation.navigate('Account')}
               theme={theme}

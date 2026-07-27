@@ -24,14 +24,14 @@ function RecordingsStack({ theme }) {
         options={({ navigation }) => ({
           title: 'Recordings',
           headerLargeTitle: false,
-          ...header_right_element(() => (
+          ...header_left_element(() => (
             <HeaderProfileButton
               onPress={() => navigation.navigate('Account')}
               theme={theme}
             />
           )),
           ...(show_header_record_button
-            ? header_left_element(() => (
+            ? header_right_element(() => (
                 <HeaderPillButton
                   label="Record"
                   onPress={() => navigation.navigate('Record')}
