@@ -62,17 +62,9 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="Record"
-        options={({ navigation, route }) => ({
+        options={({ route }) => ({
           title: route.params?.episode_id ? 'Add Segment' : 'New Recording',
           headerLargeTitle: false,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Done"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
         })}
       >
         {screen_props => (
@@ -84,19 +76,11 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="Edit"
-        options={({ navigation }) => ({
+        options={{
           title: 'Episode',
           headerLargeTitle: false,
           unmountOnBlur: true,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Done"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
-        })}
+        }}
       >
         {screen_props => (
           <EditScreen
