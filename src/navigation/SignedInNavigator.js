@@ -1,18 +1,17 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { observer } from 'mobx-react';
 
-import AccountScreen from '../screens/AccountScreen';
 import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
-import PlatformSymbol from '../components/PlatformSymbol';
 import PostEditScreen from '../screens/PostEditScreen';
 import PublishOptionsScreen from '../screens/PublishOptionsScreen';
 import PublishScreen from '../screens/PublishScreen';
 import DiscoverPlaybackProvider from '../components/DiscoverPlaybackProvider';
 import RecordFab from '../components/RecordFab';
 import RecordScreen from '../screens/RecordScreen';
+import SettingsNavigator from './SettingsNavigator';
 import SplitScreen from '../screens/SplitScreen';
 import TabNavigator from './TabNavigator';
 import { build_stack_screen_options } from './screenOptions';
@@ -49,21 +48,13 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="Account"
-        options={({ navigation }) => ({
-          title: 'Settings',
-          headerBackVisible: false,
-          headerLargeTitle: false,
+        options={{
+          headerShown: false,
           presentation: 'modal',
-          ...header_left_element(() => (
-            <HeaderCloseButton
-              onPress={() => navigation.goBack()}
-              theme={theme}
-            />
-          )),
-        })}
+        }}
       >
         {screen_props => (
-          <AccountScreen
+          <SettingsNavigator
             {...screen_props}
             theme={theme}
           />
@@ -206,38 +197,5 @@ function SignedInNavigator({ theme }) {
     </Stack.Navigator>
   );
 }
-
-function HeaderCloseButton({ onPress, theme }) {
-  return (
-    <Pressable
-      accessibilityLabel="Close settings"
-      accessibilityRole="button"
-      hitSlop={8}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.closeButton,
-        pressed ? styles.pressed : null,
-      ]}
-    >
-      <PlatformSymbol
-        color={theme.colors.ink}
-        name="xmark"
-        size={16}
-      />
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  closeButton: {
-    alignItems: 'center',
-    height: 32,
-    justifyContent: 'center',
-    width: 32,
-  },
-  pressed: {
-    opacity: 0.68,
-  },
-});
 
 export default observer(SignedInNavigator);

@@ -21,11 +21,12 @@ const MICRO_BLOG_COMMUNITY_GUIDELINES_URL = 'https://help.micro.blog/t/community
 const MICRO_BLOG_PRIVACY_POLICY_URL = 'https://help.micro.blog/t/privacy-policy/114';
 const MICRO_BLOG_DELETE_ACCOUNT_URL = 'https://micro.blog/account/delete';
 
-function AccountScreen({ theme }) {
+function AccountScreen({ navigation, theme }) {
   const profile = Auth.current_profile();
   const profile_name = `${profile.name || profile.username || ''}`.trim() || 'Micro.blog account';
   const username_label = profile.username ? `@${profile.username}` : '@micro.blog';
-  const site_label = profile.default_site || profile.url || 'No site returned';
+  const site_label =
+    profile.default_site_name || profile.default_site || profile.url || 'No site returned';
   const profile_photo = `${profile.photo || ''}`.trim();
   const avatar_initial = profile_name.charAt(0).toUpperCase() || 'M';
   const is_busy = Auth.is_loading();
@@ -135,9 +136,13 @@ function AccountScreen({ theme }) {
             },
           ]}
         >
-          <Text selectable style={[styles.siteValue, { color: theme.colors.ink }]}>
-            {site_label}
-          </Text>
+          <SettingsLinkRow
+            accessibility_role="button"
+            is_last
+            label={site_label}
+            onPress={() => navigation.navigate('BlogSelection')}
+            theme={theme}
+          />
         </View>
       </SettingsSection>
 
@@ -222,6 +227,7 @@ function SettingsSection({ children, label, theme }) {
 }
 
 function SettingsLinkRow({
+  accessibility_role = 'link',
   is_last = false,
   label,
   label_color = null,
@@ -231,7 +237,7 @@ function SettingsLinkRow({
   return (
     <Pressable
       accessibilityLabel={label}
-      accessibilityRole="link"
+      accessibilityRole={accessibility_role}
       onPress={onPress}
       style={({ pressed }) => [
         styles.linkRow,
@@ -359,13 +365,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 20,
-  },
-  siteValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
   },
   versionText: {
     fontSize: 13,

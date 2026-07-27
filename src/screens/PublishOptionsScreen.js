@@ -60,7 +60,8 @@ function OptionRow({
 function PublishOptionsScreen({ theme }) {
   const scroll_ref = React.useRef(null);
   const profile = Auth.current_profile();
-  const destination_label = profile.default_site || profile.url || 'your Micro.blog';
+  const destination_label =
+    profile.default_site_name || profile.default_site || profile.url || 'your Micro.blog';
 
   return (
     <KeyboardAvoidingView

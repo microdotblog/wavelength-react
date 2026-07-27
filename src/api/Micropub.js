@@ -127,6 +127,16 @@ export async function fetch_micropub_categories({ token = '', destination = '' }
   return fetch_micropub_query({ destination, query: 'category', token });
 }
 
+export async function fetch_micropub_config({ token = '' } = {}) {
+  const payload = await fetch_micropub_query({ query: 'config', token });
+
+  if (!payload) {
+    throw create_request_error('We could not load your blogs.');
+  }
+
+  return payload;
+}
+
 export async function fetch_micropub_syndicate_targets({ token = '', destination = '' } = {}) {
   return fetch_micropub_query({ destination, query: 'syndicate-to', token });
 }

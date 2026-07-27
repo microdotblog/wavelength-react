@@ -12,10 +12,43 @@ const {
   build_episode_post_body,
   create_episode_post,
   delete_micropub_post,
+  fetch_micropub_config,
   resolve_uploaded_url,
   update_micropub_post,
   upload_episode_audio,
 } = require('../Micropub');
+
+describe('Micropub fetch_micropub_config', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        destination: [
+          {
+            name: 'example.micro.blog',
+            uid: 'https://example.micro.blog/',
+          },
+        ],
+      }),
+      ok: true,
+    }));
+  });
+
+  test('loads the destination list from the Micropub config query', async () => {
+    const payload = await fetch_micropub_config({ token: 'token' });
+
+    expect(payload.destination).toHaveLength(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://micro.blog/micropub?q=config',
+      {
+        headers: {
+          Accept: 'application/json',
+          Authorization: 'Bearer token',
+        },
+        method: 'GET',
+      },
+    );
+  });
+});
 
 describe('Micropub resolve_uploaded_url', () => {
   test('prefers the Location header over the JSON body url', () => {

@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import { Linking } from 'react-native';
-import { flow, types } from 'mobx-state-tree';
+import { applySnapshot, flow, types } from 'mobx-state-tree';
 
 import {
   build_micro_blog_auth_url,
@@ -14,6 +14,7 @@ import {
   normalize_micro_blog_session,
   verify_micro_blog_token,
 } from '../api/MicroBlogAuth';
+import { fetch_micropub_config } from '../api/Micropub';
 import Tokens from './Tokens';
 import WebViewStore from './WebView';
 
@@ -37,9 +38,53 @@ function resolve_verified_session_token(token = '', verify_payload = null) {
   return verified_token || fallback_token || null;
 }
 
+const BlogDestination = types.model('BlogDestination', {
+  is_default: types.optional(types.boolean, false),
+  name: types.string,
+  uid: types.identifier,
+});
+
+function normalize_micropub_destinations(payload = null) {
+  const destinations = Array.isArray(payload?.destination) ? payload.destination : [];
+
+  return destinations.reduce((results, destination) => {
+    const uid = `${destination?.uid || ''}`.trim();
+
+    if (!uid) {
+      return results;
+    }
+
+    results.push({
+      is_default: destination?.['microblog-default'] === true,
+      name: resolve_destination_name(destination),
+      uid,
+    });
+
+    return results;
+  }, []);
+}
+
+function resolve_destination_name(destination = null) {
+  const name = `${destination?.name || ''}`.trim();
+
+  if (name) {
+    return name;
+  }
+
+  const uid = `${destination?.uid || ''}`.trim();
+
+  try {
+    return new URL(uid).hostname || uid;
+  } catch {
+    return uid;
+  }
+}
+
 const Auth = types
   .model('Auth', {
     default_site: types.maybeNull(types.string),
+    default_site_name: types.maybeNull(types.string),
+    destinations: types.optional(types.array(BlogDestination), []),
     error_message: types.maybeNull(types.string),
     has_site: types.maybeNull(types.boolean),
     is_hydrating: types.optional(types.boolean, false),
@@ -52,6 +97,10 @@ const Auth = types
     token_scope: types.maybeNull(types.string),
     username: types.maybeNull(types.string),
   })
+  .volatile(() => ({
+    destination_error_message: null,
+    is_loading_destinations: false,
+  }))
   .actions(self => ({
     clear_error() {
       self.error_message = null;
@@ -73,6 +122,10 @@ const Auth = types
 
     clear_session_data() {
       self.default_site = null;
+      self.default_site_name = null;
+      applySnapshot(self.destinations, []);
+      self.destination_error_message = null;
+      self.is_loading_destinations = false;
       self.has_site = null;
       self.me = null;
       self.profile_name = null;
@@ -84,7 +137,11 @@ const Auth = types
 
     apply_session_payloads(token_payload = null, verify_payload = null) {
       const next_session = normalize_micro_blog_session(token_payload, verify_payload);
-      self.default_site = next_session.default_site;
+      const selected_destination = Tokens.get_selected_destination();
+
+      self.default_site = selected_destination?.uid || next_session.default_site;
+      self.default_site_name =
+        selected_destination?.name || next_session.default_site;
       self.has_site = next_session.has_site;
       self.me = next_session.me;
       self.profile_name = next_session.profile_name;
@@ -93,6 +150,74 @@ const Auth = types
       self.token_scope = next_session.token_scope;
       self.username = next_session.username;
     },
+
+    load_destinations: flow(function* () {
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        self.destination_error_message = 'You need to be signed in to load your blogs.';
+        return [];
+      }
+
+      self.destination_error_message = null;
+      self.is_loading_destinations = true;
+
+      try {
+        const payload = yield fetch_micropub_config({ token });
+
+        if (Tokens.get_user_token() !== token) {
+          return [];
+        }
+
+        const destinations = normalize_micropub_destinations(payload);
+        applySnapshot(self.destinations, destinations);
+
+        const saved_destination = Tokens.get_selected_destination();
+        let selected_destination = saved_destination
+          ? self.destinations.find(destination => destination.uid === saved_destination.uid)
+          : null;
+
+        if (!selected_destination) {
+          selected_destination =
+            self.destinations.find(destination => destination.is_default) ||
+            self.destinations[0] ||
+            null;
+        }
+
+        if (selected_destination) {
+          self.default_site = selected_destination.uid;
+          self.default_site_name = selected_destination.name;
+        }
+
+        if (saved_destination && selected_destination?.uid !== saved_destination.uid) {
+          yield Tokens.clear_selected_destination();
+        }
+
+        return self.destinations.slice();
+      } catch (error) {
+        applySnapshot(self.destinations, []);
+        self.destination_error_message =
+          error?.message || 'We could not load your blogs.';
+        return [];
+      } finally {
+        self.is_loading_destinations = false;
+      }
+    }),
+
+    select_destination: flow(function* (destination = null) {
+      const uid = `${destination?.uid || ''}`.trim();
+
+      if (!uid) {
+        return false;
+      }
+
+      const name = `${destination?.name || uid}`.trim();
+      self.default_site = uid;
+      self.default_site_name = name;
+      yield Tokens.set_selected_destination({ name, uid });
+
+      return true;
+    }),
 
     hydrate: flow(function* () {
       if (self.is_hydrating) {
@@ -345,12 +470,17 @@ const Auth = types
     current_profile() {
       return {
         default_site: self.default_site || '',
+        default_site_name: self.default_site_name || self.default_site || '',
         has_site: self.has_site,
         name: self.profile_name || self.username || '',
         photo: self.profile_photo || '',
         url: self.profile_url || self.me || '',
         username: self.username || '',
       };
+    },
+
+    is_destination_selected(uid = '') {
+      return `${uid || ''}`.trim() === `${self.default_site || ''}`.trim();
     },
   }))
   .create();

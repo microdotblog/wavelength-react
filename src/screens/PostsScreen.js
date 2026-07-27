@@ -26,7 +26,8 @@ import Posts from '../stores/Posts';
 function PostsScreen({ navigation, theme }) {
   const list_ref = React.useRef(null);
   const posts = Posts.sorted_posts();
-  const destination_label = Auth.default_site || Auth.profile_url || 'your Micro.blog';
+  const destination_label =
+    Auth.default_site_name || Auth.default_site || Auth.profile_url || 'your Micro.blog';
   const open_swipeable_ref = React.useRef(null);
   const [is_pull_refreshing, set_is_pull_refreshing] = React.useState(false);
   const tab_bar_height = use_tab_bar_bottom_offset();

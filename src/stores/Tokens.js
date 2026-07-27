@@ -6,6 +6,8 @@ const TOKENS_STORAGE_KEY = 'WavelengthTokens';
 const Tokens = types
   .model('Tokens', {
     pending_oauth_state: types.maybeNull(types.string),
+    selected_destination_name: types.maybeNull(types.string),
+    selected_destination_uid: types.maybeNull(types.string),
     user_token: types.maybeNull(types.string),
   })
   .volatile(() => ({
@@ -35,6 +37,8 @@ const Tokens = types
     persist: flow(function* () {
       const snapshot = {
         pending_oauth_state: self.pending_oauth_state,
+        selected_destination_name: self.selected_destination_name,
+        selected_destination_uid: self.selected_destination_uid,
         user_token: self.user_token,
       };
 
@@ -54,7 +58,32 @@ const Tokens = types
     }),
 
     clear_user_token: flow(function* () {
+      self.selected_destination_name = null;
+      self.selected_destination_uid = null;
       self.user_token = null;
+      yield self.persist();
+    }),
+
+    set_selected_destination: flow(function* ({ name = '', uid = '' } = {}) {
+      const trimmed_uid = `${uid || ''}`.trim();
+
+      if (!trimmed_uid) {
+        return null;
+      }
+
+      self.selected_destination_name = `${name || ''}`.trim() || trimmed_uid;
+      self.selected_destination_uid = trimmed_uid;
+      yield self.persist();
+
+      return {
+        name: self.selected_destination_name,
+        uid: self.selected_destination_uid,
+      };
+    }),
+
+    clear_selected_destination: flow(function* () {
+      self.selected_destination_name = null;
+      self.selected_destination_uid = null;
       yield self.persist();
     }),
 
@@ -86,6 +115,19 @@ const Tokens = types
 
     get_pending_oauth_state() {
       return `${self.pending_oauth_state || ''}`.trim();
+    },
+
+    get_selected_destination() {
+      const uid = `${self.selected_destination_uid || ''}`.trim();
+
+      if (!uid) {
+        return null;
+      }
+
+      return {
+        name: `${self.selected_destination_name || uid}`.trim(),
+        uid,
+      };
     },
 
     has_pending_oauth_state() {
