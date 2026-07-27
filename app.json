@@ -2,7 +2,7 @@
   "expo": {
     "name": "Wavelength",
     "slug": "wavelength",
-    "version": "1.0.0",
+    "version": "2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "wavelength",
@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "blog.micro.wavelength",
+      "buildNumber": "100",
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "microblog"
