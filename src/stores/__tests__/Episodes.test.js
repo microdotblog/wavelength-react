@@ -63,17 +63,24 @@ jest.mock('../../lib/EpisodeStorage', () => ({
 }));
 
 jest.mock('../../lib/episode_audio', () => ({
+  delete_audio_file: jest.fn(),
   merge_episode_clips: jest.fn(async () => 'file:///episodes/ep-1/exported.m4a'),
+  normalize_imported_audio: jest.fn(),
 }));
 
 const { applySnapshot } = require('mobx-state-tree');
 const { delete_micropub_post } = require('../../api/Micropub');
 const {
+  append_clip_to_episode,
   clear_episode_publish_link,
   delete_episode: remove_episode_from_storage,
   replace_episode_clips,
 } = require('../../lib/EpisodeStorage');
-const { merge_episode_clips } = require('../../lib/episode_audio');
+const {
+  delete_audio_file,
+  merge_episode_clips,
+  normalize_imported_audio,
+} = require('../../lib/episode_audio');
 const Posts = require('../Posts').default;
 const Tokens = require('../Tokens').default;
 const Episodes = require('../Episodes').default;
@@ -118,9 +125,12 @@ describe('Episodes store', () => {
 
     delete_micropub_post.mockClear();
     Posts.refresh.mockClear();
+    append_clip_to_episode.mockClear();
     remove_episode_from_storage.mockClear();
     clear_episode_publish_link.mockClear();
+    delete_audio_file.mockClear();
     merge_episode_clips.mockClear();
+    normalize_imported_audio.mockClear();
     Tokens.get_user_token.mockReturnValue('token');
   });
 
@@ -221,6 +231,62 @@ describe('Episodes store', () => {
       expect(clear_episode_publish_link).toHaveBeenCalledWith('episode-1');
       expect(Episodes.get_episode('episode-1').post_id).toBeNull();
       expect(Episodes.get_episode('episode-1').post_url).toBeNull();
+    });
+  });
+
+  describe('import_clip_to_episode', () => {
+    test('normalizes the selected file and appends the result', async () => {
+      normalize_imported_audio.mockResolvedValue({
+        duration_seconds: 12,
+        uri: 'file:///tmp/imported.aac',
+        waveform: [0.2, 0.8],
+      });
+      append_clip_to_episode.mockResolvedValue({
+        ...EPISODE_BY_ID,
+        clip_meta: [
+          ...EPISODE_BY_ID.clip_meta,
+          {
+            duration_seconds: 12,
+            name: 'segment-2.aac',
+            size_bytes: 1_500_000,
+            waveform: [0.2, 0.8],
+          },
+        ],
+        clips: ['segment.m4a', 'segment-2.aac'],
+        duration_seconds: 72,
+      });
+
+      await expect(
+        Episodes.import_clip_to_episode('episode-1', 'file:///tmp/source.mp3'),
+      ).resolves.toBe('episode-1');
+
+      expect(normalize_imported_audio).toHaveBeenCalledWith('file:///tmp/source.mp3');
+      expect(append_clip_to_episode).toHaveBeenCalledWith(
+        'episode-1',
+        'file:///tmp/imported.aac',
+        12,
+        [0.2, 0.8],
+      );
+      expect(Episodes.get_episode('episode-1').clips).toEqual([
+        'segment.m4a',
+        'segment-2.aac',
+      ]);
+      expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/imported.aac');
+    });
+
+    test('removes the converted temporary file when storage fails', async () => {
+      normalize_imported_audio.mockResolvedValue({
+        duration_seconds: 12,
+        uri: 'file:///tmp/imported.aac',
+        waveform: [0.2],
+      });
+      append_clip_to_episode.mockRejectedValue(new Error('Storage failed.'));
+
+      await expect(
+        Episodes.import_clip_to_episode('episode-1', 'file:///tmp/source.mp3'),
+      ).rejects.toThrow('Storage failed.');
+
+      expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/imported.aac');
     });
   });
 

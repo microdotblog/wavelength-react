@@ -8,6 +8,7 @@ jest.mock('../EpisodeStorage', () => ({
 }));
 
 jest.mock('@siteed/audio-studio', () => ({
+  extractPreviewBars: jest.fn(),
   trimAudio: jest.fn(),
 }));
 
@@ -15,8 +16,66 @@ jest.mock('react-native-audio-api', () => ({
   concatAudioFiles: jest.fn(),
 }));
 
-const { trimAudio } = require('@siteed/audio-studio');
-const { split_clip_at } = require('../episode_audio');
+const { extractPreviewBars, trimAudio } = require('@siteed/audio-studio');
+const { normalize_imported_audio, split_clip_at } = require('../episode_audio');
+
+describe('normalize_imported_audio', () => {
+  beforeEach(() => {
+    extractPreviewBars.mockReset();
+    trimAudio.mockReset();
+  });
+
+  test('analyzes and converts the complete file to recording-compatible AAC', async () => {
+    extractPreviewBars.mockResolvedValue({
+      bars: [
+        { amplitude: 0.2 },
+        { amplitude: 0.8 },
+      ],
+      durationMs: 5000,
+    });
+    trimAudio.mockResolvedValue({
+      durationMs: 5000,
+      uri: 'file:///tmp/imported.aac',
+    });
+
+    await expect(normalize_imported_audio('file:///tmp/source.mp3')).resolves.toEqual({
+      duration_seconds: 5,
+      uri: 'file:///tmp/imported.aac',
+      waveform: [0.2, 0.8],
+    });
+
+    expect(extractPreviewBars).toHaveBeenCalledWith(expect.objectContaining({
+      fileUri: 'file:///tmp/source.mp3',
+      numberOfBars: 128,
+      startTimeMs: 0,
+    }));
+    expect(trimAudio).toHaveBeenCalledWith(expect.objectContaining({
+      endTimeMs: 5000,
+      fileUri: 'file:///tmp/source.mp3',
+      mode: 'single',
+      outputFormat: {
+        bitrate: 128000,
+        channels: 2,
+        format: 'aac',
+        sampleRate: 44100,
+      },
+      startTimeMs: 0,
+    }));
+  });
+
+  test('rejects files without audio before attempting conversion', async () => {
+    extractPreviewBars.mockResolvedValue({
+      bars: [],
+      durationMs: 0,
+    });
+
+    await expect(normalize_imported_audio('file:///tmp/empty.mp3'))
+      .rejects
+      .toThrow('That file does not contain any audio.');
+
+    expect(trimAudio).not.toHaveBeenCalled();
+  });
+});
 
 describe('split_clip_at', () => {
   beforeEach(() => {

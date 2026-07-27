@@ -16,6 +16,14 @@ export const TOOLBAR_SYMBOLS = {
     ios: 'link',
     multicolor: true,
   },
+  folder: {
+    android_icon: 'folder',
+    ios: 'folder.fill',
+  },
+  microphone: {
+    android_icon: 'mic',
+    ios: 'microphone.fill',
+  },
   pause: {
     android_icon: 'pause',
     ios: 'pause.fill',

@@ -15,7 +15,11 @@ import {
   save_episode_from_recording,
   update_episode_title,
 } from '../lib/EpisodeStorage';
-import { merge_episode_clips } from '../lib/episode_audio';
+import {
+  delete_audio_file,
+  merge_episode_clips,
+  normalize_imported_audio,
+} from '../lib/episode_audio';
 import {
   format_file_size,
   is_over_upload_limit,
@@ -144,6 +148,30 @@ const Episodes = types
       delete self.export_fingerprints[episode_id];
 
       return snapshot.id;
+    }),
+
+    import_clip_to_episode: flow(function* (episode_id = '', source_uri = '') {
+      let normalized_uri = '';
+
+      try {
+        const normalized = yield normalize_imported_audio(source_uri);
+        normalized_uri = normalized.uri;
+
+        const snapshot = yield append_clip_to_episode(
+          episode_id,
+          normalized.uri,
+          normalized.duration_seconds,
+          normalized.waveform,
+        );
+        self.apply_episode_snapshot(snapshot);
+        delete self.export_fingerprints[episode_id];
+
+        return snapshot.id;
+      } finally {
+        if (normalized_uri) {
+          delete_audio_file(normalized_uri);
+        }
+      }
     }),
 
     update_episode_clips: flow(function* (episode_id = '', clip_meta = []) {

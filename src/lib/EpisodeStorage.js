@@ -354,29 +354,42 @@ export async function append_clip_to_episode(episode_id = '', recording_uri = ''
     throw new Error('That episode could not be read.');
   }
 
-  const segment_name = await place_clip_file(episode_id, recording_uri);
-  const clip_meta = [
-    ...existing.clip_meta,
-    {
-      duration_seconds,
-      name: segment_name,
-      size_bytes: read_clip_size_bytes(directory, segment_name),
-      waveform,
-    },
-  ];
-  const info = compose_episode_info({
-    clip_meta,
-    created_at: existing.created_at,
-    post_id: existing.post_id,
-    post_url: existing.post_url,
-    published_at: existing.published_at,
-    title: existing.title,
-  });
+  let segment_name = '';
 
-  delete_exported_file(directory);
-  write_episode_info(directory, info);
+  try {
+    segment_name = await place_clip_file(episode_id, recording_uri);
 
-  return to_episode_snapshot(info, directory, directory.name);
+    const clip_meta = [
+      ...existing.clip_meta,
+      {
+        duration_seconds,
+        name: segment_name,
+        size_bytes: read_clip_size_bytes(directory, segment_name),
+        waveform,
+      },
+    ];
+    const info = compose_episode_info({
+      clip_meta,
+      created_at: existing.created_at,
+      post_id: existing.post_id,
+      post_url: existing.post_url,
+      published_at: existing.published_at,
+      title: existing.title,
+    });
+
+    delete_exported_file(directory);
+    write_episode_info(directory, info);
+
+    return to_episode_snapshot(info, directory, directory.name);
+  } catch (error) {
+    const segment_file = segment_name ? new File(directory, segment_name) : null;
+
+    if (segment_file?.exists) {
+      segment_file.delete();
+    }
+
+    throw error;
+  }
 }
 
 export async function update_episode_title(episode_id = '', title = '') {

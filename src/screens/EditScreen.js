@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { observer } from 'mobx-react';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 
 import { fetch_micropub_post_source } from '../api/Micropub';
 import Episodes from '../stores/Episodes';
@@ -21,6 +23,7 @@ import Tokens from '../stores/Tokens';
 import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import EpisodeActionsMenuButton from '../components/EpisodeActionsMenuButton';
 import HeaderPillButton from '../components/HeaderPillButton';
+import PlatformSymbol from '../components/PlatformSymbol';
 import PlaybackControlButton from '../components/PlaybackControlButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
@@ -178,6 +181,7 @@ function EditScreen({ navigation, route, theme }) {
   const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
+  const [is_importing_audio, set_is_importing_audio] = React.useState(false);
   const [published_post_details, set_published_post_details] = React.useState(EMPTY_PUBLISHED_POST_DETAILS);
   const save_handler_ref = React.useRef(null);
   const rename_handler_ref = React.useRef(null);
@@ -334,6 +338,56 @@ function EditScreen({ navigation, route, theme }) {
     }
 
     navigation.navigate('Record', { episode_id });
+  }
+
+  async function import_audio_file() {
+    if (!episode || episode.is_published() || is_importing_audio) {
+      return;
+    }
+
+    let selected_uri = '';
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: 'audio/*',
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      selected_uri = `${result.assets?.[0]?.uri || ''}`.trim();
+
+      if (!selected_uri) {
+        throw new Error('That audio file could not be opened.');
+      }
+
+      playback.pause();
+      set_is_importing_audio(true);
+      await Episodes.import_clip_to_episode(episode_id, selected_uri);
+      await Episodes.export_merged_audio(episode_id);
+    } catch (error) {
+      Alert.alert(
+        'Could not add audio file',
+        error?.message || 'Please choose another audio file and try again.',
+      );
+    } finally {
+      if (selected_uri) {
+        try {
+          const selected_file = new File(selected_uri);
+
+          if (selected_file.exists) {
+            selected_file.delete();
+          }
+        } catch (error) {
+          // The picker cache may already have removed the temporary file.
+        }
+      }
+
+      set_is_importing_audio(false);
+    }
   }
 
   function open_publish() {
@@ -860,24 +914,71 @@ function EditScreen({ navigation, route, theme }) {
             </Text>
           </Pressable>
         ) : (
-          <Pressable
-            accessibilityLabel="Record another segment"
-            accessibilityRole="button"
-            onPress={add_segment}
-            style={({ pressed }) => [
-              styles.addSegmentRow,
+          <View
+            style={[
+              styles.addSegmentActions,
               {
                 backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.14 : 0.08),
                 borderTopColor: theme.colors.line,
               },
-              pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
-            <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
-              Record another segment
-            </Text>
-          </Pressable>
+            <Pressable
+              accessibilityLabel="Record another segment"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: is_importing_audio }}
+              disabled={is_importing_audio}
+              onPress={add_segment}
+              style={({ pressed }) => [
+                styles.addSegmentRecordButton,
+                pressed && !is_importing_audio ? styles.pressed : null,
+                is_importing_audio ? styles.disabledRow : null,
+              ]}
+            >
+              <PlatformSymbol
+                color={theme.colors.accent_strong}
+                name="microphone"
+                size={21}
+              />
+              <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
+                Record another segment
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel={is_importing_audio ? 'Adding audio file' : 'Add audio file'}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: is_importing_audio }}
+              disabled={is_importing_audio}
+              onPress={import_audio_file}
+              style={({ pressed }) => [
+                styles.addAudioFileButton,
+                pressed && !is_importing_audio ? styles.pressed : null,
+                is_importing_audio ? styles.disabledRow : null,
+              ]}
+            >
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.addAudioFileDivider,
+                  { backgroundColor: with_color_opacity(theme.colors.accent, 0.25) },
+                ]}
+              />
+              {is_importing_audio ? (
+                <ActivityIndicator
+                  color={theme.colors.accent_strong}
+                  size="small"
+                  style={styles.addSegmentProgress}
+                />
+              ) : (
+                <PlatformSymbol
+                  color={theme.colors.accent_strong}
+                  name="folder"
+                  size={23}
+                />
+              )}
+            </Pressable>
+          </View>
         )}
       </View>
       </ScrollView>
@@ -897,23 +998,40 @@ function EditScreen({ navigation, route, theme }) {
 }
 
 const styles = StyleSheet.create({
-  addSegmentGlyph: {
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 24,
-    width: 18,
+  addAudioFileButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    position: 'relative',
+    width: 68,
+  },
+  addAudioFileDivider: {
+    bottom: 0,
+    left: 2,
+    position: 'absolute',
+    top: 0,
+    width: 2,
+  },
+  addSegmentActions: {
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    minHeight: 52,
   },
   addSegmentLabel: {
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 19,
   },
-  addSegmentRow: {
+  addSegmentProgress: {
+    width: 23,
+  },
+  addSegmentRecordButton: {
     alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    flex: 1,
     flexDirection: 'row',
     gap: 10,
-    minHeight: 52,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
