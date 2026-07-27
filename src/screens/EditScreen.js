@@ -487,7 +487,6 @@ function EditScreen({ navigation, route, theme }) {
   publish_handler_ref.current = open_publish;
   duplicate_handler_ref.current = duplicate_episode;
 
-  const navigation_title = is_editing_title ? 'Rename' : (episode?.title || 'Episode');
   const is_published = episode?.is_published() ?? false;
 
   React.useLayoutEffect(() => {
@@ -495,7 +494,7 @@ function EditScreen({ navigation, route, theme }) {
       navigation.setOptions({
         headerLargeTitle: false,
         headerRight: undefined,
-        title: navigation_title,
+        title: '',
         unstable_headerRightItems: () =>
           build_ios_episode_header_items({
             is_editing_title,
@@ -512,7 +511,7 @@ function EditScreen({ navigation, route, theme }) {
 
     navigation.setOptions({
       headerLargeTitle: false,
-      title: navigation_title,
+      title: '',
       unstable_headerRightItems: undefined,
       ...header_right_element(() =>
         is_editing_title ? (
@@ -543,7 +542,7 @@ function EditScreen({ navigation, route, theme }) {
         ),
       ),
     });
-  }, [navigation, is_editing_title, is_published, navigation_title, theme]);
+  }, [navigation, is_editing_title, is_published, theme]);
 
   if (!episode) {
     return (

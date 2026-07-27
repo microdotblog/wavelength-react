@@ -77,7 +77,7 @@ function SignedInNavigator({ theme }) {
       <Stack.Screen
         name="Edit"
         options={{
-          title: 'Episode',
+          title: '',
           headerLargeTitle: false,
           unmountOnBlur: true,
         }}
