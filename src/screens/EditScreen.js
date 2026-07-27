@@ -173,6 +173,7 @@ function EditScreen({ navigation, route, theme }) {
   const episode = Episodes.get_episode(episode_id);
   const playback = use_episode_playback(episode ? episode.playback_clips() : []);
   const [title_draft, set_title_draft] = React.useState(episode?.title || '');
+  const [initial_title_selection, set_initial_title_selection] = React.useState(null);
   const [is_editing_title, set_is_editing_title] = React.useState(false);
   const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
@@ -184,6 +185,7 @@ function EditScreen({ navigation, route, theme }) {
   const publish_handler_ref = React.useRef(null);
   const duplicate_handler_ref = React.useRef(null);
   const playback_play_ref = React.useRef(null);
+  const title_input_ref = React.useRef(null);
 
   playback_play_ref.current = playback.play;
 
@@ -191,6 +193,28 @@ function EditScreen({ navigation, route, theme }) {
     if (!is_editing_title) {
       set_title_draft(episode?.title || '');
     }
+  }, [episode?.title, is_editing_title]);
+
+  React.useEffect(() => {
+    if (!is_editing_title) {
+      set_initial_title_selection(null);
+      return undefined;
+    }
+
+    set_initial_title_selection({
+      start: 0,
+      end: `${episode?.title || ''}`.length,
+    });
+
+    const frame_id = requestAnimationFrame(() => {
+      title_input_ref.current?.focus?.();
+    });
+
+    return () => {
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(frame_id);
+      }
+    };
   }, [episode?.title, is_editing_title]);
 
   React.useEffect(() => {
@@ -615,10 +639,17 @@ function EditScreen({ navigation, route, theme }) {
           keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
           onBlur={commit_title}
           onChangeText={set_title_draft}
+          onSelectionChange={() => {
+            if (initial_title_selection) {
+              set_initial_title_selection(null);
+            }
+          }}
           onSubmitEditing={commit_title}
           placeholder="Episode name"
           placeholderTextColor={theme.colors.ink_soft}
+          ref={title_input_ref}
           returnKeyType="done"
+          selection={initial_title_selection || undefined}
           selectionColor={theme.colors.accent}
           style={[styles.renameInput, { color: theme.colors.ink }]}
           value={title_draft}
