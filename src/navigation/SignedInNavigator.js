@@ -114,18 +114,10 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="PostEdit"
-        options={({ navigation }) => ({
+        options={{
           title: 'Edit Post',
           headerLargeTitle: false,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Cancel"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
-        })}
+        }}
       >
         {screen_props => (
           <PostEditScreen
