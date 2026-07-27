@@ -57,7 +57,7 @@ function TabNavigator({ theme }) {
         tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.ink_soft,
         ...(Platform.OS === 'ios'
-          ? { tabBarMinimizeBehavior: 'onScrollDown' }
+          ? { tabBarMinimizeBehavior: 'none' }
           : {
               tabBarStyle: {
                 backgroundColor: theme.colors.canvas,
