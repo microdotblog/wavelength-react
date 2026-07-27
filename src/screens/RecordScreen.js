@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -9,6 +9,7 @@ import {
 } from 'expo-audio';
 import { File } from 'expo-file-system';
 import { observer } from 'mobx-react';
+import { HeaderBackButton } from '@react-navigation/elements';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -17,14 +18,13 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Episodes from '../stores/Episodes';
-import HeaderPillButton from '../components/HeaderPillButton';
 import RecordControlButton from '../components/RecordControlButton';
 import RecordingWaveform from '../components/RecordingWaveform';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { format_clock } from '../lib/format_duration';
 import { normalize_metering } from '../lib/normalize_metering';
 import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
-import { header_left_element, with_color_opacity } from '../theme/wavelengthTheme';
+import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const MINIMUM_RECORDING_SECONDS = 1;
 const RECORDER_POLL_MS = 50;
@@ -90,17 +90,37 @@ function RecordScreen({ navigation, route, theme }) {
   }, [recording_phase, actions_opacity, actions_translate]);
 
   React.useLayoutEffect(() => {
+    if (Platform.OS === 'ios') {
+      navigation.setOptions({
+        gestureEnabled: recording_phase === 'idle',
+        headerLargeTitle: false,
+        headerLeft: undefined,
+        unstable_headerLeftItems: () => [
+          {
+            accessibilityLabel: 'Back',
+            icon: { name: 'chevron.left', type: 'sfSymbol' },
+            label: '',
+            onPress: () => done_handler_ref.current?.(),
+            tintColor: theme.colors.ink,
+            type: 'button',
+          },
+        ],
+      });
+      return;
+    }
+
     navigation.setOptions({
       gestureEnabled: recording_phase === 'idle',
       headerLargeTitle: false,
-      ...header_left_element(() => (
-        <HeaderPillButton
-          label="Done"
+      headerLeft: () => (
+        <HeaderBackButton
+          accessibilityLabel="Back"
+          displayMode="minimal"
           onPress={() => done_handler_ref.current?.()}
-          placement="leading"
-          theme={theme}
+          tintColor={theme.colors.ink}
         />
-      )),
+      ),
+      unstable_headerLeftItems: undefined,
     });
   }, [navigation, recording_phase, theme]);
 

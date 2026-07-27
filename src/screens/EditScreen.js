@@ -861,7 +861,7 @@ function EditScreen({ navigation, route, theme }) {
           </Pressable>
         ) : (
           <Pressable
-            accessibilityLabel="Record another take"
+            accessibilityLabel="Record another segment"
             accessibilityRole="button"
             onPress={add_segment}
             style={({ pressed }) => [
@@ -875,7 +875,7 @@ function EditScreen({ navigation, route, theme }) {
           >
             <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
             <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
-              Record another take
+              Record another segment
             </Text>
           </Pressable>
         )}
