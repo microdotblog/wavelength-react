@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.wavelengthmp3'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.wavelengthmp3"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  implementation 'com.github.axet:lame:1.0.9'
+}

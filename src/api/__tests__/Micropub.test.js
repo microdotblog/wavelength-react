@@ -13,6 +13,7 @@ const {
   create_episode_post,
   delete_micropub_post,
   fetch_micropub_config,
+  resolve_audio_mime_type,
   resolve_uploaded_url,
   update_micropub_post,
   upload_episode_audio,
@@ -66,6 +67,16 @@ describe('Micropub resolve_uploaded_url', () => {
   });
 });
 
+describe('Micropub resolve_audio_mime_type', () => {
+  test('uses audio/mpeg for MP3 exports', () => {
+    expect(resolve_audio_mime_type('file:///tmp/exported.mp3')).toBe('audio/mpeg');
+  });
+
+  test('keeps audio/mp4 for AAC exports', () => {
+    expect(resolve_audio_mime_type('file:///tmp/exported.m4a')).toBe('audio/mp4');
+  });
+});
+
 describe('Micropub build_episode_post_body', () => {
   test('includes summary and syndicate targets in post body', () => {
     const body = build_episode_post_body({
@@ -91,10 +102,10 @@ describe('Micropub upload_episode_audio', () => {
     File.mockReset();
   });
 
-  test('uploads merged audio with native multipart upload', async () => {
+  test('uploads MP3 audio with native multipart upload', async () => {
     const upload = jest.fn(async () => ({
-      body: JSON.stringify({ url: 'https://micro.blog/uploaded.m4a' }),
-      headers: { Location: 'https://micro.blog/uploaded.m4a' },
+      body: JSON.stringify({ url: 'https://micro.blog/uploaded.mp3' }),
+      headers: { Location: 'https://micro.blog/uploaded.mp3' },
       status: 202,
     }));
 
@@ -105,18 +116,18 @@ describe('Micropub upload_episode_audio', () => {
 
     const audio_url = await upload_episode_audio({
       destination: 'https://test.micro.blog',
-      file_uri: 'file:///tmp/exported.m4a',
+      file_uri: 'file:///tmp/exported.mp3',
       token: 'token',
     });
 
-    expect(audio_url).toBe('https://micro.blog/uploaded.m4a');
+    expect(audio_url).toBe('https://micro.blog/uploaded.mp3');
     expect(upload).toHaveBeenCalledWith('https://micro.blog/micropub/media', {
       fieldName: 'file',
       headers: {
         Accept: 'application/json',
         Authorization: 'Bearer token',
       },
-      mimeType: 'audio/mp4',
+      mimeType: 'audio/mpeg',
       parameters: { 'mp-destination': 'https://test.micro.blog' },
       uploadType: UploadType.MULTIPART,
     });

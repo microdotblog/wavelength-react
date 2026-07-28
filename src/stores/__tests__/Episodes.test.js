@@ -64,6 +64,7 @@ jest.mock('../../lib/EpisodeStorage', () => ({
 
 jest.mock('../../lib/episode_audio', () => ({
   delete_audio_file: jest.fn(),
+  export_episode_mp3: jest.fn(async () => 'file:///episodes/ep-1/exported.mp3'),
   merge_episode_clips: jest.fn(async () => 'file:///episodes/ep-1/exported.m4a'),
   normalize_imported_audio: jest.fn(),
 }));
@@ -78,6 +79,7 @@ const {
 } = require('../../lib/EpisodeStorage');
 const {
   delete_audio_file,
+  export_episode_mp3,
   merge_episode_clips,
   normalize_imported_audio,
 } = require('../../lib/episode_audio');
@@ -129,6 +131,7 @@ describe('Episodes store', () => {
     remove_episode_from_storage.mockClear();
     clear_episode_publish_link.mockClear();
     delete_audio_file.mockClear();
+    export_episode_mp3.mockClear();
     merge_episode_clips.mockClear();
     normalize_imported_audio.mockClear();
     Tokens.get_user_token.mockReturnValue('token');
@@ -319,6 +322,26 @@ describe('Episodes store', () => {
 
       expect(replace_episode_clips).toHaveBeenCalledWith('episode-1', []);
       expect(merge_episode_clips).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('export_published_audio', () => {
+    test('converts the merged AAC export to MP3', async () => {
+      const exported_uri = await Episodes.export_published_audio('episode-1');
+
+      expect(exported_uri).toBe('file:///episodes/ep-1/exported.mp3');
+      expect(merge_episode_clips).toHaveBeenCalledWith(expect.objectContaining({
+        id: 'episode-1',
+      }));
+      expect(export_episode_mp3).toHaveBeenCalledWith(
+        'file:///episodes/ep-1/exported.m4a',
+      );
+    });
+
+    test('returns empty string when MP3 encoding fails', async () => {
+      export_episode_mp3.mockRejectedValueOnce(new Error('Encoding failed.'));
+
+      await expect(Episodes.export_published_audio('episode-1')).resolves.toBe('');
     });
   });
 });

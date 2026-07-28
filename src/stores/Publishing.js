@@ -302,7 +302,7 @@ const Publishing = types
 
       try {
         self.phase = 'exporting';
-        const exported_uri = yield Episodes.export_merged_audio(episode_id);
+        const exported_uri = yield Episodes.export_published_audio(episode_id);
 
         if (!exported_uri) {
           throw new Error('We could not prepare this episode for publishing.');

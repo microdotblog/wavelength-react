@@ -17,6 +17,7 @@ import {
 } from '../lib/EpisodeStorage';
 import {
   delete_audio_file,
+  export_episode_mp3,
   merge_episode_clips,
   normalize_imported_audio,
 } from '../lib/episode_audio';
@@ -255,6 +256,20 @@ const Episodes = types
 
         return exported_uri;
       } catch (error) {
+        return '';
+      }
+    }),
+
+    export_published_audio: flow(function* (episode_id = '') {
+      const merged_uri = yield self.export_merged_audio(episode_id);
+
+      if (!merged_uri) {
+        return '';
+      }
+
+      try {
+        return yield export_episode_mp3(merged_uri);
+      } catch {
         return '';
       }
     }),

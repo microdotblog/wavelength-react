@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { concatAudioFiles } from 'react-native-audio-api';
 import { extractPreviewBars, trimAudio } from '@siteed/audio-studio';
 
+import WavelengthMP3Module from '../../modules/wavelength-mp3/src/WavelengthMP3Module';
 import { get_episode_clip_uri, get_exported_clip_uri } from './EpisodeStorage';
 import { WAVEFORM_SAMPLE_COUNT } from './downsample_waveform';
 
@@ -101,6 +102,27 @@ export async function merge_episode_clips(episode = null) {
   const input_uris = clips.map(clip_name => get_episode_clip_uri(episode, clip_name));
 
   return concatAudioFiles(input_uris, exported_uri);
+}
+
+// Publishing keeps the editable AAC source intact and performs one final
+// decode/encode pass to a 160 kbps mono MP3.
+export async function export_episode_mp3(source_uri = '') {
+  const trimmed_uri = `${source_uri || ''}`.trim();
+
+  if (!trimmed_uri) {
+    throw new Error('An exported episode is required to create an MP3.');
+  }
+
+  const output_uri = trimmed_uri.toLowerCase().endsWith('.m4a')
+    ? `${trimmed_uri.slice(0, -4)}.mp3`
+    : `${trimmed_uri}.mp3`;
+  const exported_uri = await WavelengthMP3Module.exportMp3Async(trimmed_uri, output_uri);
+
+  if (!exported_uri) {
+    throw new Error('The episode audio could not be encoded as MP3.');
+  }
+
+  return exported_uri;
 }
 
 // Cut one clip into two AAC files at the chosen point. The caller moves the

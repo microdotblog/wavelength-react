@@ -16,8 +16,47 @@ jest.mock('react-native-audio-api', () => ({
   concatAudioFiles: jest.fn(),
 }));
 
+jest.mock('../../../modules/wavelength-mp3/src/WavelengthMP3Module', () => ({
+  __esModule: true,
+  default: {
+    exportMp3Async: jest.fn(),
+  },
+}));
+
 const { extractPreviewBars, trimAudio } = require('@siteed/audio-studio');
-const { normalize_imported_audio, split_clip_at } = require('../episode_audio');
+const WavelengthMP3Module = require('../../../modules/wavelength-mp3/src/WavelengthMP3Module').default;
+const {
+  export_episode_mp3,
+  normalize_imported_audio,
+  split_clip_at,
+} = require('../episode_audio');
+
+describe('export_episode_mp3', () => {
+  beforeEach(() => {
+    WavelengthMP3Module.exportMp3Async.mockReset();
+  });
+
+  test('exports a sibling MP3 file through the native encoder', async () => {
+    WavelengthMP3Module.exportMp3Async.mockResolvedValue(
+      'file:///episodes/episode-1/exported.mp3',
+    );
+
+    await expect(
+      export_episode_mp3('file:///episodes/episode-1/exported.m4a'),
+    ).resolves.toBe('file:///episodes/episode-1/exported.mp3');
+
+    expect(WavelengthMP3Module.exportMp3Async).toHaveBeenCalledWith(
+      'file:///episodes/episode-1/exported.m4a',
+      'file:///episodes/episode-1/exported.mp3',
+    );
+  });
+
+  test('requires an exported episode URI', async () => {
+    await expect(export_episode_mp3(''))
+      .rejects
+      .toThrow('An exported episode is required to create an MP3.');
+  });
+});
 
 describe('normalize_imported_audio', () => {
   beforeEach(() => {

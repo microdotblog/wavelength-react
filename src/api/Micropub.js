@@ -6,6 +6,17 @@ export const MICRO_BLOG_MICROPUB_URL = 'https://micro.blog/micropub';
 export const MICRO_BLOG_MEDIA_URL = 'https://micro.blog/micropub/media';
 
 const DEFAULT_AUDIO_MIME = 'audio/mp4';
+const MP3_AUDIO_MIME = 'audio/mpeg';
+
+export function resolve_audio_mime_type(file_uri = '') {
+  const normalized_uri = `${file_uri || ''}`.trim().toLowerCase();
+
+  if (normalized_uri.endsWith('.mp3')) {
+    return MP3_AUDIO_MIME;
+  }
+
+  return DEFAULT_AUDIO_MIME;
+}
 
 // Micro.blog returns the uploaded/published URL in the Location header and
 // echoes it in the JSON body. Prefer the header, fall back to the body.
@@ -47,7 +58,7 @@ export async function upload_episode_audio({ token = '', destination = '', file_
       Accept: 'application/json',
       Authorization: `Bearer ${trimmed_token}`,
     },
-    mimeType: DEFAULT_AUDIO_MIME,
+    mimeType: resolve_audio_mime_type(trimmed_uri),
     parameters,
     uploadType: UploadType.MULTIPART,
   });
