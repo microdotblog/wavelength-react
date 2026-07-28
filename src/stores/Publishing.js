@@ -11,6 +11,7 @@ import {
 } from '../api/Micropub';
 import {
   apply_text_format_action,
+  build_episode_audio_filename,
   build_episode_publish_payload,
   normalize_micropub_categories,
   normalize_micropub_syndicates,
@@ -302,7 +303,7 @@ const Publishing = types
 
       try {
         self.phase = 'exporting';
-        const exported_uri = yield Episodes.export_merged_audio(episode_id);
+        const exported_uri = yield Episodes.export_published_audio(episode_id);
 
         if (!exported_uri) {
           throw new Error('We could not prepare this episode for publishing.');
@@ -317,6 +318,7 @@ const Publishing = types
         self.phase = 'uploading';
         const audio_url = yield upload_episode_audio({
           destination,
+          file_name: build_episode_audio_filename(payload.title),
           file_uri: exported_uri,
           token,
         });

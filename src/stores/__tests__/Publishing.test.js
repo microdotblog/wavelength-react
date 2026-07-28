@@ -8,7 +8,7 @@ jest.mock('../Auth', () => ({
 jest.mock('../Episodes', () => ({
   __esModule: true,
   default: {
-    export_merged_audio: jest.fn(async () => 'file:///tmp/exported.m4a'),
+    export_published_audio: jest.fn(async () => 'file:///tmp/exported.mp3'),
     get_episode: jest.fn(),
     get_episode_by_post_id: jest.fn(() => null),
     get_episode_for_post: jest.fn(() => null),
@@ -47,7 +47,7 @@ jest.mock('../../api/Micropub', () => ({
     'syndicate-to': [{ name: 'Twitter', uid: 'twitter' }],
   })),
   update_micropub_post: jest.fn(async () => true),
-  upload_episode_audio: jest.fn(async () => 'https://micro.blog/uploaded.m4a'),
+  upload_episode_audio: jest.fn(async () => 'https://micro.blog/uploaded.mp3'),
 }));
 
 jest.mock('../../lib/episode_upload_size', () => ({
@@ -79,7 +79,7 @@ describe('Publishing store', () => {
   beforeEach(() => {
     Publishing.reset();
     Publishing.reset_editor();
-    Episodes.export_merged_audio.mockClear();
+    Episodes.export_published_audio.mockClear();
     Episodes.mark_episode_published.mockClear();
     Posts.refresh.mockClear();
     create_episode_post.mockClear();
@@ -88,7 +88,7 @@ describe('Publishing store', () => {
     upload_episode_audio.mockClear();
     read_file_size_bytes.mockClear();
     build_upload_size_limit_message.mockClear();
-    Episodes.export_merged_audio.mockResolvedValue('file:///tmp/exported.m4a');
+    Episodes.export_published_audio.mockResolvedValue('file:///tmp/exported.mp3');
     read_file_size_bytes.mockReturnValue(1_000_000);
     Episodes.get_episode_for_post.mockReturnValue(null);
   });
@@ -125,9 +125,19 @@ describe('Publishing store', () => {
   });
 
   test('publish_episode marks the episode published and refreshes posts', async () => {
+    Publishing.set_post_title('Episode 123: Hello');
+
     const post_url = await Publishing.publish_episode('episode-1');
 
     expect(post_url).toBe('https://example.micro.blog/post/1');
+    expect(Episodes.export_published_audio).toHaveBeenCalledWith('episode-1');
+    expect(read_file_size_bytes).toHaveBeenCalledWith('file:///tmp/exported.mp3');
+    expect(upload_episode_audio).toHaveBeenCalledWith({
+      destination: 'https://test.micro.blog',
+      file_name: 'episode-123-hello.mp3',
+      file_uri: 'file:///tmp/exported.mp3',
+      token: 'token',
+    });
     expect(Episodes.mark_episode_published).toHaveBeenCalledWith('episode-1', {
       post_id: '12345',
       post_url: 'https://example.micro.blog/post/1',
@@ -203,7 +213,7 @@ describe('Publishing store', () => {
   });
 
   test('publish_episode resets phase and sets an error when export fails', async () => {
-    Episodes.export_merged_audio.mockResolvedValueOnce('');
+    Episodes.export_published_audio.mockResolvedValueOnce('');
 
     const post_url = await Publishing.publish_episode('episode-1');
 

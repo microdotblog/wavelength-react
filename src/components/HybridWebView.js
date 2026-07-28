@@ -49,7 +49,7 @@ function WebViewErrorView({ error_name, theme }) {
 
 function HybridWebView({
   endpoint,
-  loading_text = 'Loading microcasts...',
+  loading_text = 'Loading podcasts...',
   show_actions = true,
   theme,
 }) {

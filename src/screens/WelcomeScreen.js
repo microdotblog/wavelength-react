@@ -116,7 +116,7 @@ function WelcomeScreen({ theme }) {
                 Wavelength
               </Text>
               <Text style={[styles.title, { color: theme.colors.ink }]}>
-                Record, edit, and publish microcasts.
+                Record, edit, and publish podcasts.
               </Text>
               <Text style={[styles.body, { color: theme.colors.ink_soft }]}>
                 Sign in with Micro.blog to get started.
@@ -143,6 +143,7 @@ function WelcomeScreen({ theme }) {
                 onLongPress={open_token_modal}
                 onPress={Auth.sign_in_with_micro_blog}
                 theme={theme}
+                variant="light"
               />
             </Animated.View>
           </View>
@@ -171,8 +172,10 @@ function PrimaryButton({
   onLongPress,
   onPress,
   theme,
+  variant = 'solid',
 }) {
   const should_show_leading_icon = leadingIconSource != null;
+  const is_light = variant === 'light';
   const scale = useSharedValue(1);
   const did_long_press_ref = React.useRef(false);
 
@@ -246,34 +249,45 @@ function PrimaryButton({
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: disabled ? theme.colors.paper_alt : theme.colors.accent,
+            backgroundColor: disabled
+              ? theme.colors.paper_alt
+              : (is_light ? theme.colors.accent_soft : theme.colors.accent),
+            borderColor: is_light ? theme.colors.line : 'transparent',
+            borderWidth: is_light ? 1 : 0,
             boxShadow: disabled
               ? 'none'
-              : theme.is_dark
-                ? '0 10px 18px rgba(0, 0, 0, 0.28)'
-                : '0 10px 18px rgba(95, 53, 0, 0.18)',
+              : is_light
+                ? theme.is_dark
+                  ? '0 8px 16px rgba(0, 0, 0, 0.20)'
+                  : '0 8px 16px rgba(95, 53, 0, 0.10)'
+                : theme.is_dark
+                  ? '0 10px 18px rgba(0, 0, 0, 0.28)'
+                  : '0 10px 18px rgba(95, 53, 0, 0.18)',
           },
           pressed && !disabled ? styles.primaryButtonPressed : null,
         ]}
       >
         {should_show_leading_icon ? (
-          <View
-            style={[
-              styles.primaryButtonIcon,
-              { backgroundColor: theme.colors.button_icon_background },
-            ]}
-          >
+          <View style={styles.primaryButtonIcon}>
             {disabled ? (
               <ActivityIndicator color={theme.colors.accent_strong} size="small" />
             ) : (
-              <Image source={leadingIconSource} style={styles.primaryButtonLogo} />
+              <Image
+                contentFit="contain"
+                source={leadingIconSource}
+                style={styles.primaryButtonLogo}
+              />
             )}
           </View>
         ) : null}
         <Text
           style={[
             styles.primaryButtonLabel,
-            { color: disabled ? theme.colors.ink_soft : theme.colors.button_text },
+            {
+              color: disabled
+                ? theme.colors.ink_soft
+                : (is_light ? theme.colors.ink : theme.colors.button_text),
+            },
           ]}
         >
           {label}
@@ -297,6 +311,8 @@ function TokenSignInModal({
     <Modal
       animationType="fade"
       onRequestClose={onCancel}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
       transparent
       visible={visible}
     >
@@ -445,7 +461,6 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(18, 13, 7, 0.42)',
   },
   modalBody: {
     fontSize: 16,
@@ -486,6 +501,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   modalRoot: {
+    backgroundColor: 'rgba(18, 13, 7, 0.2)',
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -510,10 +526,9 @@ const styles = StyleSheet.create({
   },
   primaryButtonIcon: {
     alignItems: 'center',
-    borderRadius: 15,
-    height: 30,
+    height: 26,
     justifyContent: 'center',
-    width: 30,
+    width: 26,
   },
   primaryButtonLabel: {
     fontSize: 17,
@@ -521,8 +536,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   primaryButtonLogo: {
-    height: 20,
-    width: 20,
+    height: 26,
+    width: 26,
   },
   primaryButtonPressed: {
     opacity: 0.96,
@@ -534,10 +549,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '800',
     letterSpacing: 0,
-    lineHeight: 38,
+    lineHeight: 32,
     maxWidth: 360,
   },
 });

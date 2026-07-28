@@ -3,7 +3,6 @@ import { Platform, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { observer } from 'mobx-react';
 
-import AccountScreen from '../screens/AccountScreen';
 import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
 import PostEditScreen from '../screens/PostEditScreen';
@@ -12,6 +11,7 @@ import PublishScreen from '../screens/PublishScreen';
 import DiscoverPlaybackProvider from '../components/DiscoverPlaybackProvider';
 import RecordFab from '../components/RecordFab';
 import RecordScreen from '../screens/RecordScreen';
+import SettingsNavigator from './SettingsNavigator';
 import SplitScreen from '../screens/SplitScreen';
 import TabNavigator from './TabNavigator';
 import { build_stack_screen_options } from './screenOptions';
@@ -48,21 +48,13 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="Account"
-        options={({ navigation }) => ({
-          title: 'Settings',
-          headerLargeTitle: false,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Done"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
-        })}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
       >
         {screen_props => (
-          <AccountScreen
+          <SettingsNavigator
             {...screen_props}
             theme={theme}
           />
@@ -70,17 +62,9 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="Record"
-        options={({ navigation, route }) => ({
+        options={({ route }) => ({
           title: route.params?.episode_id ? 'Add Segment' : 'New Recording',
           headerLargeTitle: false,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Done"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
         })}
       >
         {screen_props => (
@@ -92,19 +76,11 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="Edit"
-        options={({ navigation }) => ({
-          title: 'Episode',
+        options={{
+          title: '',
           headerLargeTitle: false,
           unmountOnBlur: true,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Done"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
-        })}
+        }}
       >
         {screen_props => (
           <EditScreen
@@ -138,18 +114,10 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="PostEdit"
-        options={({ navigation }) => ({
+        options={{
           title: 'Edit Post',
           headerLargeTitle: false,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Cancel"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
-        })}
+        }}
       >
         {screen_props => (
           <PostEditScreen
@@ -182,18 +150,10 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="PublishOptions"
-        options={({ navigation }) => ({
+        options={{
           title: 'Options',
           headerLargeTitle: false,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Done"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
-        })}
+        }}
       >
         {screen_props => (
           <PublishOptionsScreen

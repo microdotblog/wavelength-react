@@ -1,13 +1,86 @@
 import { File } from 'expo-file-system';
 import { concatAudioFiles } from 'react-native-audio-api';
-import { trimAudio } from '@siteed/audio-studio';
+import { extractPreviewBars, trimAudio } from '@siteed/audio-studio';
 
+import WavelengthMP3Module from '../../modules/wavelength-mp3/src/WavelengthMP3Module';
 import { get_episode_clip_uri, get_exported_clip_uri } from './EpisodeStorage';
+import { WAVEFORM_SAMPLE_COUNT } from './downsample_waveform';
 
+const IMPORT_ANALYSIS_END_MILLIS = 2_147_483_647;
+const IMPORT_OUTPUT_FORMAT = {
+  bitrate: 128000,
+  channels: 2,
+  format: 'aac',
+  sampleRate: 44100,
+};
 const SPLIT_OUTPUT_FORMAT = { format: 'aac' };
 
 function to_seconds(duration_millis) {
   return Number.isFinite(duration_millis) ? Math.max(duration_millis / 1000, 0) : 0;
+}
+
+export function delete_audio_file(file_uri = '') {
+  const trimmed_uri = `${file_uri || ''}`.trim();
+
+  if (!trimmed_uri) {
+    return;
+  }
+
+  const file = new File(trimmed_uri);
+
+  if (file.exists) {
+    file.delete();
+  }
+}
+
+// Decode the selected file once to find its complete duration and waveform,
+// then transcode it to the same AAC settings used by new recordings.
+export async function normalize_imported_audio(source_uri = '') {
+  const trimmed_uri = `${source_uri || ''}`.trim();
+
+  if (!trimmed_uri) {
+    throw new Error('An audio file is required to add a segment.');
+  }
+
+  const preview = await extractPreviewBars({
+    endTimeMs: IMPORT_ANALYSIS_END_MILLIS,
+    fileUri: trimmed_uri,
+    numberOfBars: WAVEFORM_SAMPLE_COUNT,
+    startTimeMs: 0,
+  });
+  const duration_millis = Number.isFinite(preview?.durationMs)
+    ? Math.max(preview.durationMs, 0)
+    : 0;
+
+  if (duration_millis <= 0) {
+    throw new Error('That file does not contain any audio.');
+  }
+
+  const normalized = await trimAudio({
+    endTimeMs: duration_millis,
+    fileUri: trimmed_uri,
+    mode: 'single',
+    outputFileName: `import-${Date.now()}`,
+    outputFormat: IMPORT_OUTPUT_FORMAT,
+    startTimeMs: 0,
+  });
+  const normalized_uri = `${normalized?.uri || ''}`.trim();
+  const normalized_duration = Number.isFinite(normalized?.durationMs)
+    ? Math.max(normalized.durationMs, 0)
+    : duration_millis;
+
+  if (!normalized_uri || normalized_duration <= 0) {
+    delete_audio_file(normalized_uri);
+    throw new Error('That audio file could not be converted.');
+  }
+
+  return {
+    duration_seconds: to_seconds(normalized_duration),
+    uri: normalized_uri,
+    waveform: Array.isArray(preview?.bars)
+      ? preview.bars.map(bar => bar?.amplitude).filter(Number.isFinite)
+      : [],
+  };
 }
 
 // Stitch every clip into a single AAC file the publish flow can upload. Concat
@@ -29,6 +102,27 @@ export async function merge_episode_clips(episode = null) {
   const input_uris = clips.map(clip_name => get_episode_clip_uri(episode, clip_name));
 
   return concatAudioFiles(input_uris, exported_uri);
+}
+
+// Publishing keeps the editable AAC source intact and performs one final
+// decode/encode pass to a 128 kbps mono MP3.
+export async function export_episode_mp3(source_uri = '') {
+  const trimmed_uri = `${source_uri || ''}`.trim();
+
+  if (!trimmed_uri) {
+    throw new Error('An exported episode is required to create an MP3.');
+  }
+
+  const output_uri = trimmed_uri.toLowerCase().endsWith('.m4a')
+    ? `${trimmed_uri.slice(0, -4)}.mp3`
+    : `${trimmed_uri}.mp3`;
+  const exported_uri = await WavelengthMP3Module.exportMp3Async(trimmed_uri, output_uri);
+
+  if (!exported_uri) {
+    throw new Error('The episode audio could not be encoded as MP3.');
+  }
+
+  return exported_uri;
 }
 
 // Cut one clip into two AAC files at the chosen point. The caller moves the

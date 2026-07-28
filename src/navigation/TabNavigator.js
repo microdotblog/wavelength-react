@@ -19,11 +19,11 @@ const TAB_ICONS = {
     image: RECORDINGS_ICON,
   },
   PostsStack: {
-    ios: { default: 'doc.text', selected: 'doc.text' },
+    ios: { default: 'document', selected: 'document' },
     image: POSTS_ICON,
   },
   DiscoverStack: {
-    ios: { default: 'globe', selected: 'globe' },
+    ios: { default: 'magnifyingglass', selected: 'magnifyingglass' },
     image: DISCOVER_ICON,
   },
 };
@@ -57,7 +57,7 @@ function TabNavigator({ theme }) {
         tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.ink_soft,
         ...(Platform.OS === 'ios'
-          ? { tabBarMinimizeBehavior: 'onScrollDown' }
+          ? { tabBarMinimizeBehavior: 'none' }
           : {
               tabBarStyle: {
                 backgroundColor: theme.colors.canvas,

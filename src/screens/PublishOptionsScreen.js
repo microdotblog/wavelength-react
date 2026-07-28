@@ -60,7 +60,8 @@ function OptionRow({
 function PublishOptionsScreen({ theme }) {
   const scroll_ref = React.useRef(null);
   const profile = Auth.current_profile();
-  const destination_label = profile.default_site || profile.url || 'your Micro.blog';
+  const destination_label =
+    profile.default_site_name || profile.default_site || profile.url || 'your Micro.blog';
 
   return (
     <KeyboardAvoidingView
@@ -166,42 +167,6 @@ function PublishOptionsScreen({ theme }) {
           </View>
         </OptionsSection>
 
-        <OptionsSection label="View:" theme={theme}>
-          <OptionRow
-            accessibility_label="Show title field"
-            is_selected={Publishing.show_title}
-            onPress={() => Publishing.toggle_title()}
-          >
-            <CheckmarkRowCell
-              is_selected={Publishing.show_title}
-              text="Show title field"
-              theme={theme}
-            />
-          </OptionRow>
-        </OptionsSection>
-
-        <OptionsSection label="Summary:" theme={theme}>
-          <TextInput
-            accessibilityLabel="Post summary"
-            clearButtonMode="while-editing"
-            keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
-            multiline
-            onChangeText={Publishing.set_summary}
-            placeholder="Summary"
-            placeholderTextColor={theme.colors.ink_soft}
-            selectionColor={theme.colors.accent}
-            style={[
-              styles.summaryInput,
-              {
-                backgroundColor: theme.colors.paper,
-                borderColor: theme.colors.line,
-                color: theme.colors.ink,
-              },
-            ]}
-            value={Publishing.summary}
-          />
-        </OptionsSection>
-
         {Publishing.available_syndicates.length > 0 ? (
           <OptionsSection label="Cross-posting:" theme={theme}>
             {Publishing.available_syndicates.map(syndicate => (
@@ -280,17 +245,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     gap: 2,
     padding: 8,
-  },
-  summaryInput: {
-    borderCurve: 'continuous',
-    borderRadius: 8,
-    borderWidth: 1,
-    fontSize: 16,
-    lineHeight: 22,
-    minHeight: 88,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    textAlignVertical: 'top',
   },
 });
 

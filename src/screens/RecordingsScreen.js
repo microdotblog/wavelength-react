@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, FlatList, Linking, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
 import {
@@ -17,11 +17,8 @@ import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import { show_toast } from '../lib/toast';
 
 function RecordingsScreen({ navigation, theme }) {
-  const list_ref = React.useRef(null);
   const episodes = Episodes.sorted_episodes();
   const open_swipeable_ref = React.useRef(null);
-
-  useScrollToTop(list_ref);
   const tab_bar_height = use_tab_bar_bottom_offset();
   const { has_active_playback } = use_discover_playback_dock() || {};
   const list_bottom_padding = discover_playback_content_padding({
@@ -164,7 +161,7 @@ function RecordingsScreen({ navigation, theme }) {
         <View style={styles.emptyContent}>
           <View style={styles.emptyCopy}>
             <Text style={[styles.emptyTitle, { color: theme.colors.ink }]}>
-              Record your first microcast
+              Record your first podcast
             </Text>
             <Text style={[styles.emptyBody, { color: theme.colors.ink_soft }]}>
               Tap the button to start recording. We'll help you edit it and publish to Micro.blog.
@@ -184,16 +181,10 @@ function RecordingsScreen({ navigation, theme }) {
   return (
     <>
       <FlatList
-        ref={list_ref}
         contentContainerStyle={[styles.content, { paddingBottom: list_bottom_padding }]}
         contentInsetAdjustmentBehavior="automatic"
         data={episodes}
         keyExtractor={item => item.id}
-        ListHeaderComponent={
-          <Text style={[styles.sectionTitle, { color: theme.colors.ink }]}>
-            Episodes
-          </Text>
-        }
         renderItem={({ item }) => (
           <SegmentSwipeRow
             on_delete={() => request_delete_episode(item)}
@@ -256,12 +247,6 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 23,
-    marginBottom: 2,
   },
 });
 

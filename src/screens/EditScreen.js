@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { observer } from 'mobx-react';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 
 import { fetch_micropub_post_source } from '../api/Micropub';
 import Episodes from '../stores/Episodes';
@@ -21,6 +23,7 @@ import Tokens from '../stores/Tokens';
 import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import EpisodeActionsMenuButton from '../components/EpisodeActionsMenuButton';
 import HeaderPillButton from '../components/HeaderPillButton';
+import PlatformSymbol from '../components/PlatformSymbol';
 import PlaybackControlButton from '../components/PlaybackControlButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
@@ -173,10 +176,12 @@ function EditScreen({ navigation, route, theme }) {
   const episode = Episodes.get_episode(episode_id);
   const playback = use_episode_playback(episode ? episode.playback_clips() : []);
   const [title_draft, set_title_draft] = React.useState(episode?.title || '');
+  const [initial_title_selection, set_initial_title_selection] = React.useState(null);
   const [is_editing_title, set_is_editing_title] = React.useState(false);
   const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
+  const [is_importing_audio, set_is_importing_audio] = React.useState(false);
   const [published_post_details, set_published_post_details] = React.useState(EMPTY_PUBLISHED_POST_DETAILS);
   const save_handler_ref = React.useRef(null);
   const rename_handler_ref = React.useRef(null);
@@ -184,6 +189,7 @@ function EditScreen({ navigation, route, theme }) {
   const publish_handler_ref = React.useRef(null);
   const duplicate_handler_ref = React.useRef(null);
   const playback_play_ref = React.useRef(null);
+  const title_input_ref = React.useRef(null);
 
   playback_play_ref.current = playback.play;
 
@@ -191,6 +197,28 @@ function EditScreen({ navigation, route, theme }) {
     if (!is_editing_title) {
       set_title_draft(episode?.title || '');
     }
+  }, [episode?.title, is_editing_title]);
+
+  React.useEffect(() => {
+    if (!is_editing_title) {
+      set_initial_title_selection(null);
+      return undefined;
+    }
+
+    set_initial_title_selection({
+      start: 0,
+      end: `${episode?.title || ''}`.length,
+    });
+
+    const frame_id = requestAnimationFrame(() => {
+      title_input_ref.current?.focus?.();
+    });
+
+    return () => {
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(frame_id);
+      }
+    };
   }, [episode?.title, is_editing_title]);
 
   React.useEffect(() => {
@@ -310,6 +338,56 @@ function EditScreen({ navigation, route, theme }) {
     }
 
     navigation.navigate('Record', { episode_id });
+  }
+
+  async function import_audio_file() {
+    if (!episode || episode.is_published() || is_importing_audio) {
+      return;
+    }
+
+    let selected_uri = '';
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: 'audio/*',
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      selected_uri = `${result.assets?.[0]?.uri || ''}`.trim();
+
+      if (!selected_uri) {
+        throw new Error('That audio file could not be opened.');
+      }
+
+      playback.pause();
+      set_is_importing_audio(true);
+      await Episodes.import_clip_to_episode(episode_id, selected_uri);
+      await Episodes.export_merged_audio(episode_id);
+    } catch (error) {
+      Alert.alert(
+        'Could not add audio file',
+        error?.message || 'Please choose another audio file and try again.',
+      );
+    } finally {
+      if (selected_uri) {
+        try {
+          const selected_file = new File(selected_uri);
+
+          if (selected_file.exists) {
+            selected_file.delete();
+          }
+        } catch (error) {
+          // The picker cache may already have removed the temporary file.
+        }
+      }
+
+      set_is_importing_audio(false);
+    }
   }
 
   function open_publish() {
@@ -487,7 +565,6 @@ function EditScreen({ navigation, route, theme }) {
   publish_handler_ref.current = open_publish;
   duplicate_handler_ref.current = duplicate_episode;
 
-  const navigation_title = is_editing_title ? 'Rename' : (episode?.title || 'Episode');
   const is_published = episode?.is_published() ?? false;
 
   React.useLayoutEffect(() => {
@@ -495,7 +572,7 @@ function EditScreen({ navigation, route, theme }) {
       navigation.setOptions({
         headerLargeTitle: false,
         headerRight: undefined,
-        title: navigation_title,
+        title: '',
         unstable_headerRightItems: () =>
           build_ios_episode_header_items({
             is_editing_title,
@@ -512,7 +589,7 @@ function EditScreen({ navigation, route, theme }) {
 
     navigation.setOptions({
       headerLargeTitle: false,
-      title: navigation_title,
+      title: '',
       unstable_headerRightItems: undefined,
       ...header_right_element(() =>
         is_editing_title ? (
@@ -543,7 +620,7 @@ function EditScreen({ navigation, route, theme }) {
         ),
       ),
     });
-  }, [navigation, is_editing_title, is_published, navigation_title, theme]);
+  }, [navigation, is_editing_title, is_published, theme]);
 
   if (!episode) {
     return (
@@ -576,7 +653,7 @@ function EditScreen({ navigation, route, theme }) {
   });
   const published_label = format_post_date(episode.published_at || '');
   const post_url = `${episode.post_url || ''}`.trim();
-  const published_post_title = published_post_details.title || 'Microcast';
+  const published_post_title = published_post_details.title || 'Podcast';
   const published_post_summary = published_post_details.summary;
   const published_post_uid = published_post_details.post_uid;
   const audio_size_label = episode.formatted_audio_size();
@@ -616,10 +693,17 @@ function EditScreen({ navigation, route, theme }) {
           keyboardAppearance={theme.is_dark ? 'dark' : 'light'}
           onBlur={commit_title}
           onChangeText={set_title_draft}
+          onSelectionChange={() => {
+            if (initial_title_selection) {
+              set_initial_title_selection(null);
+            }
+          }}
           onSubmitEditing={commit_title}
           placeholder="Episode name"
           placeholderTextColor={theme.colors.ink_soft}
+          ref={title_input_ref}
           returnKeyType="done"
+          selection={initial_title_selection || undefined}
           selectionColor={theme.colors.accent}
           style={[styles.renameInput, { color: theme.colors.ink }]}
           value={title_draft}
@@ -830,24 +914,71 @@ function EditScreen({ navigation, route, theme }) {
             </Text>
           </Pressable>
         ) : (
-          <Pressable
-            accessibilityLabel="Record another take"
-            accessibilityRole="button"
-            onPress={add_segment}
-            style={({ pressed }) => [
-              styles.addSegmentRow,
+          <View
+            style={[
+              styles.addSegmentActions,
               {
                 backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.14 : 0.08),
                 borderTopColor: theme.colors.line,
               },
-              pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={[styles.addSegmentGlyph, { color: theme.colors.accent_strong }]}>+</Text>
-            <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
-              Record another take
-            </Text>
-          </Pressable>
+            <Pressable
+              accessibilityLabel="Record another segment"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: is_importing_audio }}
+              disabled={is_importing_audio}
+              onPress={add_segment}
+              style={({ pressed }) => [
+                styles.addSegmentRecordButton,
+                pressed && !is_importing_audio ? styles.pressed : null,
+                is_importing_audio ? styles.disabledRow : null,
+              ]}
+            >
+              <PlatformSymbol
+                color={theme.colors.accent_strong}
+                name="microphone"
+                size={21}
+              />
+              <Text style={[styles.addSegmentLabel, { color: theme.colors.accent_strong }]}>
+                Record another segment
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel={is_importing_audio ? 'Adding audio file' : 'Add audio file'}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: is_importing_audio }}
+              disabled={is_importing_audio}
+              onPress={import_audio_file}
+              style={({ pressed }) => [
+                styles.addAudioFileButton,
+                pressed && !is_importing_audio ? styles.pressed : null,
+                is_importing_audio ? styles.disabledRow : null,
+              ]}
+            >
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.addAudioFileDivider,
+                  { backgroundColor: with_color_opacity(theme.colors.accent, 0.25) },
+                ]}
+              />
+              {is_importing_audio ? (
+                <ActivityIndicator
+                  color={theme.colors.accent_strong}
+                  size="small"
+                  style={styles.addSegmentProgress}
+                />
+              ) : (
+                <PlatformSymbol
+                  color={theme.colors.accent_strong}
+                  name="folder"
+                  size={23}
+                />
+              )}
+            </Pressable>
+          </View>
         )}
       </View>
       </ScrollView>
@@ -867,23 +998,40 @@ function EditScreen({ navigation, route, theme }) {
 }
 
 const styles = StyleSheet.create({
-  addSegmentGlyph: {
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 24,
-    width: 18,
+  addAudioFileButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    position: 'relative',
+    width: 68,
+  },
+  addAudioFileDivider: {
+    bottom: 0,
+    left: 2,
+    position: 'absolute',
+    top: 0,
+    width: 1,
+  },
+  addSegmentActions: {
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    minHeight: 52,
   },
   addSegmentLabel: {
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 19,
   },
-  addSegmentRow: {
+  addSegmentProgress: {
+    width: 23,
+  },
+  addSegmentRecordButton: {
     alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    flex: 1,
     flexDirection: 'row',
     gap: 10,
-    minHeight: 52,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },

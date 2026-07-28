@@ -8,6 +8,7 @@ jest.mock('../EpisodeStorage', () => ({
 }));
 
 jest.mock('@siteed/audio-studio', () => ({
+  extractPreviewBars: jest.fn(),
   trimAudio: jest.fn(),
 }));
 
@@ -15,8 +16,105 @@ jest.mock('react-native-audio-api', () => ({
   concatAudioFiles: jest.fn(),
 }));
 
-const { trimAudio } = require('@siteed/audio-studio');
-const { split_clip_at } = require('../episode_audio');
+jest.mock('../../../modules/wavelength-mp3/src/WavelengthMP3Module', () => ({
+  __esModule: true,
+  default: {
+    exportMp3Async: jest.fn(),
+  },
+}));
+
+const { extractPreviewBars, trimAudio } = require('@siteed/audio-studio');
+const WavelengthMP3Module = require('../../../modules/wavelength-mp3/src/WavelengthMP3Module').default;
+const {
+  export_episode_mp3,
+  normalize_imported_audio,
+  split_clip_at,
+} = require('../episode_audio');
+
+describe('export_episode_mp3', () => {
+  beforeEach(() => {
+    WavelengthMP3Module.exportMp3Async.mockReset();
+  });
+
+  test('exports a sibling MP3 file through the native encoder', async () => {
+    WavelengthMP3Module.exportMp3Async.mockResolvedValue(
+      'file:///episodes/episode-1/exported.mp3',
+    );
+
+    await expect(
+      export_episode_mp3('file:///episodes/episode-1/exported.m4a'),
+    ).resolves.toBe('file:///episodes/episode-1/exported.mp3');
+
+    expect(WavelengthMP3Module.exportMp3Async).toHaveBeenCalledWith(
+      'file:///episodes/episode-1/exported.m4a',
+      'file:///episodes/episode-1/exported.mp3',
+    );
+  });
+
+  test('requires an exported episode URI', async () => {
+    await expect(export_episode_mp3(''))
+      .rejects
+      .toThrow('An exported episode is required to create an MP3.');
+  });
+});
+
+describe('normalize_imported_audio', () => {
+  beforeEach(() => {
+    extractPreviewBars.mockReset();
+    trimAudio.mockReset();
+  });
+
+  test('analyzes and converts the complete file to recording-compatible AAC', async () => {
+    extractPreviewBars.mockResolvedValue({
+      bars: [
+        { amplitude: 0.2 },
+        { amplitude: 0.8 },
+      ],
+      durationMs: 5000,
+    });
+    trimAudio.mockResolvedValue({
+      durationMs: 5000,
+      uri: 'file:///tmp/imported.aac',
+    });
+
+    await expect(normalize_imported_audio('file:///tmp/source.mp3')).resolves.toEqual({
+      duration_seconds: 5,
+      uri: 'file:///tmp/imported.aac',
+      waveform: [0.2, 0.8],
+    });
+
+    expect(extractPreviewBars).toHaveBeenCalledWith(expect.objectContaining({
+      fileUri: 'file:///tmp/source.mp3',
+      numberOfBars: 128,
+      startTimeMs: 0,
+    }));
+    expect(trimAudio).toHaveBeenCalledWith(expect.objectContaining({
+      endTimeMs: 5000,
+      fileUri: 'file:///tmp/source.mp3',
+      mode: 'single',
+      outputFormat: {
+        bitrate: 128000,
+        channels: 2,
+        format: 'aac',
+        sampleRate: 44100,
+      },
+      startTimeMs: 0,
+    }));
+  });
+
+  test('rejects files without audio before attempting conversion', async () => {
+    extractPreviewBars.mockResolvedValue({
+      bars: [],
+      durationMs: 0,
+    });
+
+    await expect(normalize_imported_audio('file:///tmp/empty.mp3'))
+      .rejects
+      .toThrow('That file does not contain any audio.');
+
+    expect(trimAudio).not.toHaveBeenCalled();
+  });
+});
 
 describe('split_clip_at', () => {
   beforeEach(() => {

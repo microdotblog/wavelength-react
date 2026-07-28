@@ -63,17 +63,26 @@ jest.mock('../../lib/EpisodeStorage', () => ({
 }));
 
 jest.mock('../../lib/episode_audio', () => ({
+  delete_audio_file: jest.fn(),
+  export_episode_mp3: jest.fn(async () => 'file:///episodes/ep-1/exported.mp3'),
   merge_episode_clips: jest.fn(async () => 'file:///episodes/ep-1/exported.m4a'),
+  normalize_imported_audio: jest.fn(),
 }));
 
 const { applySnapshot } = require('mobx-state-tree');
 const { delete_micropub_post } = require('../../api/Micropub');
 const {
+  append_clip_to_episode,
   clear_episode_publish_link,
   delete_episode: remove_episode_from_storage,
   replace_episode_clips,
 } = require('../../lib/EpisodeStorage');
-const { merge_episode_clips } = require('../../lib/episode_audio');
+const {
+  delete_audio_file,
+  export_episode_mp3,
+  merge_episode_clips,
+  normalize_imported_audio,
+} = require('../../lib/episode_audio');
 const Posts = require('../Posts').default;
 const Tokens = require('../Tokens').default;
 const Episodes = require('../Episodes').default;
@@ -118,9 +127,13 @@ describe('Episodes store', () => {
 
     delete_micropub_post.mockClear();
     Posts.refresh.mockClear();
+    append_clip_to_episode.mockClear();
     remove_episode_from_storage.mockClear();
     clear_episode_publish_link.mockClear();
+    delete_audio_file.mockClear();
+    export_episode_mp3.mockClear();
     merge_episode_clips.mockClear();
+    normalize_imported_audio.mockClear();
     Tokens.get_user_token.mockReturnValue('token');
   });
 
@@ -224,6 +237,62 @@ describe('Episodes store', () => {
     });
   });
 
+  describe('import_clip_to_episode', () => {
+    test('normalizes the selected file and appends the result', async () => {
+      normalize_imported_audio.mockResolvedValue({
+        duration_seconds: 12,
+        uri: 'file:///tmp/imported.aac',
+        waveform: [0.2, 0.8],
+      });
+      append_clip_to_episode.mockResolvedValue({
+        ...EPISODE_BY_ID,
+        clip_meta: [
+          ...EPISODE_BY_ID.clip_meta,
+          {
+            duration_seconds: 12,
+            name: 'segment-2.aac',
+            size_bytes: 1_500_000,
+            waveform: [0.2, 0.8],
+          },
+        ],
+        clips: ['segment.m4a', 'segment-2.aac'],
+        duration_seconds: 72,
+      });
+
+      await expect(
+        Episodes.import_clip_to_episode('episode-1', 'file:///tmp/source.mp3'),
+      ).resolves.toBe('episode-1');
+
+      expect(normalize_imported_audio).toHaveBeenCalledWith('file:///tmp/source.mp3');
+      expect(append_clip_to_episode).toHaveBeenCalledWith(
+        'episode-1',
+        'file:///tmp/imported.aac',
+        12,
+        [0.2, 0.8],
+      );
+      expect(Episodes.get_episode('episode-1').clips).toEqual([
+        'segment.m4a',
+        'segment-2.aac',
+      ]);
+      expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/imported.aac');
+    });
+
+    test('removes the converted temporary file when storage fails', async () => {
+      normalize_imported_audio.mockResolvedValue({
+        duration_seconds: 12,
+        uri: 'file:///tmp/imported.aac',
+        waveform: [0.2],
+      });
+      append_clip_to_episode.mockRejectedValue(new Error('Storage failed.'));
+
+      await expect(
+        Episodes.import_clip_to_episode('episode-1', 'file:///tmp/source.mp3'),
+      ).rejects.toThrow('Storage failed.');
+
+      expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/imported.aac');
+    });
+  });
+
   describe('export_merged_audio', () => {
     test('returns empty string when the episode has no clips', async () => {
       applySnapshot(Episodes, {
@@ -253,6 +322,26 @@ describe('Episodes store', () => {
 
       expect(replace_episode_clips).toHaveBeenCalledWith('episode-1', []);
       expect(merge_episode_clips).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('export_published_audio', () => {
+    test('converts the merged AAC export to MP3', async () => {
+      const exported_uri = await Episodes.export_published_audio('episode-1');
+
+      expect(exported_uri).toBe('file:///episodes/ep-1/exported.mp3');
+      expect(merge_episode_clips).toHaveBeenCalledWith(expect.objectContaining({
+        id: 'episode-1',
+      }));
+      expect(export_episode_mp3).toHaveBeenCalledWith(
+        'file:///episodes/ep-1/exported.m4a',
+      );
+    });
+
+    test('returns empty string when MP3 encoding fails', async () => {
+      export_episode_mp3.mockRejectedValueOnce(new Error('Encoding failed.'));
+
+      await expect(Episodes.export_published_audio('episode-1')).resolves.toBe('');
     });
   });
 });

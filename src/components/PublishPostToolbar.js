@@ -87,12 +87,6 @@ function PublishPostToolbar({ navigation, theme }) {
               onPress={() => Publishing.handle_text_action('link')}
               theme={theme}
             />
-            <ToolbarIconButton
-              accessibility_label="Quote"
-              icon_name="quote"
-              onPress={() => Publishing.handle_text_action('quote')}
-              theme={theme}
-            />
           </ScrollView>
         </View>
 

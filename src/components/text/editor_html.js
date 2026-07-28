@@ -19,7 +19,6 @@ const editorHtml = String.raw`<!doctype html>
       --editor-code-background: #efefef;
       --editor-divider: #808080;
       --editor-caret: #111827;
-      --editor-bottom-scrim: rgba(255, 255, 255, 0.82);
       --editor-font-size: 18px;
       --editor-padding-top: 8px;
       --editor-padding-right: 8px;
@@ -57,7 +56,6 @@ const editorHtml = String.raw`<!doctype html>
       --editor-quote: #78b855;
       --editor-tag: #e3abed;
       --editor-caret: #ffffff;
-      --editor-bottom-scrim: rgba(31, 41, 55, 0.86);
     }
 
     .editor_shell {
@@ -181,20 +179,9 @@ const editorHtml = String.raw`<!doctype html>
       color: var(--editor-link);
     }
 
-    .editor_bottom_scrim {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: var(--editor-bottom-overlay);
-      background: var(--editor-bottom-scrim);
-      pointer-events: none;
-      z-index: 10;
-    }
-
   </style>
 </head>
-<body><div class="editor_shell"><div contenteditable="true" class="editor" id="editor" spellcheck="true" autocapitalize="sentences"></div><div class="editor_bottom_scrim" aria-hidden="true"></div></div>
+<body><div class="editor_shell"><div contenteditable="true" class="editor" id="editor" spellcheck="true" autocapitalize="sentences"></div></div>
   <script>
     (function () {
       var isIgnoringInput = false;
@@ -735,9 +722,6 @@ const editorHtml = String.raw`<!doctype html>
         }
         if (config.codeBackgroundColor) {
           setThemeProperty(targets, "--editor-code-background", config.codeBackgroundColor);
-        }
-        if (config.bottomScrimColor) {
-          setThemeProperty(targets, "--editor-bottom-scrim", config.bottomScrimColor);
         }
         if (config.fontSize) {
           root.style.setProperty("--editor-font-size", Number(config.fontSize) + "px");

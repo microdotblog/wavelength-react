@@ -8,7 +8,7 @@ export function build_discover_lock_screen_metadata({
   const metadata = {
     albumTitle: DISCOVER_ALBUM_TITLE,
     artist: `${artist_name || ''}`.trim() || 'Micro.blog',
-    title: `${title || ''}`.trim() || 'Discover microcast',
+    title: `${title || ''}`.trim() || 'Discover podcast',
   };
   const trimmed_artwork_url = `${artwork_url || ''}`.trim();
 

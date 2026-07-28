@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["WavelengthMP3Module"]
+  },
+  "android": {
+    "modules": ["expo.modules.wavelengthmp3.WavelengthMP3Module"]
+  }
+}

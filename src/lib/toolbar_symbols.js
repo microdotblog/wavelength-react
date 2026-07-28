@@ -16,6 +16,14 @@ export const TOOLBAR_SYMBOLS = {
     ios: 'link',
     multicolor: true,
   },
+  folder: {
+    android_icon: 'folder',
+    ios: 'folder.fill',
+  },
+  microphone: {
+    android_icon: 'mic',
+    ios: 'microphone.fill',
+  },
   pause: {
     android_icon: 'pause',
     ios: 'pause.fill',
@@ -38,7 +46,7 @@ export const TOOLBAR_SYMBOLS = {
     multicolor: true,
   },
   trash: {
-    android_label: 'Del',
+    android_icon: 'delete',
     ios: 'trash',
   },
   waveform: {

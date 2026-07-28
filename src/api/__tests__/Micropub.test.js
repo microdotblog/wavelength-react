@@ -12,10 +12,44 @@ const {
   build_episode_post_body,
   create_episode_post,
   delete_micropub_post,
+  fetch_micropub_config,
+  resolve_audio_mime_type,
   resolve_uploaded_url,
   update_micropub_post,
   upload_episode_audio,
 } = require('../Micropub');
+
+describe('Micropub fetch_micropub_config', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        destination: [
+          {
+            name: 'example.micro.blog',
+            uid: 'https://example.micro.blog/',
+          },
+        ],
+      }),
+      ok: true,
+    }));
+  });
+
+  test('loads the destination list from the Micropub config query', async () => {
+    const payload = await fetch_micropub_config({ token: 'token' });
+
+    expect(payload.destination).toHaveLength(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://micro.blog/micropub?q=config',
+      {
+        headers: {
+          Accept: 'application/json',
+          Authorization: 'Bearer token',
+        },
+        method: 'GET',
+      },
+    );
+  });
+});
 
 describe('Micropub resolve_uploaded_url', () => {
   test('prefers the Location header over the JSON body url', () => {
@@ -30,6 +64,16 @@ describe('Micropub resolve_uploaded_url', () => {
 
   test('returns empty string when neither source is present', () => {
     expect(resolve_uploaded_url('', null)).toBe('');
+  });
+});
+
+describe('Micropub resolve_audio_mime_type', () => {
+  test('uses audio/mpeg for MP3 exports', () => {
+    expect(resolve_audio_mime_type('file:///tmp/exported.mp3')).toBe('audio/mpeg');
+  });
+
+  test('keeps audio/mp4 for AAC exports', () => {
+    expect(resolve_audio_mime_type('file:///tmp/exported.m4a')).toBe('audio/mp4');
   });
 });
 
@@ -58,10 +102,10 @@ describe('Micropub upload_episode_audio', () => {
     File.mockReset();
   });
 
-  test('uploads merged audio with native multipart upload', async () => {
+  test('uploads MP3 audio with native multipart upload', async () => {
     const upload = jest.fn(async () => ({
-      body: JSON.stringify({ url: 'https://micro.blog/uploaded.m4a' }),
-      headers: { Location: 'https://micro.blog/uploaded.m4a' },
+      body: JSON.stringify({ url: 'https://micro.blog/uploaded.mp3' }),
+      headers: { Location: 'https://micro.blog/uploaded.mp3' },
       status: 202,
     }));
 
@@ -72,21 +116,60 @@ describe('Micropub upload_episode_audio', () => {
 
     const audio_url = await upload_episode_audio({
       destination: 'https://test.micro.blog',
-      file_uri: 'file:///tmp/exported.m4a',
+      file_uri: 'file:///tmp/exported.mp3',
       token: 'token',
     });
 
-    expect(audio_url).toBe('https://micro.blog/uploaded.m4a');
+    expect(audio_url).toBe('https://micro.blog/uploaded.mp3');
     expect(upload).toHaveBeenCalledWith('https://micro.blog/micropub/media', {
       fieldName: 'file',
       headers: {
         Accept: 'application/json',
         Authorization: 'Bearer token',
       },
-      mimeType: 'audio/mp4',
+      mimeType: 'audio/mpeg',
       parameters: { 'mp-destination': 'https://test.micro.blog' },
       uploadType: UploadType.MULTIPART,
     });
+  });
+
+  test('uploads a temporary copy with the requested filename', async () => {
+    const copy = jest.fn(async () => null);
+    const remove = jest.fn();
+    const upload = jest.fn(async () => ({
+      body: JSON.stringify({ url: 'https://micro.blog/episode-123-hello.mp3' }),
+      headers: { Location: 'https://micro.blog/episode-123-hello.mp3' },
+      status: 202,
+    }));
+    const source_file = {
+      copy,
+      exists: true,
+      name: 'exported.mp3',
+      parentDirectory: { uri: 'file:///tmp' },
+      uri: 'file:///tmp/exported.mp3',
+    };
+    const upload_file = {
+      delete: remove,
+      exists: true,
+      name: 'episode-123-hello.mp3',
+      upload,
+      uri: 'file:///tmp/episode-123-hello.mp3',
+    };
+
+    File.mockImplementation(function MockFile(_parent, name) {
+      return name ? upload_file : source_file;
+    });
+
+    const audio_url = await upload_episode_audio({
+      file_name: 'episode-123-hello.mp3',
+      file_uri: 'file:///tmp/exported.mp3',
+      token: 'token',
+    });
+
+    expect(audio_url).toBe('https://micro.blog/episode-123-hello.mp3');
+    expect(copy).toHaveBeenCalledWith(upload_file, { overwrite: true });
+    expect(upload).toHaveBeenCalled();
+    expect(remove).toHaveBeenCalled();
   });
 });
 

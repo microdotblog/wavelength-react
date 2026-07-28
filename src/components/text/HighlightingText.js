@@ -3,7 +3,6 @@ import { Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { EditorKeyboardFrameContext } from '../EditorKeyboardAvoidingView';
-import { with_color_opacity } from '../../theme/wavelengthTheme';
 import editorHtml from './editor_html';
 
 const MICRO_BLOG_BASE_URL = 'https://micro.blog';
@@ -91,7 +90,6 @@ export default class HighlightingText extends React.Component {
     return {
       accent_color: colors.accent || '#ff8800',
       background_color: canvas,
-      bottom_scrim_color: with_color_opacity(canvas, is_dark ? 0.86 : 0.82),
       code_background_color: colors.paper_alt || (is_dark ? '#2d2115' : '#fff3d2'),
       placeholder_text_color: colors.ink_soft || '#9ca3af',
       text_color: colors.ink || (is_dark ? '#fff7e8' : '#24180d'),
@@ -106,7 +104,6 @@ export default class HighlightingText extends React.Component {
     return {
       backgroundColor: style.backgroundColor || theme_colors.background_color,
       bottomOverlayHeight: this.props.bottomOverlayHeight || 0,
-      bottomScrimColor: theme_colors.bottom_scrim_color,
       caretColor: this.props.caretColor || theme_colors.accent_color,
       codeBackgroundColor: theme_colors.code_background_color,
       colorScheme: this.props.theme?.is_dark ? 'dark' : 'light',
@@ -126,7 +123,6 @@ export default class HighlightingText extends React.Component {
     const config = this.editor_config();
     const payload = JSON.stringify({
       backgroundColor: config.backgroundColor,
-      bottomScrimColor: config.bottomScrimColor,
       caretColor: config.caretColor,
       codeBackgroundColor: config.codeBackgroundColor,
       colorScheme: config.colorScheme,
@@ -170,7 +166,6 @@ export default class HighlightingText extends React.Component {
           setVar('--editor-caret', config.caretColor || config.textColor);
           setVar('--editor-placeholder', config.placeholderTextColor);
           setVar('--editor-code-background', config.codeBackgroundColor);
-          setVar('--editor-bottom-scrim', config.bottomScrimColor);
         }
 
         applyEarlyTheme();

@@ -7,7 +7,7 @@ import { format_post_date, post_plain_text } from '../lib/micropub_posts';
 function PostRow({ onPress, post, theme }) {
   const summary = post_plain_text(post.content);
   const published_label = format_post_date(post.published_at);
-  const title = `${post.title || ''}`.trim() || 'Microcast';
+  const title = `${post.title || ''}`.trim() || 'Podcast';
   const accessibility_label = published_label.length > 0
     ? `${title}, ${published_label}`
     : title;

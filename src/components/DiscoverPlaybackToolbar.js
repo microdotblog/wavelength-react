@@ -98,7 +98,7 @@ function DiscoverPlaybackToolbar({
     on_toggle_playback?.(action);
   }
 
-  const display_title = `${post_title || author_name || 'Discover microcast'}`.trim();
+  const display_title = `${post_title || author_name || 'Discover podcast'}`.trim();
   const artwork_source_label = author_name || display_title;
   const should_show_artwork = Boolean(`${artwork_url || ''}`.trim() || artwork_source_label);
   const progress_time_label = is_buffering
@@ -117,7 +117,7 @@ function DiscoverPlaybackToolbar({
     >
       <View style={styles.headerRow}>
         <Pressable
-          accessibilityHint={on_open_post ? 'Opens the linked microcast post' : undefined}
+          accessibilityHint={on_open_post ? 'Opens the linked podcast post' : undefined}
           accessibilityLabel={on_open_post ? `Open ${display_title}` : undefined}
           accessibilityRole={on_open_post ? 'button' : undefined}
           disabled={!on_open_post}

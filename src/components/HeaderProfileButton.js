@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   button_android: {
-    marginRight: 12,
+    marginLeft: 12,
   },
   button_liquid_glass: {
     height: AVATAR_SIZE,
