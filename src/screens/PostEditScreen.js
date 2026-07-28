@@ -131,6 +131,7 @@ function PostEditScreen({ navigation, route, theme }) {
       }
 
       Publishing.reset();
+      Publishing.reset_editor();
     };
   }, [post_uid, episode_id]);
 
