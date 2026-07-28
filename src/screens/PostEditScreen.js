@@ -93,6 +93,9 @@ function PostEditScreen({ navigation, route, theme }) {
     Publishing.reset();
 
     let cancelled = false;
+    const reveal_delay = new Promise(resolve => {
+      reveal_timeout_ref.current = setTimeout(resolve, EDITOR_REVEAL_DELAY_MS);
+    });
 
     async function load_editor() {
       await Promise.all([Episodes.refresh(), Posts.refresh()]);
@@ -108,19 +111,23 @@ function PostEditScreen({ navigation, route, theme }) {
       }
 
       Publishing.prep_post_edit(current_post, { episode_id });
-      await Publishing.load_post_source();
-      await Publishing.load_editor_options();
-    }
+      try {
+        await Publishing.load_post_source();
+      } catch {
+        // Keep the locally cached post editable when the source request fails.
+      }
 
-    load_editor();
+      await reveal_delay;
 
-    reveal_timeout_ref.current = setTimeout(() => {
-      if (!is_mounted_ref.current) {
+      if (cancelled) {
         return;
       }
 
       set_editor_is_visible(true);
-    }, EDITOR_REVEAL_DELAY_MS);
+      await Publishing.load_editor_options();
+    }
+
+    load_editor();
 
     return () => {
       cancelled = true;
