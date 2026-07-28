@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import Reanimated, {
@@ -8,9 +8,11 @@ import Reanimated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
-const DELETE_ACTION_WIDTH = 80;
+import PlatformSymbol from './PlatformSymbol';
+
+const DELETE_ACTION_SIZE = 56;
 const DELETE_ACTION_GAP = 8;
-const DELETE_ACTION_TOTAL_WIDTH = DELETE_ACTION_WIDTH + DELETE_ACTION_GAP;
+const DELETE_ACTION_TOTAL_WIDTH = DELETE_ACTION_SIZE + DELETE_ACTION_GAP;
 const DELETE_ACTION_COLOR = '#FF3B30';
 const SWIPE_SPRING = {
   damping: 18,
@@ -45,7 +47,7 @@ function SegmentDeleteAction({ on_delete_press, progress, translation }) {
         onPress={on_delete_press}
         style={styles.deleteActionButton}
       >
-        <Text style={styles.deleteActionLabel}>Delete</Text>
+        <PlatformSymbol color="#ffffff" name="trash" size={20} />
       </RectButton>
     </Reanimated.View>
   );
@@ -94,22 +96,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: DELETE_ACTION_COLOR,
     borderCurve: 'continuous',
-    borderRadius: 18,
-    flex: 1,
+    borderRadius: DELETE_ACTION_SIZE / 2,
+    height: DELETE_ACTION_SIZE,
     justifyContent: 'center',
-    width: DELETE_ACTION_WIDTH,
+    overflow: 'hidden',
+    width: DELETE_ACTION_SIZE,
   },
   deleteActionContainer: {
     height: '100%',
     justifyContent: 'center',
     paddingLeft: DELETE_ACTION_GAP,
     width: DELETE_ACTION_TOTAL_WIDTH,
-  },
-  deleteActionLabel: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 19,
   },
 });
 

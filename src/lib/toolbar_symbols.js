@@ -46,7 +46,7 @@ export const TOOLBAR_SYMBOLS = {
     multicolor: true,
   },
   trash: {
-    android_label: 'Del',
+    android_icon: 'delete',
     ios: 'trash',
   },
   waveform: {
