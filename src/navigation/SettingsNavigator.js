@@ -37,7 +37,7 @@ function SettingsNavigator({ theme }) {
       <Stack.Screen
         name="BlogSelection"
         options={{
-          title: 'Publishing To',
+          title: 'Blogs',
           headerLargeTitle: false,
         }}
       >
