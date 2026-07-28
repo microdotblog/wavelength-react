@@ -11,8 +11,9 @@ import Reanimated, {
 import PlatformSymbol from './PlatformSymbol';
 
 const DELETE_ACTION_SIZE = 56;
+const COMPACT_DELETE_ACTION_SIZE = 44;
 const DELETE_ACTION_GAP = 8;
-const DELETE_ACTION_TOTAL_WIDTH = DELETE_ACTION_SIZE + DELETE_ACTION_GAP;
+const COMPACT_DELETE_ACTION_RIGHT_GAP = 8;
 const DELETE_ACTION_COLOR = '#FF3B30';
 const SWIPE_SPRING = {
   damping: 18,
@@ -21,15 +22,18 @@ const SWIPE_SPRING = {
   stiffness: 210,
 };
 
-function SegmentDeleteAction({ on_delete_press, progress, translation }) {
+function SegmentDeleteAction({ compact, on_delete_press, progress, translation }) {
+  const action_size = compact ? COMPACT_DELETE_ACTION_SIZE : DELETE_ACTION_SIZE;
+  const action_right_gap = compact ? COMPACT_DELETE_ACTION_RIGHT_GAP : 0;
+  const action_total_width = action_size + DELETE_ACTION_GAP + action_right_gap;
   const animated_style = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 0.3, 1], [0, 0.55, 1], Extrapolation.CLAMP),
     transform: [
       {
         translateX: interpolate(
           translation.value,
-          [-DELETE_ACTION_TOTAL_WIDTH, 0],
-          [0, DELETE_ACTION_TOTAL_WIDTH],
+          [-action_total_width, 0],
+          [0, action_total_width],
           Extrapolation.CLAMP,
         ),
       },
@@ -40,20 +44,36 @@ function SegmentDeleteAction({ on_delete_press, progress, translation }) {
   }));
 
   return (
-    <Reanimated.View style={[styles.deleteActionContainer, animated_style]}>
+    <Reanimated.View
+      style={[
+        styles.deleteActionContainer,
+        {
+          paddingRight: action_right_gap,
+          width: action_total_width,
+        },
+        animated_style,
+      ]}
+    >
       <RectButton
         accessibilityLabel="Delete"
         accessibilityRole="button"
         onPress={on_delete_press}
-        style={styles.deleteActionButton}
+        style={[
+          styles.deleteActionButton,
+          {
+            borderRadius: action_size / 2,
+            height: action_size,
+            width: action_size,
+          },
+        ]}
       >
-        <PlatformSymbol color="#ffffff" name="trash" size={20} />
+        <PlatformSymbol color="#ffffff" name="trash" size={compact ? 18 : 20} />
       </RectButton>
     </Reanimated.View>
   );
 }
 
-function SegmentSwipeRow({ children, on_delete, on_will_open }) {
+function SegmentSwipeRow({ children, compact = false, on_delete, on_will_open }) {
   const swipeable_ref = React.useRef(null);
 
   function handle_delete_press() {
@@ -76,6 +96,7 @@ function SegmentSwipeRow({ children, on_delete, on_will_open }) {
       ref={swipeable_ref}
       renderRightActions={(progress, translation) => (
         <SegmentDeleteAction
+          compact={compact}
           on_delete_press={handle_delete_press}
           progress={progress}
           translation={translation}
@@ -96,17 +117,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: DELETE_ACTION_COLOR,
     borderCurve: 'continuous',
-    borderRadius: DELETE_ACTION_SIZE / 2,
-    height: DELETE_ACTION_SIZE,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: DELETE_ACTION_SIZE,
   },
   deleteActionContainer: {
     height: '100%',
     justifyContent: 'center',
     paddingLeft: DELETE_ACTION_GAP,
-    width: DELETE_ACTION_TOTAL_WIDTH,
   },
 });
 

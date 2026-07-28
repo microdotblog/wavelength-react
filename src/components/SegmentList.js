@@ -184,6 +184,7 @@ function SegmentItem({
         />
       ) : (
         <SegmentSwipeRow
+          compact
           on_delete={() => onDelete(index)}
           on_will_open={on_swipe_will_open}
         >
