@@ -150,18 +150,10 @@ function SignedInNavigator({ theme }) {
       </Stack.Screen>
       <Stack.Screen
         name="PublishOptions"
-        options={({ navigation }) => ({
+        options={{
           title: 'Options',
           headerLargeTitle: false,
-          ...header_left_element(() => (
-            <HeaderPillButton
-              label="Done"
-              onPress={() => navigation.goBack()}
-              placement="leading"
-              theme={theme}
-            />
-          )),
-        })}
+        }}
       >
         {screen_props => (
           <PublishOptionsScreen
