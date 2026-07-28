@@ -23,7 +23,7 @@ describe('build_discover_lock_screen_metadata', () => {
     expect(build_discover_lock_screen_metadata()).toEqual({
       albumTitle: DISCOVER_ALBUM_TITLE,
       artist: 'Micro.blog',
-      title: 'Discover microcast',
+      title: 'Discover podcast',
     });
   });
 });

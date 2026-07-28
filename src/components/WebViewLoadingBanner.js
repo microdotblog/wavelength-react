@@ -2,7 +2,7 @@ import React from 'react';
 import { Animated, Platform, Text, View } from 'react-native';
 
 function WebViewLoadingBanner({
-  loading_text = 'Loading microcasts...',
+  loading_text = 'Loading podcasts...',
   progress = null,
   theme,
   top_offset,

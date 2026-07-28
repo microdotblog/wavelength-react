@@ -85,7 +85,7 @@ function DiscoverScreen({ theme }) {
           },
         ]}
       >
-        <Text style={[styles.title, { color: theme.colors.ink }]}>No microcasts yet</Text>
+        <Text style={[styles.title, { color: theme.colors.ink }]}>No podcasts yet</Text>
         <Text style={[styles.body, { color: theme.colors.ink_soft }]}>
           Published podcast posts from Discover will show up here.
         </Text>

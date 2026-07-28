@@ -653,7 +653,7 @@ function EditScreen({ navigation, route, theme }) {
   });
   const published_label = format_post_date(episode.published_at || '');
   const post_url = `${episode.post_url || ''}`.trim();
-  const published_post_title = published_post_details.title || 'Microcast';
+  const published_post_title = published_post_details.title || 'Podcast';
   const published_post_summary = published_post_details.summary;
   const published_post_uid = published_post_details.post_uid;
   const audio_size_label = episode.formatted_audio_size();

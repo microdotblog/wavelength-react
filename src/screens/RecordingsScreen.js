@@ -164,7 +164,7 @@ function RecordingsScreen({ navigation, theme }) {
         <View style={styles.emptyContent}>
           <View style={styles.emptyCopy}>
             <Text style={[styles.emptyTitle, { color: theme.colors.ink }]}>
-              Record your first microcast
+              Record your first podcast
             </Text>
             <Text style={[styles.emptyBody, { color: theme.colors.ink_soft }]}>
               Tap the button to start recording. We'll help you edit it and publish to Micro.blog.

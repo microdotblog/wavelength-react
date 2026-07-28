@@ -116,7 +116,7 @@ function WelcomeScreen({ theme }) {
                 Wavelength
               </Text>
               <Text style={[styles.title, { color: theme.colors.ink }]}>
-                Record, edit, and publish microcasts.
+                Record, edit, and publish podcasts.
               </Text>
               <Text style={[styles.body, { color: theme.colors.ink_soft }]}>
                 Sign in with Micro.blog to get started.
@@ -534,10 +534,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '800',
     letterSpacing: 0,
-    lineHeight: 38,
+    lineHeight: 32,
     maxWidth: 360,
   },
 });
