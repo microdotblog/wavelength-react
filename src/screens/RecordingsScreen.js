@@ -185,11 +185,6 @@ function RecordingsScreen({ navigation, theme }) {
         contentInsetAdjustmentBehavior="automatic"
         data={episodes}
         keyExtractor={item => item.id}
-        ListHeaderComponent={
-          <Text style={[styles.sectionTitle, { color: theme.colors.ink }]}>
-            Episodes
-          </Text>
-        }
         renderItem={({ item }) => (
           <SegmentSwipeRow
             on_delete={() => request_delete_episode(item)}
@@ -252,12 +247,6 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 23,
-    marginBottom: 2,
   },
 });
 
