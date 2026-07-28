@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     left: 2,
     position: 'absolute',
     top: 0,
-    width: 2,
+    width: 1,
   },
   addSegmentActions: {
     alignItems: 'center',
