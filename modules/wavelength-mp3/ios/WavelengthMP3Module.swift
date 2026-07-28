@@ -3,7 +3,7 @@ import CoreMedia
 import ExpoModulesCore
 import LAME
 
-private let outputBitrateKbps: Int32 = 160
+private let outputBitrateKbps: Int32 = 128
 private let outputSampleRate: Int32 = 44_100
 
 private enum Mp3ExportError: LocalizedError {

@@ -105,7 +105,7 @@ export async function merge_episode_clips(episode = null) {
 }
 
 // Publishing keeps the editable AAC source intact and performs one final
-// decode/encode pass to a 160 kbps mono MP3.
+// decode/encode pass to a 128 kbps mono MP3.
 export async function export_episode_mp3(source_uri = '') {
   const trimmed_uri = `${source_uri || ''}`.trim();
 
