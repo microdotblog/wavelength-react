@@ -1,5 +1,6 @@
 const {
   apply_text_format_action,
+  build_episode_audio_filename,
   build_episode_publish_payload,
   normalize_micropub_categories,
   normalize_micropub_syndicates,
@@ -29,6 +30,12 @@ describe('publish_editor', () => {
   test('toggle_list_item adds and removes values', () => {
     expect(toggle_list_item([], 'podcast')).toEqual(['podcast']);
     expect(toggle_list_item(['podcast'], 'podcast')).toEqual([]);
+  });
+
+  test('build_episode_audio_filename creates a clean MP3 filename from the title', () => {
+    expect(build_episode_audio_filename('Episode 123: Hello')).toBe('episode-123-hello.mp3');
+    expect(build_episode_audio_filename("Café's  summer show!")).toBe('cafes-summer-show.mp3');
+    expect(build_episode_audio_filename('')).toBe('exported.mp3');
   });
 
   test('build_episode_publish_payload trims and normalizes fields', () => {

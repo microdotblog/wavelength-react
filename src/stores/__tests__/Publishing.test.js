@@ -125,6 +125,8 @@ describe('Publishing store', () => {
   });
 
   test('publish_episode marks the episode published and refreshes posts', async () => {
+    Publishing.set_post_title('Episode 123: Hello');
+
     const post_url = await Publishing.publish_episode('episode-1');
 
     expect(post_url).toBe('https://example.micro.blog/post/1');
@@ -132,6 +134,7 @@ describe('Publishing store', () => {
     expect(read_file_size_bytes).toHaveBeenCalledWith('file:///tmp/exported.mp3');
     expect(upload_episode_audio).toHaveBeenCalledWith({
       destination: 'https://test.micro.blog',
+      file_name: 'episode-123-hello.mp3',
       file_uri: 'file:///tmp/exported.mp3',
       token: 'token',
     });

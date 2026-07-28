@@ -30,7 +30,12 @@ export function resolve_uploaded_url(location_header = '', json_body = null) {
   return `${json_body?.url || ''}`.trim();
 }
 
-export async function upload_episode_audio({ token = '', destination = '', file_uri = '' } = {}) {
+export async function upload_episode_audio({
+  token = '',
+  destination = '',
+  file_name = '',
+  file_uri = '',
+} = {}) {
   const trimmed_token = `${token || ''}`.trim();
   const trimmed_uri = `${file_uri || ''}`.trim();
 
@@ -50,34 +55,47 @@ export async function upload_episode_audio({ token = '', destination = '', file_
 
   const trimmed_destination = `${destination || ''}`.trim();
   const parameters = trimmed_destination ? { 'mp-destination': trimmed_destination } : undefined;
+  const trimmed_file_name = `${file_name || ''}`.trim();
+  let upload_file = audio_file;
 
-  // ponytail: native multipart upload avoids Expo fetch's unsupported { uri } FormData parts.
-  const response = await audio_file.upload(MICRO_BLOG_MEDIA_URL, {
-    fieldName: 'file',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${trimmed_token}`,
-    },
-    mimeType: resolve_audio_mime_type(trimmed_uri),
-    parameters,
-    uploadType: UploadType.MULTIPART,
-  });
-  const payload = parse_json_body(response.body);
+  try {
+    if (trimmed_file_name && trimmed_file_name !== audio_file.name) {
+      upload_file = new File(audio_file.parentDirectory, trimmed_file_name);
+      await audio_file.copy(upload_file, { overwrite: true });
+    }
 
-  if (response.status < 200 || response.status >= 300 || payload?.error) {
-    throw create_request_error(
-      resolve_error_message(payload, 'We could not upload the episode audio.'),
-      response.status,
-    );
+    // ponytail: native multipart upload avoids Expo fetch's unsupported { uri } FormData parts.
+    const response = await upload_file.upload(MICRO_BLOG_MEDIA_URL, {
+      fieldName: 'file',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${trimmed_token}`,
+      },
+      mimeType: resolve_audio_mime_type(upload_file.uri || trimmed_uri),
+      parameters,
+      uploadType: UploadType.MULTIPART,
+    });
+    const payload = parse_json_body(response.body);
+
+    if (response.status < 200 || response.status >= 300 || payload?.error) {
+      throw create_request_error(
+        resolve_error_message(payload, 'We could not upload the episode audio.'),
+        response.status,
+      );
+    }
+
+    const audio_url = resolve_uploaded_url(resolve_response_header(response.headers, 'Location'), payload);
+
+    if (!audio_url) {
+      throw create_request_error('Micro.blog did not return an audio URL.');
+    }
+
+    return audio_url;
+  } finally {
+    if (upload_file !== audio_file && upload_file.exists) {
+      upload_file.delete();
+    }
   }
-
-  const audio_url = resolve_uploaded_url(resolve_response_header(response.headers, 'Location'), payload);
-
-  if (!audio_url) {
-    throw create_request_error('Micro.blog did not return an audio URL.');
-  }
-
-  return audio_url;
 }
 
 export function build_episode_post_body({

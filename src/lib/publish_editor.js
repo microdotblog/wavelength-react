@@ -32,6 +32,19 @@ export function post_text_length(content = '') {
   return `${content || ''}`.length;
 }
 
+export function build_episode_audio_filename(title = '') {
+  const filename = `${title || ''}`
+    .trim()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return filename ? `${filename}.mp3` : 'exported.mp3';
+}
+
 export function toggle_list_item(items = [], value = '') {
   const safe_items = Array.isArray(items) ? [...items] : [];
   const index = safe_items.indexOf(value);

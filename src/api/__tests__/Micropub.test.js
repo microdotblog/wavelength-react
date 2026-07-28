@@ -132,6 +132,45 @@ describe('Micropub upload_episode_audio', () => {
       uploadType: UploadType.MULTIPART,
     });
   });
+
+  test('uploads a temporary copy with the requested filename', async () => {
+    const copy = jest.fn(async () => null);
+    const remove = jest.fn();
+    const upload = jest.fn(async () => ({
+      body: JSON.stringify({ url: 'https://micro.blog/episode-123-hello.mp3' }),
+      headers: { Location: 'https://micro.blog/episode-123-hello.mp3' },
+      status: 202,
+    }));
+    const source_file = {
+      copy,
+      exists: true,
+      name: 'exported.mp3',
+      parentDirectory: { uri: 'file:///tmp' },
+      uri: 'file:///tmp/exported.mp3',
+    };
+    const upload_file = {
+      delete: remove,
+      exists: true,
+      name: 'episode-123-hello.mp3',
+      upload,
+      uri: 'file:///tmp/episode-123-hello.mp3',
+    };
+
+    File.mockImplementation(function MockFile(_parent, name) {
+      return name ? upload_file : source_file;
+    });
+
+    const audio_url = await upload_episode_audio({
+      file_name: 'episode-123-hello.mp3',
+      file_uri: 'file:///tmp/exported.mp3',
+      token: 'token',
+    });
+
+    expect(audio_url).toBe('https://micro.blog/episode-123-hello.mp3');
+    expect(copy).toHaveBeenCalledWith(upload_file, { overwrite: true });
+    expect(upload).toHaveBeenCalled();
+    expect(remove).toHaveBeenCalled();
+  });
 });
 
 describe('Micropub delete_micropub_post', () => {
