@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, FlatList, Linking, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
 import {
@@ -17,11 +17,8 @@ import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import { show_toast } from '../lib/toast';
 
 function RecordingsScreen({ navigation, theme }) {
-  const list_ref = React.useRef(null);
   const episodes = Episodes.sorted_episodes();
   const open_swipeable_ref = React.useRef(null);
-
-  useScrollToTop(list_ref);
   const tab_bar_height = use_tab_bar_bottom_offset();
   const { has_active_playback } = use_discover_playback_dock() || {};
   const list_bottom_padding = discover_playback_content_padding({
@@ -184,7 +181,6 @@ function RecordingsScreen({ navigation, theme }) {
   return (
     <>
       <FlatList
-        ref={list_ref}
         contentContainerStyle={[styles.content, { paddingBottom: list_bottom_padding }]}
         contentInsetAdjustmentBehavior="automatic"
         data={episodes}

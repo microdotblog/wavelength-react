@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
 import {
@@ -24,7 +24,6 @@ import {
 import Discover from '../stores/Discover';
 
 function DiscoverScreen({ theme }) {
-  const list_ref = React.useRef(null);
   const posts = Discover.sorted_posts();
   const tab_bar_height = use_tab_bar_bottom_offset();
   const [is_pull_refreshing, set_is_pull_refreshing] = React.useState(false);
@@ -34,8 +33,6 @@ function DiscoverScreen({ theme }) {
     has_active_playback,
     playback,
   } = use_discover_playback_dock() || {};
-
-  useScrollToTop(list_ref);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -107,7 +104,6 @@ function DiscoverScreen({ theme }) {
 
   return (
     <FlatList
-      ref={list_ref}
       contentContainerStyle={
         posts.length === 0
           ? [styles.content, styles.emptyContent, { paddingBottom: list_bottom_padding }]

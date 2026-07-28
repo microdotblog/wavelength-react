@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect, useScrollToTop } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
 import {
@@ -24,7 +24,6 @@ import { show_toast } from '../lib/toast';
 import Posts from '../stores/Posts';
 
 function PostsScreen({ navigation, theme }) {
-  const list_ref = React.useRef(null);
   const posts = Posts.sorted_posts();
   const destination_label =
     Auth.default_site_name || Auth.default_site || Auth.profile_url || 'your Micro.blog';
@@ -32,8 +31,6 @@ function PostsScreen({ navigation, theme }) {
   const [is_pull_refreshing, set_is_pull_refreshing] = React.useState(false);
   const tab_bar_height = use_tab_bar_bottom_offset();
   const { has_active_playback } = use_discover_playback_dock() || {};
-
-  useScrollToTop(list_ref);
 
   const list_bottom_padding = discover_playback_content_padding({
     has_active_playback,
@@ -147,7 +144,6 @@ function PostsScreen({ navigation, theme }) {
 
   return (
     <FlatList
-      ref={list_ref}
       contentContainerStyle={
         posts.length === 0
           ? [styles.content, styles.emptyContent, { paddingBottom: list_bottom_padding }]
