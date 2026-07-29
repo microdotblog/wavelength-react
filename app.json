@@ -8,9 +8,9 @@
     "scheme": "wavelength",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "blog.micro.wavelength",
-      "buildNumber": "105",
+      "buildNumber": "106",
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "microblog"
