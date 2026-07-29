@@ -1,4 +1,5 @@
 import { Directory, File, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
 
 import { WAVEFORM_SAMPLE_COUNT } from './downsample_waveform';
 import { sanitize_size_bytes } from './episode_upload_size';
@@ -7,6 +8,9 @@ import { merge_episode_waveform } from './merge_episode_waveform';
 const EPISODES_DIR_NAME = 'episodes';
 const EPISODE_INFO_FILENAME = 'episode.json';
 const EXPORTED_FILENAME = 'exported.m4a';
+const LEGACY_INFO_FILENAME = 'clips.plist';
+const LEGACY_EPISODE_PATTERN = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:-\d+)?$/;
+const LEGACY_EPISODE_PREFIX = 'legacy-';
 const SEGMENT_BASENAME = 'segment';
 const DEFAULT_SEGMENT_EXTENSION = '.m4a';
 const SEGMENT_INDEX_PATTERN = /^segment(?:-(\d+))?\./i;
@@ -33,6 +37,103 @@ function build_episode_title(date) {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function decode_legacy_folder_name(folder_name = '') {
+  try {
+    return decodeURIComponent(folder_name);
+  } catch (error) {
+    return folder_name;
+  }
+}
+
+function is_legacy_episode_folder_name(folder_name = '') {
+  return LEGACY_EPISODE_PATTERN.test(decode_legacy_folder_name(folder_name));
+}
+
+function decode_xml_text(value = '') {
+  const named_entities = {
+    amp: '&',
+    apos: '\'',
+    gt: '>',
+    lt: '<',
+    quot: '"',
+  };
+
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(Number.parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number.parseInt(code, 10)))
+    .replace(/&(amp|apos|gt|lt|quot);/g, (_, name) => named_entities[name]);
+}
+
+export function parse_legacy_episode_plist(contents = '') {
+  const title_match = contents.match(
+    /<key>\s*title\s*<\/key>\s*<string>([\s\S]*?)<\/string>/i,
+  );
+  const clips_match = contents.match(
+    /<key>\s*clips\s*<\/key>\s*<array>([\s\S]*?)<\/array>/i,
+  );
+  const clips = [];
+
+  if (clips_match) {
+    const clip_pattern = /<string>([\s\S]*?)<\/string>/gi;
+    let clip_match = clip_pattern.exec(clips_match[1]);
+
+    while (clip_match) {
+      const clip_name = decode_xml_text(clip_match[1]).trim();
+      const is_safe_name = clip_name.length > 0 &&
+        clip_name !== '.' &&
+        clip_name !== '..' &&
+        !clip_name.includes('/') &&
+        !clip_name.includes('\\');
+
+      if (is_safe_name) {
+        clips.push(clip_name);
+      }
+
+      clip_match = clip_pattern.exec(clips_match[1]);
+    }
+  }
+
+  return {
+    clips,
+    title: title_match ? decode_xml_text(title_match[1]).trim() : '',
+  };
+}
+
+function legacy_episode_created_at(directory) {
+  if (Number.isFinite(directory.creationTime) && directory.creationTime > 0) {
+    return new Date(directory.creationTime).toISOString();
+  }
+
+  const folder_name = decode_legacy_folder_name(directory.name);
+  const match = folder_name.match(
+    /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:-\d+)?$/,
+  );
+
+  if (!match) {
+    return new Date().toISOString();
+  }
+
+  const date = new Date(
+    Number.parseInt(match[1], 10),
+    Number.parseInt(match[2], 10) - 1,
+    Number.parseInt(match[3], 10),
+    Number.parseInt(match[4], 10),
+    Number.parseInt(match[5], 10),
+    Number.parseInt(match[6], 10),
+  );
+
+  return date.toISOString();
+}
+
+function build_legacy_episode_id(folder_name = '') {
+  const safe_name = decode_legacy_folder_name(folder_name)
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+
+  return `${LEGACY_EPISODE_PREFIX}${safe_name}`;
 }
 
 function normalize_folder_uri(uri = '') {
@@ -281,6 +382,220 @@ function read_episode_from_directory(directory) {
     return to_episode_snapshot(info, directory, directory.name);
   } catch (error) {
     return null;
+  }
+}
+
+function is_complete_episode(directory, episode) {
+  if (!episode || episode.clip_meta.length === 0) {
+    return false;
+  }
+
+  return episode.clip_meta.every(clip => {
+    const clip_file = new File(directory, clip.name);
+
+    return clip.duration_seconds > 0 && clip_file.exists && clip_file.size > 0;
+  });
+}
+
+function read_legacy_episode_from_directory(directory) {
+  const info_file = new File(directory, LEGACY_INFO_FILENAME);
+
+  if (!info_file.exists) {
+    return null;
+  }
+
+  try {
+    const parsed = parse_legacy_episode_plist(info_file.textSync());
+    const clips = [];
+
+    for (const clip_name of parsed.clips) {
+      const clip_file = new File(directory, clip_name);
+
+      if (!clip_file.exists || clip_file.size <= 0) {
+        return null;
+      }
+
+      clips.push({
+        name: clip_name,
+        uri: clip_file.uri,
+      });
+    }
+
+    if (clips.length === 0) {
+      return null;
+    }
+
+    return {
+      clips,
+      created_at: legacy_episode_created_at(directory),
+      id: directory.name,
+      title: parsed.title || decode_legacy_folder_name(directory.name),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function list_legacy_episodes() {
+  if (Platform.OS !== 'ios') {
+    return [];
+  }
+
+  const documents_directory = new Directory(Paths.document);
+  const legacy_episodes = [];
+
+  for (const entry of documents_directory.list()) {
+    if (!(entry instanceof Directory) || !is_legacy_episode_folder_name(entry.name)) {
+      continue;
+    }
+
+    const legacy_episode = read_legacy_episode_from_directory(entry);
+
+    if (legacy_episode) {
+      legacy_episodes.push(legacy_episode);
+    }
+  }
+
+  return legacy_episodes;
+}
+
+export async function read_migrated_episode(
+  legacy_episode_id = '',
+  expected_clip_count = 0,
+) {
+  const trimmed_id = `${legacy_episode_id || ''}`.trim();
+
+  if (
+    !is_legacy_episode_folder_name(trimmed_id) ||
+    !Number.isInteger(expected_clip_count) ||
+    expected_clip_count <= 0
+  ) {
+    return null;
+  }
+
+  const id = build_legacy_episode_id(trimmed_id);
+  const directory = new Directory(get_episodes_directory(), id);
+
+  if (!directory.exists) {
+    return null;
+  }
+
+  const existing = read_episode_from_directory(directory);
+
+  if (
+    !is_complete_episode(directory, existing) ||
+    existing.clip_meta.length !== expected_clip_count
+  ) {
+    return null;
+  }
+
+  return existing;
+}
+
+export async function save_migrated_episode(legacy_episode = null, converted_clips = []) {
+  const legacy_id = `${legacy_episode?.id || ''}`.trim();
+  const expected_clip_count = legacy_episode?.clips?.length || 0;
+
+  if (
+    !is_legacy_episode_folder_name(legacy_id) ||
+    expected_clip_count === 0 ||
+    converted_clips.length !== expected_clip_count
+  ) {
+    throw new Error('A valid legacy episode is required for migration.');
+  }
+
+  const id = build_legacy_episode_id(legacy_id);
+  const directory = new Directory(get_episodes_directory(), id);
+
+  if (directory.exists) {
+    const existing = read_episode_from_directory(directory);
+
+    if (
+      is_complete_episode(directory, existing) &&
+      existing.clip_meta.length === expected_clip_count
+    ) {
+      return existing;
+    }
+
+    directory.delete();
+  }
+
+  directory.create({ intermediates: true });
+
+  try {
+    const clip_meta = [];
+
+    for (let index = 0; index < converted_clips.length; index += 1) {
+      const converted = converted_clips[index];
+      const source_file = new File(`${converted?.uri || ''}`.trim());
+      const segment_name = build_segment_name(index + 1, DEFAULT_SEGMENT_EXTENSION);
+      const segment_file = new File(directory, segment_name);
+
+      if (
+        !source_file.exists ||
+        !Number.isFinite(converted?.duration_seconds) ||
+        converted.duration_seconds <= 0
+      ) {
+        throw new Error('A converted legacy segment is missing.');
+      }
+
+      await source_file.move(segment_file);
+
+      const size_bytes = read_clip_size_bytes(directory, segment_name);
+
+      if (size_bytes <= 0) {
+        throw new Error('A converted legacy segment is empty.');
+      }
+
+      clip_meta.push({
+        duration_seconds: converted.duration_seconds,
+        name: segment_name,
+        size_bytes,
+        waveform: converted.waveform,
+      });
+    }
+
+    const info = compose_episode_info({
+      clip_meta,
+      created_at: `${legacy_episode.created_at || ''}`.trim() || new Date().toISOString(),
+      title: `${legacy_episode.title || ''}`.trim() || decode_legacy_folder_name(legacy_id),
+    });
+
+    write_episode_info(directory, info);
+
+    const migrated = read_episode_from_directory(directory);
+
+    if (
+      !is_complete_episode(directory, migrated) ||
+      migrated.clip_meta.length !== expected_clip_count
+    ) {
+      throw new Error('The migrated episode could not be verified.');
+    }
+
+    return migrated;
+  } catch (error) {
+    if (directory.exists) {
+      directory.delete();
+    }
+
+    throw error;
+  }
+}
+
+export async function delete_legacy_episode(legacy_episode_id = '') {
+  const trimmed_id = `${legacy_episode_id || ''}`.trim();
+
+  if (!is_legacy_episode_folder_name(trimmed_id)) {
+    return;
+  }
+
+  const documents_directory = new Directory(Paths.document);
+  const directory = documents_directory
+    .list()
+    .find(entry => entry instanceof Directory && entry.name === trimmed_id);
+
+  if (directory?.exists) {
+    directory.delete();
   }
 }
 

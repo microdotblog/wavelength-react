@@ -1,5 +1,13 @@
 import React from 'react';
-import { ActivityIndicator, Linking, StyleSheet, useColorScheme, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Modal,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,9 +20,42 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import SignedInNavigator from './navigation/SignedInNavigator';
 import WelcomeScreen from './screens/WelcomeScreen';
 import Auth from './stores/Auth';
+import Episodes from './stores/Episodes';
 import { build_navigation_theme, get_wavelength_theme } from './theme/wavelengthTheme';
 
 WebBrowser.maybeCompleteAuthSession();
+
+function LegacyUpgradeModal({ theme, visible = false }) {
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={() => {}}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      transparent
+      visible={visible}
+    >
+      <View style={styles.upgradeOverlay}>
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityViewIsModal
+          style={[
+            styles.upgradeCard,
+            {
+              backgroundColor: theme.colors.paper,
+              borderColor: theme.colors.line,
+            },
+          ]}
+        >
+          <ActivityIndicator color={theme.colors.accent} size="large" />
+          <Text style={[styles.upgradeTitle, { color: theme.colors.ink }]}>
+            Upgrading previous Wavelength recordings...
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 function App() {
   const color_scheme = useColorScheme();
@@ -72,6 +113,10 @@ function App() {
           ) : (
             <WelcomeScreen theme={theme} />
           )}
+          <LegacyUpgradeModal
+            theme={theme}
+            visible={is_signed_in && Episodes.is_upgrading_legacy}
+          />
         </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -86,6 +131,30 @@ const styles = StyleSheet.create({
   },
   root: {
     flex: 1,
+  },
+  upgradeCard: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 18,
+    maxWidth: 420,
+    paddingHorizontal: 28,
+    paddingVertical: 30,
+    width: '100%',
+  },
+  upgradeOverlay: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.20)',
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  upgradeTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 24,
+    textAlign: 'center',
   },
 });
 
