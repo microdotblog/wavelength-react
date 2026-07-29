@@ -17,6 +17,10 @@ import Auth from '../stores/Auth';
 import { show_toast } from '../lib/toast';
 
 const APP_VERSION = Constants.expoConfig?.version || '1.0.0';
+const APP_BUILD_NUMBER =
+  Constants.platform?.ios?.buildNumber ||
+  Constants.platform?.android?.versionCode ||
+  '';
 const MICRO_BLOG_COMMUNITY_GUIDELINES_URL = 'https://help.micro.blog/t/community-guidelines/39';
 const MICRO_BLOG_PRIVACY_POLICY_URL = 'https://help.micro.blog/t/privacy-policy/114';
 const MICRO_BLOG_DELETE_ACCOUNT_URL = 'https://micro.blog/account/delete';
@@ -209,7 +213,7 @@ function AccountScreen({ navigation, theme }) {
       </Pressable>
 
       <Text style={[styles.versionText, { color: theme.colors.ink_soft }]}>
-        Wavelength {APP_VERSION}
+        Wavelength {APP_VERSION}{APP_BUILD_NUMBER ? ` (${APP_BUILD_NUMBER})` : ''}
       </Text>
     </ScrollView>
   );
