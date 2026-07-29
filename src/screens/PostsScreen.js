@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   RefreshControl,
@@ -116,12 +115,8 @@ function PostsScreen({ navigation, theme }) {
   }
 
   function render_empty_state() {
-    if (Posts.is_loading && !Posts.did_hydrate) {
-      return (
-        <View style={styles.emptyState}>
-          <ActivityIndicator color={theme.colors.accent} size="large" />
-        </View>
-      );
+    if (!Posts.did_hydrate || Posts.is_loading || Posts.error_message) {
+      return null;
     }
 
     return (
@@ -205,11 +200,6 @@ const styles = StyleSheet.create({
   },
   emptyContent: {
     flexGrow: 1,
-  },
-  emptyState: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
   },
   error: {
     fontSize: 14,

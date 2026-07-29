@@ -4,6 +4,7 @@ import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.MediaMuxer
 import android.net.Uri
 import com.github.axet.lamejni.Lame
 import expo.modules.kotlin.modules.Module
@@ -11,6 +12,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
+import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 private const val BITRATE_KBPS = 128
@@ -22,6 +24,15 @@ private class Mp3ExportException(message: String) : Exception(message)
 class WavelengthMP3Module : Module() {
   override fun definition() = ModuleDefinition {
     Name("WavelengthMP3")
+
+    AsyncFunction("exportM4aAsync") { inputUri: String, outputUri: String ->
+      val inputFile = fileFromUri(inputUri)
+      val outputFile = fileFromUri(outputUri)
+
+      exportM4a(inputFile, outputFile)
+
+      Uri.fromFile(outputFile).toString()
+    }
 
     AsyncFunction("exportMp3Async") { inputUri: String, outputUri: String ->
       val inputFile = fileFromUri(inputUri)
@@ -38,10 +49,94 @@ class WavelengthMP3Module : Module() {
     val path = if (parsedUri.scheme == "file") parsedUri.path else null
 
     if (path.isNullOrBlank()) {
-      throw Mp3ExportException("A local audio file is required for MP3 export.")
+      throw Mp3ExportException("A local audio file is required for audio export.")
     }
 
     return File(path)
+  }
+
+  private fun exportM4a(inputFile: File, outputFile: File) {
+    if (!inputFile.exists()) {
+      throw Mp3ExportException("The audio file could not be read.")
+    }
+
+    outputFile.delete()
+
+    val extractor = MediaExtractor()
+    var muxer: MediaMuxer? = null
+    var muxerStarted = false
+    var didFail = false
+
+    try {
+      extractor.setDataSource(inputFile.absolutePath)
+      val trackIndex = findAudioTrack(extractor)
+
+      if (trackIndex < 0) {
+        throw Mp3ExportException("The audio file does not contain an audio track.")
+      }
+
+      val inputFormat = extractor.getTrackFormat(trackIndex)
+      val mimeType = inputFormat.getString(MediaFormat.KEY_MIME)
+
+      if (mimeType != MediaFormat.MIMETYPE_AUDIO_AAC) {
+        throw Mp3ExportException("The audio file is not AAC.")
+      }
+
+      extractor.selectTrack(trackIndex)
+
+      val activeMuxer = MediaMuxer(
+        outputFile.absolutePath,
+        MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
+      )
+      muxer = activeMuxer
+
+      val outputTrackIndex = activeMuxer.addTrack(inputFormat)
+      activeMuxer.start()
+      muxerStarted = true
+
+      val bufferSize = if (inputFormat.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
+        maxOf(inputFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE), 64 * 1024)
+      } else {
+        64 * 1024
+      }
+      val buffer = ByteBuffer.allocate(bufferSize)
+      val bufferInfo = MediaCodec.BufferInfo()
+
+      while (true) {
+        buffer.clear()
+        val sampleSize = extractor.readSampleData(buffer, 0)
+
+        if (sampleSize < 0) {
+          break
+        }
+
+        bufferInfo.offset = 0
+        bufferInfo.size = sampleSize
+        bufferInfo.presentationTimeUs = extractor.sampleTime
+        bufferInfo.flags = extractor.sampleFlags
+        activeMuxer.writeSampleData(outputTrackIndex, buffer, bufferInfo)
+        extractor.advance()
+      }
+    } catch (error: Exception) {
+      didFail = true
+      throw Mp3ExportException(
+        error.message ?: "The audio file could not be converted to M4A.",
+      )
+    } finally {
+      if (muxerStarted) {
+        try {
+          muxer?.stop()
+        } catch (_: Exception) {
+        }
+      }
+
+      muxer?.release()
+      extractor.release()
+
+      if (didFail) {
+        outputFile.delete()
+      }
+    }
   }
 
   private fun exportMp3(inputFile: File, outputFile: File) {

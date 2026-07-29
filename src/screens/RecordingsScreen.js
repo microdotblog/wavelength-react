@@ -9,7 +9,6 @@ import {
 } from '../components/DiscoverPlaybackProvider';
 import Discover from '../stores/Discover';
 import Episodes from '../stores/Episodes';
-import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
 import EpisodeRow from '../components/EpisodeRow';
 import RecordControlButton from '../components/RecordControlButton';
@@ -25,8 +24,6 @@ function RecordingsScreen({ navigation, theme }) {
     has_active_playback,
     tab_bar_height,
   });
-  const [delete_episode, set_delete_episode] = React.useState(null);
-  const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
 
   useFocusEffect(
@@ -56,11 +53,46 @@ function RecordingsScreen({ navigation, theme }) {
   }
 
   function request_delete_episode(episode) {
-    set_delete_episode({
-      id: episode.id,
-      is_published: episode.is_published(),
-      title: episode.title,
-    });
+    const title = `${episode.title || ''}`.trim() || 'This episode';
+
+    if (episode.is_published()) {
+      Alert.alert(
+        'Delete episode?',
+        `"${title}" can be removed from this device while keeping its Micro.blog post, or deleted everywhere.`,
+        [
+          {
+            style: 'cancel',
+            text: 'Cancel',
+          },
+          {
+            onPress: () => handle_delete_episode(episode, false),
+            style: 'destructive',
+            text: 'On device only',
+          },
+          {
+            onPress: () => handle_delete_episode(episode, true),
+            style: 'destructive',
+            text: 'Everywhere',
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Delete episode?',
+        `"${title}" will be permanently removed from this device.`,
+        [
+          {
+            style: 'cancel',
+            text: 'Cancel',
+          },
+          {
+            onPress: () => handle_delete_episode(episode, false),
+            style: 'destructive',
+            text: 'Delete',
+          },
+        ],
+      );
+    }
   }
 
   async function duplicate_episode(episode) {
@@ -123,36 +155,20 @@ function RecordingsScreen({ navigation, theme }) {
     }
   }
 
-  async function handle_delete_episode(delete_post = false) {
-    if (!delete_episode) {
-      return;
-    }
-
-    const { id, is_published } = delete_episode;
-
-    set_is_deleting_episode(true);
+  async function handle_delete_episode(episode, delete_post = false) {
+    const episode_id = episode.id;
+    const was_published = episode.is_published();
 
     try {
-      await Episodes.delete_episode(id, { delete_post });
-      set_delete_episode(null);
+      await Episodes.delete_episode(episode_id, { delete_post });
       show_toast(
         delete_post
           ? 'Episode and post deleted.'
-          : (is_published ? 'Episode removed from device.' : 'Episode deleted.'),
+          : (was_published ? 'Episode removed from device.' : 'Episode deleted.'),
       );
     } catch (error) {
       show_toast(error?.message || 'Could not delete episode. Please try again.');
-    } finally {
-      set_is_deleting_episode(false);
     }
-  }
-
-  function close_delete_modal() {
-    if (is_deleting_episode) {
-      return;
-    }
-
-    set_delete_episode(null);
   }
 
   if (episodes.length === 0) {
@@ -164,7 +180,7 @@ function RecordingsScreen({ navigation, theme }) {
               Record your first podcast
             </Text>
             <Text style={[styles.emptyBody, { color: theme.colors.ink_soft }]}>
-              Tap the button to start recording. We'll help you edit it and publish to Micro.blog.
+              Tap the button to start recording. Then you can edit it and publish it to Micro.blog.
             </Text>
           </View>
 
@@ -179,39 +195,26 @@ function RecordingsScreen({ navigation, theme }) {
   }
 
   return (
-    <>
-      <FlatList
-        contentContainerStyle={[styles.content, { paddingBottom: list_bottom_padding }]}
-        contentInsetAdjustmentBehavior="automatic"
-        data={episodes}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <SegmentSwipeRow
-            on_delete={() => request_delete_episode(item)}
-            on_will_open={handle_swipe_will_open}
-          >
-            <EpisodeRow
-              episode={item}
-              onMenuAction={handle_episode_menu_action}
-              onPress={() => open_edit(item.id)}
-              theme={theme}
-            />
-          </SegmentSwipeRow>
-        )}
-        style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
-      />
-
-      <DeleteEpisodeModal
-        episode_title={delete_episode?.title || ''}
-        has_published_post={delete_episode?.is_published ?? false}
-        is_busy={is_deleting_episode}
-        on_cancel={close_delete_modal}
-        on_delete_device_and_post={() => handle_delete_episode(true)}
-        on_delete_device_only={() => handle_delete_episode(false)}
-        theme={theme}
-        visible={delete_episode != null}
-      />
-    </>
+    <FlatList
+      contentContainerStyle={[styles.content, { paddingBottom: list_bottom_padding }]}
+      contentInsetAdjustmentBehavior="automatic"
+      data={episodes}
+      keyExtractor={item => item.id}
+      renderItem={({ item }) => (
+        <SegmentSwipeRow
+          on_delete={() => request_delete_episode(item)}
+          on_will_open={handle_swipe_will_open}
+        >
+          <EpisodeRow
+            episode={item}
+            onMenuAction={handle_episode_menu_action}
+            onPress={() => open_edit(item.id)}
+            theme={theme}
+          />
+        </SegmentSwipeRow>
+      )}
+      style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
+    />
   );
 }
 

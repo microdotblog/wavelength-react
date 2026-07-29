@@ -7,13 +7,24 @@ import { get_episode_clip_uri, get_exported_clip_uri } from './EpisodeStorage';
 import { WAVEFORM_SAMPLE_COUNT } from './downsample_waveform';
 
 const IMPORT_ANALYSIS_END_MILLIS = 2_147_483_647;
-const IMPORT_OUTPUT_FORMAT = {
+const CANONICAL_AAC_OUTPUT_FORMAT = {
   bitrate: 128000,
   channels: 2,
   format: 'aac',
   sampleRate: 44100,
 };
-const SPLIT_OUTPUT_FORMAT = { format: 'aac' };
+
+function build_m4a_uri(file_uri = '') {
+  const trimmed_uri = `${file_uri || ''}`.trim();
+  const last_slash_index = trimmed_uri.lastIndexOf('/');
+  const extension_index = trimmed_uri.lastIndexOf('.');
+
+  if (extension_index > last_slash_index) {
+    return `${trimmed_uri.slice(0, extension_index)}.m4a`;
+  }
+
+  return `${trimmed_uri}.m4a`;
+}
 
 function to_seconds(duration_millis) {
   return Number.isFinite(duration_millis) ? Math.max(duration_millis / 1000, 0) : 0;
@@ -33,8 +44,41 @@ export function delete_audio_file(file_uri = '') {
   }
 }
 
+async function convert_audio_to_m4a(source_uri = '') {
+  const trimmed_uri = `${source_uri || ''}`.trim();
+
+  if (!trimmed_uri) {
+    throw new Error('An audio file is required to create an M4A.');
+  }
+
+  if (trimmed_uri.toLowerCase().endsWith('.m4a')) {
+    return trimmed_uri;
+  }
+
+  const output_uri = build_m4a_uri(trimmed_uri);
+  delete_audio_file(output_uri);
+
+  try {
+    const converted_uri = `${await WavelengthMP3Module.exportM4aAsync(
+      trimmed_uri,
+      output_uri,
+    ) || ''}`.trim();
+
+    if (!converted_uri) {
+      throw new Error('The audio file could not be converted to M4A.');
+    }
+
+    delete_audio_file(trimmed_uri);
+
+    return converted_uri;
+  } catch (error) {
+    delete_audio_file(output_uri);
+    throw error;
+  }
+}
+
 // Decode the selected file once to find its complete duration and waveform,
-// then transcode it to the same AAC settings used by new recordings.
+// then transcode it to the same AAC-in-M4A settings used by new recordings.
 export async function normalize_imported_audio(source_uri = '') {
   const trimmed_uri = `${source_uri || ''}`.trim();
 
@@ -61,7 +105,7 @@ export async function normalize_imported_audio(source_uri = '') {
     fileUri: trimmed_uri,
     mode: 'single',
     outputFileName: `import-${Date.now()}`,
-    outputFormat: IMPORT_OUTPUT_FORMAT,
+    outputFormat: CANONICAL_AAC_OUTPUT_FORMAT,
     startTimeMs: 0,
   });
   const normalized_uri = `${normalized?.uri || ''}`.trim();
@@ -74,13 +118,20 @@ export async function normalize_imported_audio(source_uri = '') {
     throw new Error('That audio file could not be converted.');
   }
 
-  return {
-    duration_seconds: to_seconds(normalized_duration),
-    uri: normalized_uri,
-    waveform: Array.isArray(preview?.bars)
-      ? preview.bars.map(bar => bar?.amplitude).filter(Number.isFinite)
-      : [],
-  };
+  try {
+    const m4a_uri = await convert_audio_to_m4a(normalized_uri);
+
+    return {
+      duration_seconds: to_seconds(normalized_duration),
+      uri: m4a_uri,
+      waveform: Array.isArray(preview?.bars)
+        ? preview.bars.map(bar => bar?.amplitude).filter(Number.isFinite)
+        : [],
+    };
+  } catch (error) {
+    delete_audio_file(normalized_uri);
+    throw error;
+  }
 }
 
 // Stitch every clip into a single AAC file the publish flow can upload. Concat
@@ -125,7 +176,7 @@ export async function export_episode_mp3(source_uri = '') {
   return exported_uri;
 }
 
-// Cut one clip into two AAC files at the chosen point. The caller moves the
+// Cut one clip into two canonical AAC-in-M4A files. The caller moves the
 // results into the episode folder and rewrites the clip order.
 export async function split_clip_at(source_uri = '', split_seconds = 0, duration_seconds = 0) {
   const trimmed_uri = `${source_uri || ''}`.trim();
@@ -142,28 +193,42 @@ export async function split_clip_at(source_uri = '', split_seconds = 0, duration
     throw new Error('Split point must be before the end of the clip.');
   }
 
-  const first = await trimAudio({
-    endTimeMs: split_millis,
-    fileUri: trimmed_uri,
-    mode: 'single',
-    outputFileName: `split-${stamp}-1`,
-    outputFormat: SPLIT_OUTPUT_FORMAT,
-    startTimeMs: 0,
-  });
+  let first = null;
+  let second = null;
+  let first_uri = '';
+  let second_uri = '';
 
-  const second = await trimAudio({
-    endTimeMs: duration_millis,
-    fileUri: trimmed_uri,
-    mode: 'single',
-    outputFileName: `split-${stamp}-2`,
-    outputFormat: SPLIT_OUTPUT_FORMAT,
-    startTimeMs: split_millis,
-  });
+  try {
+    first = await trimAudio({
+      endTimeMs: split_millis,
+      fileUri: trimmed_uri,
+      mode: 'single',
+      outputFileName: `split-${stamp}-1`,
+      outputFormat: CANONICAL_AAC_OUTPUT_FORMAT,
+      startTimeMs: 0,
+    });
 
-  return {
-    first_seconds: to_seconds(first.durationMs),
-    first_uri: first.uri,
-    second_seconds: to_seconds(second.durationMs),
-    second_uri: second.uri,
-  };
+    second = await trimAudio({
+      endTimeMs: duration_millis,
+      fileUri: trimmed_uri,
+      mode: 'single',
+      outputFileName: `split-${stamp}-2`,
+      outputFormat: CANONICAL_AAC_OUTPUT_FORMAT,
+      startTimeMs: split_millis,
+    });
+
+    first_uri = await convert_audio_to_m4a(first.uri);
+    second_uri = await convert_audio_to_m4a(second.uri);
+
+    return {
+      first_seconds: to_seconds(first.durationMs),
+      first_uri,
+      second_seconds: to_seconds(second.durationMs),
+      second_uri,
+    };
+  } catch (error) {
+    delete_audio_file(first_uri || first?.uri);
+    delete_audio_file(second_uri || second?.uri);
+    throw error;
+  }
 }

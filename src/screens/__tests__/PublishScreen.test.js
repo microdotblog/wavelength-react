@@ -87,10 +87,10 @@ jest.mock('../../components/EpisodeAttachmentToolbar', () => {
   const React = require('react');
   const { Text, View } = require('react-native');
 
-  return ({ episode_title }) => React.createElement(
+  return ({ destination, episode_title }) => React.createElement(
     View,
     null,
-    React.createElement(Text, null, 'Attached episode'),
+    React.createElement(Text, null, destination),
     React.createElement(Text, { accessibilityLabel: 'Play episode preview' }, episode_title),
   );
 });
@@ -157,6 +157,7 @@ jest.mock('../../stores/Episodes', () => ({
 jest.mock('../../stores/Auth', () => ({
   __esModule: true,
   default: {
+    default_site: 'https://test.micro.blog',
     current_profile: () => ({ default_site: 'https://test.micro.blog' }),
   },
 }));
@@ -219,7 +220,7 @@ describe('PublishScreen', () => {
     expect(getByLabelText('Show notes')).toBeTruthy();
     expect(getByLabelText('Play episode preview')).toBeTruthy();
     expect(getByLabelText('Post options')).toBeTruthy();
-    expect(getByText('Attached episode')).toBeTruthy();
+    expect(getByText('https://test.micro.blog')).toBeTruthy();
     expect(mock_prep_editor).toHaveBeenCalledWith('ep-1');
     expect(mock_load_editor_options).toHaveBeenCalled();
   });

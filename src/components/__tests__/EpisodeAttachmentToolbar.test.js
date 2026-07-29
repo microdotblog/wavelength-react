@@ -43,6 +43,21 @@ const theme = {
 };
 
 describe('EpisodeAttachmentToolbar', () => {
+  test('shows the lowercase destination hostname when publishing', async () => {
+    const { getByText, queryByText } = await render(
+      React.createElement(EpisodeAttachmentToolbar, {
+        destination: 'https://Manton.Micro.Blog/posts',
+        duration_seconds: 15,
+        episode_title: 'Test Episode',
+        theme,
+        waveform: [0.1, 0.5],
+      }),
+    );
+
+    expect(getByText('manton.micro.blog')).toBeTruthy();
+    expect(queryByText('Attached episode')).toBeNull();
+  });
+
   test('shows publishing progress instead of playback controls while publishing', async () => {
     const { getByLabelText, getByText, queryByLabelText } = await render(
       React.createElement(EpisodeAttachmentToolbar, {

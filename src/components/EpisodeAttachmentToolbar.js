@@ -10,6 +10,23 @@ import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const TOOLBAR_PLAY_BUTTON_SIZE = 40;
 
+function resolve_destination_hostname(destination = '') {
+  const trimmed_destination = `${destination || ''}`.trim();
+
+  if (!trimmed_destination) {
+    return '';
+  }
+
+  try {
+    return new URL(trimmed_destination).hostname.toLowerCase();
+  } catch {
+    return trimmed_destination
+      .replace(/^https?:\/\//i, '')
+      .split('/')[0]
+      .toLowerCase();
+  }
+}
+
 function CompactPlaybackButton({ is_playing = false, onPress, theme }) {
   return (
     <Pressable
@@ -36,6 +53,7 @@ function CompactPlaybackButton({ is_playing = false, onPress, theme }) {
 
 function EpisodeAttachmentToolbar({
   current_time = 0,
+  destination = '',
   duration_seconds = 0,
   episode_title = '',
   file_size_label = '',
@@ -59,6 +77,7 @@ function EpisodeAttachmentToolbar({
   const publishing_status = `${status_label || ''}`.trim() || 'Publishing…';
   const trimmed_upload_warning = `${upload_warning || ''}`.trim();
   const trimmed_file_size_label = `${file_size_label || ''}`.trim();
+  const destination_hostname = resolve_destination_hostname(destination);
   const time_label = trimmed_file_size_label.length > 0
     ? `${format_duration(current_time)} / ${format_duration(duration_seconds)} · ${trimmed_file_size_label}`
     : `${format_duration(current_time)} / ${format_duration(duration_seconds)}`;
@@ -96,8 +115,14 @@ function EpisodeAttachmentToolbar({
               name="waveform"
               size={14}
             />
-            <Text style={[styles.attachmentLabel, { color: theme.colors.ink_soft }]}>
-              Attached episode
+            <Text
+              style={[
+                styles.attachmentLabel,
+                destination_hostname ? styles.destinationLabel : null,
+                { color: theme.colors.ink_soft },
+              ]}
+            >
+              {destination_hostname || 'Attached episode'}
             </Text>
           </View>
           <Text
@@ -208,6 +233,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
+  },
+  destinationLabel: {
+    textTransform: 'none',
   },
   episodeTitle: {
     fontSize: 15,

@@ -4,8 +4,8 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
-import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import PlaybackWaveform from '../components/PlaybackWaveform';
+import PlatformSymbol from '../components/PlatformSymbol';
 import { place_clip_file } from '../lib/EpisodeStorage';
 import { slice_waveform } from '../lib/merge_episode_waveform';
 import { split_clip_at } from '../lib/episode_audio';
@@ -25,9 +25,35 @@ function SplitScreen({ navigation, route, theme }) {
 
   const player = useAudioPlayer(clip_uri ? { uri: clip_uri } : null, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
+  const waveform_scroll_ref = React.useRef(null);
   const [is_busy, set_is_busy] = React.useState(false);
-  const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
-  const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
+  const [is_waveform_zoomed, set_is_waveform_zoomed] = React.useState(false);
+  const [waveform_viewport_width, set_waveform_viewport_width] = React.useState(0);
+
+  React.useEffect(() => {
+    if (waveform_viewport_width <= 0) {
+      return undefined;
+    }
+
+    const frame_id = requestAnimationFrame(() => {
+      const duration = status.duration > 0 ? status.duration : clip?.duration_seconds || 0;
+      const fraction = duration > 0
+        ? Math.min(Math.max(status.currentTime / duration, 0), 1)
+        : 0;
+      const zoom_offset = Math.min(
+        Math.max(fraction * waveform_viewport_width * 2 - waveform_viewport_width / 2, 0),
+        waveform_viewport_width,
+      );
+
+      waveform_scroll_ref.current?.scrollTo({
+        animated: false,
+        x: is_waveform_zoomed ? zoom_offset : 0,
+        y: 0,
+      });
+    });
+
+    return () => cancelAnimationFrame(frame_id);
+  }, [is_waveform_zoomed, waveform_viewport_width]);
 
   function toggle_playback() {
     if (status.playing) {
@@ -48,6 +74,14 @@ function SplitScreen({ navigation, route, theme }) {
     }
 
     player.seekTo(fraction * clip_duration);
+  }
+
+  function handle_waveform_layout(event) {
+    const width = event.nativeEvent.layout.width;
+
+    if (width > 0 && width !== waveform_viewport_width) {
+      set_waveform_viewport_width(width);
+    }
   }
 
   async function perform_split(split_seconds) {
@@ -125,8 +159,6 @@ function SplitScreen({ navigation, route, theme }) {
     const was_published = episode?.is_published?.() ?? false;
 
     player.pause();
-    set_is_deleting_episode(true);
-    set_is_delete_modal_visible(false);
     navigation.goBack();
 
     try {
@@ -138,22 +170,55 @@ function SplitScreen({ navigation, route, theme }) {
       );
     } catch (error) {
       show_toast(error?.message || 'Could not delete episode. Please try again.');
-    } finally {
-      set_is_deleting_episode(false);
     }
   }
 
-  function close_delete_modal() {
-    if (is_deleting_episode) {
-      return;
-    }
+  function confirm_delete_episode() {
+    const title = `${episode.title || ''}`.trim() || 'This episode';
 
-    set_is_delete_modal_visible(false);
+    if (episode.is_published()) {
+      Alert.alert(
+        'Delete episode?',
+        `"${title}" can be removed from this device while keeping its Micro.blog post, or deleted everywhere.`,
+        [
+          {
+            style: 'cancel',
+            text: 'Cancel',
+          },
+          {
+            onPress: () => handle_delete_episode(false),
+            style: 'destructive',
+            text: 'On device only',
+          },
+          {
+            onPress: () => handle_delete_episode(true),
+            style: 'destructive',
+            text: 'Everywhere',
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Delete episode?',
+        `"${title}" will be permanently removed from this device.`,
+        [
+          {
+            style: 'cancel',
+            text: 'Cancel',
+          },
+          {
+            onPress: () => handle_delete_episode(false),
+            style: 'destructive',
+            text: 'Delete',
+          },
+        ],
+      );
+    }
   }
 
   function confirm_delete_segment() {
     if (episode.clips.length <= 1) {
-      set_is_delete_modal_visible(true);
+      confirm_delete_episode();
       return;
     }
 
@@ -211,14 +276,37 @@ function SplitScreen({ navigation, route, theme }) {
           Move the playhead to where the segment should be cut in two.
         </Text>
 
-        <PlaybackWaveform
-          current_time={status.currentTime}
-          duration_seconds={clip_duration}
-          is_playing={status.playing}
-          onSeek={handle_seek}
-          theme={theme}
-          waveform={clip.waveform}
-        />
+        <View onLayout={handle_waveform_layout} style={styles.waveformViewport}>
+          <ScrollView
+            bounces={false}
+            directionalLockEnabled
+            horizontal
+            ref={waveform_scroll_ref}
+            scrollEnabled={is_waveform_zoomed}
+            showsHorizontalScrollIndicator={false}
+          >
+            <View
+              style={[
+                styles.waveformContent,
+                waveform_viewport_width > 0
+                  ? {
+                    width: waveform_viewport_width * (is_waveform_zoomed ? 2 : 1),
+                  }
+                  : null,
+              ]}
+            >
+              <PlaybackWaveform
+                current_time={status.currentTime}
+                duration_seconds={clip_duration}
+                is_playing={status.playing}
+                onSeek={handle_seek}
+                scrub_pan_enabled={!is_waveform_zoomed}
+                theme={theme}
+                waveform={clip.waveform}
+              />
+            </View>
+          </ScrollView>
+        </View>
 
         <View style={styles.timeRow}>
           <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
@@ -229,24 +317,57 @@ function SplitScreen({ navigation, route, theme }) {
           </Text>
         </View>
 
-        <Pressable
-          accessibilityLabel={status.playing ? 'Pause' : 'Play'}
-          accessibilityRole="button"
-          disabled={is_busy}
-          onPress={toggle_playback}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            {
-              backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.16 : 0.1),
-              borderColor: theme.colors.line,
-            },
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Text style={[styles.secondaryButtonText, { color: theme.colors.accent_strong }]}>
-            {status.playing ? 'Pause' : 'Play'}
-          </Text>
-        </Pressable>
+        <View style={styles.controlsRow}>
+          <Pressable
+            accessibilityLabel={status.playing ? 'Pause' : 'Play'}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: is_busy }}
+            disabled={is_busy}
+            hitSlop={6}
+            onPress={toggle_playback}
+            style={({ pressed }) => [
+              styles.controlButton,
+              {
+                backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.16 : 0.1),
+                borderColor: theme.colors.line,
+                opacity: is_busy ? 0.6 : 1,
+              },
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <PlatformSymbol
+              color={theme.colors.accent_strong}
+              name={status.playing ? 'pause' : 'play'}
+              size={19}
+            />
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel={is_waveform_zoomed ? 'Zoom waveform out' : 'Zoom waveform in'}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: is_busy, selected: is_waveform_zoomed }}
+            disabled={is_busy}
+            hitSlop={6}
+            onPress={() => set_is_waveform_zoomed(value => !value)}
+            style={({ pressed }) => [
+              styles.controlButton,
+              {
+                backgroundColor: is_waveform_zoomed
+                  ? with_color_opacity(theme.colors.accent, theme.is_dark ? 0.2 : 0.12)
+                  : theme.colors.glass,
+                borderColor: theme.colors.line,
+                opacity: is_busy ? 0.6 : 1,
+              },
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <PlatformSymbol
+              color={is_waveform_zoomed ? theme.colors.accent_strong : theme.colors.ink_soft}
+              name={is_waveform_zoomed ? 'zoom_out' : 'zoom_in'}
+              size={19}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.actionsRow}>
@@ -295,16 +416,6 @@ function SplitScreen({ navigation, route, theme }) {
       </View>
       </ScrollView>
 
-      <DeleteEpisodeModal
-        episode_title={episode.title}
-        has_published_post={episode.is_published()}
-        is_busy={is_deleting_episode}
-        on_cancel={close_delete_modal}
-        on_delete_device_and_post={() => handle_delete_episode(true)}
-        on_delete_device_only={() => handle_delete_episode(false)}
-        theme={theme}
-        visible={is_delete_modal_visible}
-      />
     </>
   );
 }
@@ -330,6 +441,21 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     paddingHorizontal: 20,
     paddingTop: 18,
+  },
+  controlButton: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  controlsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
   },
   primaryActionText: {
     fontSize: 15,
@@ -371,19 +497,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  secondaryButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-  },
   subtitle: {
     fontSize: 15,
     fontWeight: '600',
@@ -398,6 +511,15 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  waveformContent: {
+    height: 64,
+    minWidth: '100%',
+  },
+  waveformViewport: {
+    height: 64,
+    overflow: 'hidden',
+    width: '100%',
   },
 });
 

@@ -54,6 +54,14 @@ export const TOOLBAR_SYMBOLS = {
     ios: 'waveform',
     multicolor: true,
   },
+  zoom_in: {
+    android_icon: 'zoom-in',
+    ios: 'plus.magnifyingglass',
+  },
+  zoom_out: {
+    android_icon: 'zoom-out',
+    ios: 'minus.magnifyingglass',
+  },
   xmark: {
     android_label: '×',
     ios: 'xmark',

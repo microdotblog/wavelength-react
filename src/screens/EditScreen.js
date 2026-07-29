@@ -20,7 +20,6 @@ import Episodes from '../stores/Episodes';
 import Auth from '../stores/Auth';
 import Posts from '../stores/Posts';
 import Tokens from '../stores/Tokens';
-import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import EpisodeActionsMenuButton from '../components/EpisodeActionsMenuButton';
 import HeaderPillButton from '../components/HeaderPillButton';
 import PlatformSymbol from '../components/PlatformSymbol';
@@ -178,8 +177,6 @@ function EditScreen({ navigation, route, theme }) {
   const [title_draft, set_title_draft] = React.useState(episode?.title || '');
   const [initial_title_selection, set_initial_title_selection] = React.useState(null);
   const [is_editing_title, set_is_editing_title] = React.useState(false);
-  const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
-  const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
   const [is_importing_audio, set_is_importing_audio] = React.useState(false);
   const [published_post_details, set_published_post_details] = React.useState(EMPTY_PUBLISHED_POST_DETAILS);
@@ -500,15 +497,52 @@ function EditScreen({ navigation, route, theme }) {
   }
 
   function confirm_delete_episode() {
-    set_is_delete_modal_visible(true);
+    const title = `${episode.title || ''}`.trim() || 'This episode';
+
+    if (episode.is_published()) {
+      Alert.alert(
+        'Delete episode?',
+        `"${title}" can be removed from this device while keeping its Micro.blog post, or deleted everywhere.`,
+        [
+          {
+            style: 'cancel',
+            text: 'Cancel',
+          },
+          {
+            onPress: () => handle_delete_episode(false),
+            style: 'destructive',
+            text: 'On device only',
+          },
+          {
+            onPress: () => handle_delete_episode(true),
+            style: 'destructive',
+            text: 'Everywhere',
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Delete episode?',
+        `"${title}" will be permanently removed from this device.`,
+        [
+          {
+            style: 'cancel',
+            text: 'Cancel',
+          },
+          {
+            onPress: () => handle_delete_episode(false),
+            style: 'destructive',
+            text: 'Delete',
+          },
+        ],
+      );
+    }
   }
 
   async function handle_delete_episode(delete_post = false) {
     const was_published = episode?.is_published?.() ?? false;
 
     playback.pause();
-    set_is_deleting_episode(true);
-    set_is_delete_modal_visible(false);
     navigation.goBack();
 
     try {
@@ -520,17 +554,7 @@ function EditScreen({ navigation, route, theme }) {
       );
     } catch (error) {
       show_toast(error?.message || 'Could not delete episode. Please try again.');
-    } finally {
-      set_is_deleting_episode(false);
     }
-  }
-
-  function close_delete_modal() {
-    if (is_deleting_episode) {
-      return;
-    }
-
-    set_is_delete_modal_visible(false);
   }
 
   function start_rename() {
@@ -983,16 +1007,6 @@ function EditScreen({ navigation, route, theme }) {
       </View>
       </ScrollView>
 
-      <DeleteEpisodeModal
-        episode_title={episode.title}
-        has_published_post={is_published}
-        is_busy={is_deleting_episode}
-        on_cancel={close_delete_modal}
-        on_delete_device_and_post={() => handle_delete_episode(true)}
-        on_delete_device_only={() => handle_delete_episode(false)}
-        theme={theme}
-        visible={is_delete_modal_visible}
-      />
     </>
   );
 }
