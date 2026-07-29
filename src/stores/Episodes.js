@@ -5,14 +5,18 @@ import {
   append_clip_to_episode,
   delete_episode as remove_episode_from_storage,
   clear_episode_publish_link as clear_episode_publish_link_in_storage,
+  delete_legacy_episode,
   duplicate_episode as copy_episode_in_storage,
   get_episode_clip_uri,
   get_exported_clip_uri,
+  list_legacy_episodes,
   list_episodes,
   mark_episode_published as persist_episode_published,
   read_episode,
+  read_migrated_episode,
   replace_episode_clips,
   save_episode_from_recording,
+  save_migrated_episode,
   update_episode_title,
 } from '../lib/EpisodeStorage';
 import {
@@ -29,6 +33,36 @@ import {
 import Auth from './Auth';
 import Posts from './Posts';
 import Tokens from './Tokens';
+
+async function upgrade_legacy_episode(legacy_episode) {
+  const existing = await read_migrated_episode(
+    legacy_episode.id,
+    legacy_episode.clips.length,
+  );
+
+  if (existing) {
+    await delete_legacy_episode(legacy_episode.id);
+    return existing;
+  }
+
+  const converted_clips = [];
+
+  try {
+    for (const clip of legacy_episode.clips) {
+      const converted = await normalize_imported_audio(clip.uri);
+      converted_clips.push(converted);
+    }
+
+    const migrated = await save_migrated_episode(legacy_episode, converted_clips);
+    await delete_legacy_episode(legacy_episode.id);
+
+    return migrated;
+  } finally {
+    for (const clip of converted_clips) {
+      delete_audio_file(clip.uri);
+    }
+  }
+}
 
 const ClipMeta = types.model('ClipMeta', {
   duration_seconds: types.optional(types.number, 0),
@@ -97,9 +131,11 @@ const Episodes = types
     episodes: types.array(Episode),
   })
   .volatile(() => ({
+    did_check_for_legacy: false,
     did_hydrate: false,
     export_fingerprints: {},
     is_loading: false,
+    is_upgrading_legacy: false,
   }))
   .actions(self => ({
     apply_episode_snapshot(snapshot) {
@@ -116,10 +152,33 @@ const Episodes = types
       self.is_loading = true;
 
       try {
+        if (!self.did_check_for_legacy) {
+          self.did_check_for_legacy = true;
+
+          const legacy_episodes = yield list_legacy_episodes();
+
+          if (legacy_episodes.length > 0) {
+            self.is_upgrading_legacy = true;
+
+            try {
+              for (const legacy_episode of legacy_episodes) {
+                try {
+                  yield upgrade_legacy_episode(legacy_episode);
+                } catch (error) {
+                  // Leave the old folder intact so a future launch can retry it.
+                }
+              }
+            } finally {
+              self.is_upgrading_legacy = false;
+            }
+          }
+        }
+
         const loaded_episodes = yield list_episodes();
         applySnapshot(self.episodes, loaded_episodes);
         self.did_hydrate = true;
       } catch (error) {
+        self.is_upgrading_legacy = false;
         self.did_hydrate = true;
       }
 

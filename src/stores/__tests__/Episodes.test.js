@@ -38,13 +38,16 @@ jest.mock('../../lib/EpisodeStorage', () => ({
     title: 'Morning microcast',
     waveform: [],
   })),
+  delete_legacy_episode: jest.fn(async () => null),
   delete_episode: jest.fn(async () => null),
   duplicate_episode: jest.fn(),
   get_episode_clip_uri: jest.fn((episode, clip_name) => `${episode.folder_uri}${clip_name}`),
   get_exported_clip_uri: jest.fn(episode => `${episode.folder_uri}exported.m4a`),
+  list_legacy_episodes: jest.fn(async () => []),
   list_episodes: jest.fn(async () => []),
   mark_episode_published: jest.fn(),
   read_episode: jest.fn(),
+  read_migrated_episode: jest.fn(async () => null),
   replace_episode_clips: jest.fn(async () => ({
     clip_meta: [{ duration_seconds: 60, name: 'segment-2.m4a', waveform: [0.1] }],
     clips: ['segment-2.m4a', 'segment.m4a'],
@@ -59,6 +62,7 @@ jest.mock('../../lib/EpisodeStorage', () => ({
     waveform: [0.1],
   })),
   save_episode_from_recording: jest.fn(),
+  save_migrated_episode: jest.fn(),
   update_episode_title: jest.fn(),
 }));
 
@@ -74,8 +78,13 @@ const { delete_micropub_post } = require('../../api/Micropub');
 const {
   append_clip_to_episode,
   clear_episode_publish_link,
+  delete_legacy_episode,
   delete_episode: remove_episode_from_storage,
+  list_legacy_episodes,
+  list_episodes,
+  read_migrated_episode,
   replace_episode_clips,
+  save_migrated_episode,
 } = require('../../lib/EpisodeStorage');
 const {
   delete_audio_file,
@@ -130,11 +139,91 @@ describe('Episodes store', () => {
     append_clip_to_episode.mockClear();
     remove_episode_from_storage.mockClear();
     clear_episode_publish_link.mockClear();
+    delete_legacy_episode.mockClear();
     delete_audio_file.mockClear();
     export_episode_mp3.mockClear();
+    list_legacy_episodes.mockClear();
+    list_episodes.mockClear();
     merge_episode_clips.mockClear();
     normalize_imported_audio.mockClear();
+    read_migrated_episode.mockClear();
+    save_migrated_episode.mockClear();
+    list_legacy_episodes.mockResolvedValue([]);
+    list_episodes.mockResolvedValue([]);
+    read_migrated_episode.mockResolvedValue(null);
     Tokens.get_user_token.mockReturnValue('token');
+  });
+
+  describe('legacy migration', () => {
+    test('converts legacy clips before deleting the old episode folder', async () => {
+      let finish_conversion;
+      const conversion = new Promise(resolve => {
+        finish_conversion = resolve;
+      });
+      const migrated_episode = {
+        ...EPISODE_BY_ID,
+        folder_uri: 'file:///episodes/legacy-2024-03-13-12-34-56/',
+        id: 'legacy-2024-03-13-12-34-56',
+        post_id: null,
+        post_url: null,
+        published_at: null,
+        title: 'Legacy recording',
+      };
+
+      list_legacy_episodes.mockResolvedValueOnce([
+        {
+          clips: [{ name: 'recording.caf', uri: 'file:///documents/recording.caf' }],
+          created_at: '2024-03-13T18:34:56.000Z',
+          id: '2024-03-13 12:34:56',
+          title: 'Legacy recording',
+        },
+        {
+          clips: [{ name: 'missing.caf', uri: 'file:///documents/missing.caf' }],
+          created_at: '2024-03-14T18:34:56.000Z',
+          id: '2024-03-14 12:34:56',
+          title: 'Failed recording',
+        },
+      ]);
+      normalize_imported_audio
+        .mockReturnValueOnce(conversion)
+        .mockRejectedValueOnce(new Error('Conversion failed.'));
+      save_migrated_episode.mockResolvedValueOnce(migrated_episode);
+      list_episodes.mockResolvedValueOnce([migrated_episode]);
+
+      const refresh = Episodes.refresh();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(Episodes.is_upgrading_legacy).toBe(true);
+
+      finish_conversion({
+        duration_seconds: 60,
+        uri: 'file:///tmp/recording.m4a',
+        waveform: [0.1, 0.5],
+      });
+      await refresh;
+
+      expect(read_migrated_episode).toHaveBeenCalledWith(
+        '2024-03-13 12:34:56',
+        1,
+      );
+      expect(save_migrated_episode).toHaveBeenCalledWith(
+        expect.objectContaining({ id: '2024-03-13 12:34:56' }),
+        [{
+          duration_seconds: 60,
+          uri: 'file:///tmp/recording.m4a',
+          waveform: [0.1, 0.5],
+        }],
+      );
+      expect(delete_legacy_episode).toHaveBeenCalledWith('2024-03-13 12:34:56');
+      expect(delete_legacy_episode).not.toHaveBeenCalledWith('2024-03-14 12:34:56');
+      expect(save_migrated_episode.mock.invocationCallOrder[0])
+        .toBeLessThan(delete_legacy_episode.mock.invocationCallOrder[0]);
+      expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/recording.m4a');
+      expect(Episodes.is_upgrading_legacy).toBe(false);
+      expect(Episodes.get_episode(migrated_episode.id)?.title).toBe('Legacy recording');
+    });
   });
 
   describe('get_episode_for_post', () => {
