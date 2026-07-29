@@ -9,6 +9,7 @@ import {
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { observer } from 'mobx-react';
 
+import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
 import EditorKeyboardAvoidingView from '../components/EditorKeyboardAvoidingView';
 import EpisodeAttachmentToolbar from '../components/EpisodeAttachmentToolbar';
@@ -276,6 +277,7 @@ function PublishScreen({ navigation, route, theme }) {
         <View style={styles.stickyArea}>
           <EpisodeAttachmentToolbar
             current_time={playback.current_time}
+            destination={Auth.default_site}
             duration_seconds={playback.total_duration || episode.duration_seconds}
             episode_title={episode.title}
             file_size_label={episode.formatted_audio_size()}
