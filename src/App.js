@@ -49,7 +49,7 @@ function LegacyUpgradeModal({ theme, visible = false }) {
         >
           <ActivityIndicator color={theme.colors.accent} size="large" />
           <Text style={[styles.upgradeTitle, { color: theme.colors.ink }]}>
-            Upgrading previous recordings...
+            Upgrading previous Wavelength recordings...
           </Text>
         </View>
       </View>
@@ -144,9 +144,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   upgradeOverlay: {
-    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.20)',
+    flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
