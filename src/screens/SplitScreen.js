@@ -244,34 +244,9 @@ function SplitScreen({ navigation, route, theme }) {
         <Text style={[styles.heading, { color: theme.colors.ink }]}>
           {`Split at ${split_label}`}
         </Text>
-        <View style={styles.subtitleRow}>
-          <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
-            Move the playhead to where the segment should be cut in two.
-          </Text>
-          <Pressable
-            accessibilityLabel={is_waveform_zoomed ? 'Zoom waveform out' : 'Zoom waveform in'}
-            accessibilityRole="button"
-            accessibilityState={{ selected: is_waveform_zoomed }}
-            hitSlop={8}
-            onPress={() => set_is_waveform_zoomed(value => !value)}
-            style={({ pressed }) => [
-              styles.zoomButton,
-              {
-                backgroundColor: is_waveform_zoomed
-                  ? with_color_opacity(theme.colors.accent, theme.is_dark ? 0.2 : 0.12)
-                  : theme.colors.glass,
-                borderColor: theme.colors.line,
-              },
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <PlatformSymbol
-              color={is_waveform_zoomed ? theme.colors.accent_strong : theme.colors.ink_soft}
-              name={is_waveform_zoomed ? 'zoom_out' : 'zoom_in'}
-              size={18}
-            />
-          </Pressable>
-        </View>
+        <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
+          Move the playhead to where the segment should be cut in two.
+        </Text>
 
         <View onLayout={handle_waveform_layout} style={styles.waveformViewport}>
           <ScrollView
@@ -314,24 +289,57 @@ function SplitScreen({ navigation, route, theme }) {
           </Text>
         </View>
 
-        <Pressable
-          accessibilityLabel={status.playing ? 'Pause' : 'Play'}
-          accessibilityRole="button"
-          disabled={is_busy}
-          onPress={toggle_playback}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            {
-              backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.16 : 0.1),
-              borderColor: theme.colors.line,
-            },
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Text style={[styles.secondaryButtonText, { color: theme.colors.accent_strong }]}>
-            {status.playing ? 'Pause' : 'Play'}
-          </Text>
-        </Pressable>
+        <View style={styles.controlsRow}>
+          <Pressable
+            accessibilityLabel={status.playing ? 'Pause' : 'Play'}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: is_busy }}
+            disabled={is_busy}
+            hitSlop={6}
+            onPress={toggle_playback}
+            style={({ pressed }) => [
+              styles.controlButton,
+              {
+                backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.16 : 0.1),
+                borderColor: theme.colors.line,
+                opacity: is_busy ? 0.6 : 1,
+              },
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <PlatformSymbol
+              color={theme.colors.accent_strong}
+              name={status.playing ? 'pause' : 'play'}
+              size={19}
+            />
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel={is_waveform_zoomed ? 'Zoom waveform out' : 'Zoom waveform in'}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: is_busy, selected: is_waveform_zoomed }}
+            disabled={is_busy}
+            hitSlop={6}
+            onPress={() => set_is_waveform_zoomed(value => !value)}
+            style={({ pressed }) => [
+              styles.controlButton,
+              {
+                backgroundColor: is_waveform_zoomed
+                  ? with_color_opacity(theme.colors.accent, theme.is_dark ? 0.2 : 0.12)
+                  : theme.colors.glass,
+                borderColor: theme.colors.line,
+                opacity: is_busy ? 0.6 : 1,
+              },
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <PlatformSymbol
+              color={is_waveform_zoomed ? theme.colors.accent_strong : theme.colors.ink_soft}
+              name={is_waveform_zoomed ? 'zoom_out' : 'zoom_in'}
+              size={19}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.actionsRow}>
@@ -416,6 +424,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 18,
   },
+  controlButton: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  controlsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+  },
   primaryActionText: {
     fontSize: 15,
     fontWeight: '700',
@@ -456,29 +479,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  secondaryButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-  },
   subtitle: {
-    flex: 1,
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 20,
-  },
-  subtitleRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
   },
   timeLabel: {
     fontSize: 13,
@@ -498,15 +502,6 @@ const styles = StyleSheet.create({
     height: 64,
     overflow: 'hidden',
     width: '100%',
-  },
-  zoomButton: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 17,
-    borderWidth: 1,
-    height: 34,
-    justifyContent: 'center',
-    width: 34,
   },
 });
 
