@@ -78,6 +78,7 @@ function PlaybackWaveform({
   duration_seconds = 0,
   is_playing = false,
   onSeek,
+  scrub_pan_enabled = true,
   theme,
   waveform = [],
 }) {
@@ -166,8 +167,8 @@ function PlaybackWaveform({
         is_scrubbing_ref.current = false;
       });
 
-    return Gesture.Race(tap, pan);
-  }, [progress, scrub_to_x]);
+    return scrub_pan_enabled ? Gesture.Race(tap, pan) : tap;
+  }, [progress, scrub_pan_enabled, scrub_to_x]);
 
   const reveal_style = useAnimatedStyle(() => ({
     width: progress.value * track_width,

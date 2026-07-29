@@ -6,6 +6,7 @@ import { observer } from 'mobx-react';
 import Episodes from '../stores/Episodes';
 import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import PlaybackWaveform from '../components/PlaybackWaveform';
+import PlatformSymbol from '../components/PlatformSymbol';
 import { place_clip_file } from '../lib/EpisodeStorage';
 import { slice_waveform } from '../lib/merge_episode_waveform';
 import { split_clip_at } from '../lib/episode_audio';
@@ -25,9 +26,37 @@ function SplitScreen({ navigation, route, theme }) {
 
   const player = useAudioPlayer(clip_uri ? { uri: clip_uri } : null, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
+  const waveform_scroll_ref = React.useRef(null);
   const [is_busy, set_is_busy] = React.useState(false);
   const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
   const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
+  const [is_waveform_zoomed, set_is_waveform_zoomed] = React.useState(false);
+  const [waveform_viewport_width, set_waveform_viewport_width] = React.useState(0);
+
+  React.useEffect(() => {
+    if (waveform_viewport_width <= 0) {
+      return undefined;
+    }
+
+    const frame_id = requestAnimationFrame(() => {
+      const duration = status.duration > 0 ? status.duration : clip?.duration_seconds || 0;
+      const fraction = duration > 0
+        ? Math.min(Math.max(status.currentTime / duration, 0), 1)
+        : 0;
+      const zoom_offset = Math.min(
+        Math.max(fraction * waveform_viewport_width * 2 - waveform_viewport_width / 2, 0),
+        waveform_viewport_width,
+      );
+
+      waveform_scroll_ref.current?.scrollTo({
+        animated: false,
+        x: is_waveform_zoomed ? zoom_offset : 0,
+        y: 0,
+      });
+    });
+
+    return () => cancelAnimationFrame(frame_id);
+  }, [is_waveform_zoomed, waveform_viewport_width]);
 
   function toggle_playback() {
     if (status.playing) {
@@ -48,6 +77,14 @@ function SplitScreen({ navigation, route, theme }) {
     }
 
     player.seekTo(fraction * clip_duration);
+  }
+
+  function handle_waveform_layout(event) {
+    const width = event.nativeEvent.layout.width;
+
+    if (width > 0 && width !== waveform_viewport_width) {
+      set_waveform_viewport_width(width);
+    }
   }
 
   async function perform_split(split_seconds) {
@@ -207,18 +244,66 @@ function SplitScreen({ navigation, route, theme }) {
         <Text style={[styles.heading, { color: theme.colors.ink }]}>
           {`Split at ${split_label}`}
         </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
-          Move the playhead to where the segment should be cut in two.
-        </Text>
+        <View style={styles.subtitleRow}>
+          <Text style={[styles.subtitle, { color: theme.colors.ink_soft }]}>
+            Move the playhead to where the segment should be cut in two.
+          </Text>
+          <Pressable
+            accessibilityLabel={is_waveform_zoomed ? 'Zoom waveform out' : 'Zoom waveform in'}
+            accessibilityRole="button"
+            accessibilityState={{ selected: is_waveform_zoomed }}
+            hitSlop={8}
+            onPress={() => set_is_waveform_zoomed(value => !value)}
+            style={({ pressed }) => [
+              styles.zoomButton,
+              {
+                backgroundColor: is_waveform_zoomed
+                  ? with_color_opacity(theme.colors.accent, theme.is_dark ? 0.2 : 0.12)
+                  : theme.colors.glass,
+                borderColor: theme.colors.line,
+              },
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <PlatformSymbol
+              color={is_waveform_zoomed ? theme.colors.accent_strong : theme.colors.ink_soft}
+              name={is_waveform_zoomed ? 'zoom_out' : 'zoom_in'}
+              size={18}
+            />
+          </Pressable>
+        </View>
 
-        <PlaybackWaveform
-          current_time={status.currentTime}
-          duration_seconds={clip_duration}
-          is_playing={status.playing}
-          onSeek={handle_seek}
-          theme={theme}
-          waveform={clip.waveform}
-        />
+        <View onLayout={handle_waveform_layout} style={styles.waveformViewport}>
+          <ScrollView
+            bounces={false}
+            directionalLockEnabled
+            horizontal
+            ref={waveform_scroll_ref}
+            scrollEnabled={is_waveform_zoomed}
+            showsHorizontalScrollIndicator={false}
+          >
+            <View
+              style={[
+                styles.waveformContent,
+                waveform_viewport_width > 0
+                  ? {
+                    width: waveform_viewport_width * (is_waveform_zoomed ? 2 : 1),
+                  }
+                  : null,
+              ]}
+            >
+              <PlaybackWaveform
+                current_time={status.currentTime}
+                duration_seconds={clip_duration}
+                is_playing={status.playing}
+                onSeek={handle_seek}
+                scrub_pan_enabled={!is_waveform_zoomed}
+                theme={theme}
+                waveform={clip.waveform}
+              />
+            </View>
+          </ScrollView>
+        </View>
 
         <View style={styles.timeRow}>
           <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
@@ -385,9 +470,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   subtitle: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  subtitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
   },
   timeLabel: {
     fontSize: 13,
@@ -398,6 +489,24 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  waveformContent: {
+    height: 64,
+    minWidth: '100%',
+  },
+  waveformViewport: {
+    height: 64,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  zoomButton: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 17,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
   },
 });
 
