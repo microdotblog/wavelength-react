@@ -4,7 +4,6 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
-import DeleteEpisodeModal from '../components/DeleteEpisodeModal';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import PlatformSymbol from '../components/PlatformSymbol';
 import { place_clip_file } from '../lib/EpisodeStorage';
@@ -28,8 +27,6 @@ function SplitScreen({ navigation, route, theme }) {
   const status = useAudioPlayerStatus(player);
   const waveform_scroll_ref = React.useRef(null);
   const [is_busy, set_is_busy] = React.useState(false);
-  const [is_delete_modal_visible, set_is_delete_modal_visible] = React.useState(false);
-  const [is_deleting_episode, set_is_deleting_episode] = React.useState(false);
   const [is_waveform_zoomed, set_is_waveform_zoomed] = React.useState(false);
   const [waveform_viewport_width, set_waveform_viewport_width] = React.useState(0);
 
@@ -162,8 +159,6 @@ function SplitScreen({ navigation, route, theme }) {
     const was_published = episode?.is_published?.() ?? false;
 
     player.pause();
-    set_is_deleting_episode(true);
-    set_is_delete_modal_visible(false);
     navigation.goBack();
 
     try {
@@ -175,22 +170,55 @@ function SplitScreen({ navigation, route, theme }) {
       );
     } catch (error) {
       show_toast(error?.message || 'Could not delete episode. Please try again.');
-    } finally {
-      set_is_deleting_episode(false);
     }
   }
 
-  function close_delete_modal() {
-    if (is_deleting_episode) {
-      return;
-    }
+  function confirm_delete_episode() {
+    const title = `${episode.title || ''}`.trim() || 'This episode';
 
-    set_is_delete_modal_visible(false);
+    if (episode.is_published()) {
+      Alert.alert(
+        'Delete episode?',
+        `"${title}" can be removed from this device while keeping its Micro.blog post, or deleted everywhere.`,
+        [
+          {
+            style: 'cancel',
+            text: 'Cancel',
+          },
+          {
+            onPress: () => handle_delete_episode(false),
+            style: 'destructive',
+            text: 'On device only',
+          },
+          {
+            onPress: () => handle_delete_episode(true),
+            style: 'destructive',
+            text: 'Everywhere',
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Delete episode?',
+        `"${title}" will be permanently removed from this device.`,
+        [
+          {
+            style: 'cancel',
+            text: 'Cancel',
+          },
+          {
+            onPress: () => handle_delete_episode(false),
+            style: 'destructive',
+            text: 'Delete',
+          },
+        ],
+      );
+    }
   }
 
   function confirm_delete_segment() {
     if (episode.clips.length <= 1) {
-      set_is_delete_modal_visible(true);
+      confirm_delete_episode();
       return;
     }
 
@@ -388,16 +416,6 @@ function SplitScreen({ navigation, route, theme }) {
       </View>
       </ScrollView>
 
-      <DeleteEpisodeModal
-        episode_title={episode.title}
-        has_published_post={episode.is_published()}
-        is_busy={is_deleting_episode}
-        on_cancel={close_delete_modal}
-        on_delete_device_and_post={() => handle_delete_episode(true)}
-        on_delete_device_only={() => handle_delete_episode(false)}
-        theme={theme}
-        visible={is_delete_modal_visible}
-      />
     </>
   );
 }
