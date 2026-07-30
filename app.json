@@ -23,7 +23,8 @@
         "backgroundColor": "#ffffff"
       },
       "allowBackup": false,
-      "package": "blog.micro.wavelength"
+      "package": "blog.micro.wavelength",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
