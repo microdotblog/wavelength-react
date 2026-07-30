@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
   },
   button_android: {
     marginLeft: 12,
+    marginRight: 12,
   },
   button_liquid_glass: {
     height: AVATAR_SIZE,

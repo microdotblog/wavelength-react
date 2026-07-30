@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
+import { HeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import AccountScreen from '../screens/AccountScreen';
@@ -53,6 +54,17 @@ function SettingsNavigator({ theme }) {
 }
 
 function HeaderCloseButton({ onPress, theme }) {
+  if (Platform.OS === 'android') {
+    return (
+      <HeaderBackButton
+        accessibilityLabel="Back"
+        displayMode="minimal"
+        onPress={onPress}
+        tintColor={theme.colors.ink}
+      />
+    );
+  }
+
   return (
     <Pressable
       accessibilityLabel="Close settings"
