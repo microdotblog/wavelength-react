@@ -59,7 +59,8 @@
           "enableBackgroundAudio": false,
           "enableDeviceDetection": false
         }
-      ]
+      ],
+      "./plugins/withAndroidReleaseSigning"
     ]
   }
 }
