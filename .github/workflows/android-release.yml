@@ -49,7 +49,7 @@ jobs:
 
       - name: Build Android release bundle
         working-directory: android
-        run: ./gradlew :app:bundleRelease --no-daemon
+        run: ./gradlew :app:bundleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
