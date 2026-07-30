@@ -3,11 +3,11 @@ import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
-  setAudioModeAsync,
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
 import { File } from 'expo-file-system';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { observer } from 'mobx-react';
 import { HeaderBackButton } from '@react-navigation/elements';
 import Animated, {
@@ -23,12 +23,14 @@ import RecordingWaveform from '../components/RecordingWaveform';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { format_clock } from '../lib/format_duration';
 import { normalize_metering } from '../lib/normalize_metering';
+import { enable_recording_audio_mode } from '../lib/recording_audio_mode';
 import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const MINIMUM_RECORDING_SECONDS = 1;
 const RECORDER_POLL_MS = 50;
 const ACTIONS_FADE_MS = 220;
+const RECORDING_KEEP_AWAKE_TAG = 'wavelength-recording';
 const RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
   isMeteringEnabled: true,
@@ -58,13 +60,21 @@ function RecordScreen({ navigation, route, theme }) {
         return;
       }
 
-      set_permission_status(permission.granted ? 'granted' : 'denied');
+      if (!permission.granted) {
+        set_permission_status('denied');
+        return;
+      }
 
-      if (permission.granted) {
-        await setAudioModeAsync({
-          allowsRecording: true,
-          playsInSilentMode: true,
-        });
+      // Wait for audio mode (and Android notification permission) before enabling
+      // record controls / auto-start, so background capture is configured first.
+      try {
+        await enable_recording_audio_mode();
+      } catch (error) {
+        // Mode setup rarely fails; start_recording still surfaces prepare errors.
+      }
+
+      if (!is_cancelled) {
+        set_permission_status('granted');
       }
     }
 
@@ -74,6 +84,21 @@ function RecordScreen({ navigation, route, theme }) {
       is_cancelled = true;
     };
   }, []);
+
+  React.useEffect(() => {
+    const should_keep_awake = recording_phase === 'recording' || recording_phase === 'paused';
+
+    if (!should_keep_awake) {
+      deactivateKeepAwake(RECORDING_KEEP_AWAKE_TAG).catch(() => {});
+      return;
+    }
+
+    activateKeepAwakeAsync(RECORDING_KEEP_AWAKE_TAG).catch(() => {});
+
+    return () => {
+      deactivateKeepAwake(RECORDING_KEEP_AWAKE_TAG).catch(() => {});
+    };
+  }, [recording_phase]);
 
   React.useEffect(() => {
     if (!recorder_state.isRecording || !Number.isFinite(recorder_state.metering)) {
