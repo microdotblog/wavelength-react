@@ -6,7 +6,6 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
-import com.github.axet.lamejni.Lame
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
@@ -148,7 +147,7 @@ class WavelengthMP3Module : Module() {
 
     val extractor = MediaExtractor()
     var decoder: MediaCodec? = null
-    var lame: Lame? = null
+    var lame: LameEncoder? = null
 
     try {
       extractor.setDataSource(inputFile.absolutePath)
@@ -242,7 +241,7 @@ class WavelengthMP3Module : Module() {
                   val monoSamples = downmixToMono(interleavedSamples, channels)
 
                   if (lame == null) {
-                    lame = Lame().also {
+                    lame = LameEncoder().also {
                       it.open(1, sampleRate.takeIf { rate -> rate > 0 } ?: DEFAULT_SAMPLE_RATE, BITRATE_KBPS, 2)
                     }
                   }
