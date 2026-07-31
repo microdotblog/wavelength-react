@@ -252,6 +252,7 @@ function SplitScreen({ navigation, route, theme }) {
   const clip_duration = status.duration > 0 ? status.duration : clip.duration_seconds;
   const split_label = format_duration(status.currentTime);
   const total_label = format_duration(clip_duration);
+  const is_split_disabled = is_busy || status.currentTime <= 0;
 
   return (
     <>
@@ -372,29 +373,29 @@ function SplitScreen({ navigation, route, theme }) {
 
       <View style={styles.actionsRow}>
         <Pressable
-          accessibilityLabel={is_busy ? 'Splitting' : 'Split here'}
+          accessibilityLabel={is_busy ? 'Splitting' : 'Split Here'}
           accessibilityRole="button"
-          accessibilityState={{ disabled: is_busy }}
-          disabled={is_busy}
+          accessibilityState={{ disabled: is_split_disabled }}
+          disabled={is_split_disabled}
           onPress={handle_split}
           style={({ pressed }) => [
             styles.actionButton,
             {
               backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.2 : 0.12),
               borderColor: theme.colors.line,
-              opacity: is_busy ? 0.6 : 1,
+              opacity: is_split_disabled ? 0.6 : 1,
             },
             pressed ? styles.pressed : null,
           ]}
         >
           <Text style={[styles.primaryActionText, { color: theme.colors.accent_strong }]}>
-            {is_busy ? 'Splitting...' : 'Split here'}
+            {is_busy ? 'Splitting...' : 'Split Here'}
           </Text>
         </Pressable>
 
         <Pressable
           accessibilityHint="Removes this segment from the episode"
-          accessibilityLabel="Delete segment"
+          accessibilityLabel="Delete Segment"
           accessibilityRole="button"
           accessibilityState={{ disabled: is_busy }}
           disabled={is_busy}
@@ -410,7 +411,7 @@ function SplitScreen({ navigation, route, theme }) {
           ]}
         >
           <Text style={[styles.secondaryActionText, { color: theme.colors.ink_soft }]}>
-            Delete segment
+            Delete Segment
           </Text>
         </Pressable>
       </View>
