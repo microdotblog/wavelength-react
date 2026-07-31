@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "blog.micro.wavelength",
-      "buildNumber": "106",
+      "buildNumber": "107",
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "microblog"
@@ -24,7 +24,7 @@
       },
       "allowBackup": false,
       "package": "blog.micro.wavelength",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/favicon.png"
