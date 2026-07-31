@@ -48,7 +48,7 @@
         "expo-audio",
         {
           "microphonePermission": "Allow Wavelength to record podcasts.",
-          "enableBackgroundRecording": false,
+          "enableBackgroundRecording": true,
           "enableBackgroundPlayback": true
         }
       ],
