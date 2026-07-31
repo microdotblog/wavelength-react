@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@expo/ui": "~56.0.24",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-menu/menu": "^2.0.0",
     "@react-navigation/bottom-tabs": "^7.18.2",
@@ -31,6 +32,7 @@
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
     "expo-web-browser": "~56.0.5",
+    "expo-widgets": "~56.0.25",
     "mobx": "^6.16.1",
     "mobx-react": "^9.2.2",
     "mobx-state-tree": "^7.2.0",

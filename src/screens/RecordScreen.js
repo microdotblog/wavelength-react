@@ -24,6 +24,10 @@ import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_wa
 import { format_clock } from '../lib/format_duration';
 import { normalize_metering } from '../lib/normalize_metering';
 import { enable_recording_audio_mode } from '../lib/recording_audio_mode';
+import {
+  end_recording_live_activity,
+  sync_recording_live_activity,
+} from '../lib/recording_live_activity';
 import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
@@ -47,6 +51,7 @@ function RecordScreen({ navigation, route, theme }) {
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
   const start_recording_ref = React.useRef(null);
+  const previous_recording_phase_ref = React.useRef('idle');
   const actions_opacity = useSharedValue(0);
   const actions_translate = useSharedValue(8);
 
@@ -99,6 +104,38 @@ function RecordScreen({ navigation, route, theme }) {
       deactivateKeepAwake(RECORDING_KEEP_AWAKE_TAG).catch(() => {});
     };
   }, [recording_phase]);
+
+  React.useEffect(() => {
+    const previous_phase = previous_recording_phase_ref.current;
+    previous_recording_phase_ref.current = recording_phase;
+
+    if (recording_phase === 'recording' || recording_phase === 'paused') {
+      // Starting a fresh take after idle must not reuse a stale polled duration.
+      const duration_ms = previous_phase === 'idle'
+        ? 0
+        : Math.max(
+          Number.isFinite(audio_recorder.currentTime) ? audio_recorder.currentTime * 1000 : 0,
+          Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
+        );
+
+      // Only sync on phase changes. The island timer counts itself via SwiftUI.
+      sync_recording_live_activity({
+        duration_ms,
+        phase: recording_phase,
+      });
+      return;
+    }
+
+    end_recording_live_activity();
+    // duration is intentionally sampled only when the phase changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording_phase]);
+
+  React.useEffect(() => {
+    return () => {
+      end_recording_live_activity();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!recorder_state.isRecording || !Number.isFinite(recorder_state.metering)) {

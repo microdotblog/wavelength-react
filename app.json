@@ -60,7 +60,15 @@
           "enableDeviceDetection": false
         }
       ],
-      "./plugins/withAndroidReleaseSigning"
+      "./plugins/withAndroidReleaseSigning",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "blog.micro.wavelength.ExpoWidgetsTarget",
+          "groupIdentifier": "group.blog.micro.wavelength",
+          "frequentUpdates": false
+        }
+      ]
     ]
   }
 }
