@@ -53,9 +53,9 @@ Java_expo_modules_wavelengthmp3_LameEncoder_nativeOpen(
   lame_set_num_channels(encoder, channels);
   lame_set_mode(encoder, channels == 1 ? MONO : STEREO);
   lame_set_in_samplerate(encoder, sample_rate);
-  lame_set_VBR(encoder, vbr_default);
-  lame_set_VBR_q(encoder, quality);
-  lame_set_VBR_mean_bitrate_kbps(encoder, bitrate);
+  lame_set_VBR(encoder, vbr_off);
+  lame_set_brate(encoder, bitrate);
+  lame_set_quality(encoder, quality);
 
   if (lame_init_params(encoder) != 0) {
     lame_close(encoder);
