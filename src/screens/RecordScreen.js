@@ -24,6 +24,11 @@ import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_wa
 import { format_clock } from '../lib/format_duration';
 import { normalize_metering } from '../lib/normalize_metering';
 import { enable_recording_audio_mode } from '../lib/recording_audio_mode';
+import {
+  is_review_recording_phase,
+  resolve_phase_after_recorder_state,
+  resolve_phase_after_recording_status,
+} from '../lib/recording_phase_sync';
 import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
@@ -39,16 +44,57 @@ const RECORDING_OPTIONS = {
 function RecordScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;
   const is_appending = typeof episode_id === 'string' && episode_id.length > 0;
-  const audio_recorder = useAudioRecorder(RECORDING_OPTIONS);
-  const recorder_state = useAudioRecorderState(audio_recorder, RECORDER_POLL_MS);
   const [permission_status, set_permission_status] = React.useState('pending');
   const [recording_phase, set_recording_phase] = React.useState('idle');
   const [is_saving, set_is_saving] = React.useState(false);
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
   const start_recording_ref = React.useRef(null);
+  const recording_phase_ref = React.useRef(recording_phase);
+  const is_saving_ref = React.useRef(is_saving);
+  const last_known_duration_ms_ref = React.useRef(0);
+  const has_observed_active_take_ref = React.useRef(false);
+  const recording_status_listener_ref = React.useRef(null);
   const actions_opacity = useSharedValue(0);
   const actions_translate = useSharedValue(8);
+
+  recording_phase_ref.current = recording_phase;
+  is_saving_ref.current = is_saving;
+
+  recording_status_listener_ref.current = (status) => {
+    const previous_phase = recording_phase_ref.current;
+    const next_phase = resolve_phase_after_recording_status({
+      current_phase: previous_phase,
+      has_error: status?.hasError === true,
+      is_finished: status?.isFinished === true,
+      is_saving: is_saving_ref.current,
+      media_services_did_reset: status?.mediaServicesDidReset === true,
+      url: status?.url || null,
+    });
+
+    if (next_phase !== previous_phase) {
+      set_recording_phase(next_phase);
+
+      if (
+        next_phase === 'idle'
+        && (previous_phase === 'recording' || previous_phase === 'paused')
+      ) {
+        captured_samples_ref.current = [];
+        last_known_duration_ms_ref.current = 0;
+        has_observed_active_take_ref.current = false;
+        Alert.alert(
+          'Recording interrupted',
+          'The system interrupted that take. Start a new recording when you are ready.',
+        );
+      }
+    }
+  };
+
+  // Stable wrapper: useAudioRecorder only rebinds on recorder id, not listener identity.
+  const audio_recorder = useAudioRecorder(RECORDING_OPTIONS, (status) => {
+    recording_status_listener_ref.current?.(status);
+  });
+  const recorder_state = useAudioRecorderState(audio_recorder, RECORDER_POLL_MS);
 
   React.useEffect(() => {
     let is_cancelled = false;
@@ -86,7 +132,7 @@ function RecordScreen({ navigation, route, theme }) {
   }, []);
 
   React.useEffect(() => {
-    const should_keep_awake = recording_phase === 'recording' || recording_phase === 'paused';
+    const should_keep_awake = recording_phase === 'recording' || is_review_recording_phase(recording_phase);
 
     if (!should_keep_awake) {
       deactivateKeepAwake(RECORDING_KEEP_AWAKE_TAG).catch(() => {});
@@ -100,6 +146,39 @@ function RecordScreen({ navigation, route, theme }) {
     };
   }, [recording_phase]);
 
+  // Keep the last non-zero duration; Android notification Stop resets native duration to 0.
+  React.useEffect(() => {
+    const is_active = recorder_state.isRecording === true || recorder_state.canRecord === true;
+
+    if (is_active && (recording_phase === 'recording' || recording_phase === 'paused')) {
+      has_observed_active_take_ref.current = true;
+    }
+
+    if (
+      is_active
+      && Number.isFinite(recorder_state.durationMillis)
+      && recorder_state.durationMillis > last_known_duration_ms_ref.current
+    ) {
+      last_known_duration_ms_ref.current = recorder_state.durationMillis;
+    }
+  }, [recorder_state.canRecord, recorder_state.durationMillis, recorder_state.isRecording, recording_phase]);
+
+  // Defense in depth: polled state catches notification Stop if the status event is missed.
+  // Wait until the poller has seen an active take so we don't race start → stopped.
+  React.useEffect(() => {
+    const next_phase = resolve_phase_after_recorder_state({
+      can_record: recorder_state.canRecord === true,
+      current_phase: recording_phase,
+      has_observed_active_take: has_observed_active_take_ref.current,
+      is_recording: recorder_state.isRecording === true,
+      is_saving,
+    });
+
+    if (next_phase !== recording_phase) {
+      set_recording_phase(next_phase);
+    }
+  }, [is_saving, recorder_state.canRecord, recorder_state.isRecording, recording_phase]);
+
   React.useEffect(() => {
     if (!recorder_state.isRecording || !Number.isFinite(recorder_state.metering)) {
       return;
@@ -109,9 +188,9 @@ function RecordScreen({ navigation, route, theme }) {
   }, [recorder_state.isRecording, recorder_state.metering, recorder_state.durationMillis]);
 
   React.useEffect(() => {
-    const is_paused = recording_phase === 'paused';
-    actions_opacity.value = withTiming(is_paused ? 1 : 0, { duration: ACTIONS_FADE_MS });
-    actions_translate.value = withTiming(is_paused ? 0 : 8, { duration: ACTIONS_FADE_MS });
+    const is_reviewing = is_review_recording_phase(recording_phase);
+    actions_opacity.value = withTiming(is_reviewing ? 1 : 0, { duration: ACTIONS_FADE_MS });
+    actions_translate.value = withTiming(is_reviewing ? 0 : 8, { duration: ACTIONS_FADE_MS });
   }, [recording_phase, actions_opacity, actions_translate]);
 
   React.useLayoutEffect(() => {
@@ -155,6 +234,8 @@ function RecordScreen({ navigation, route, theme }) {
     }
 
     captured_samples_ref.current = [];
+    last_known_duration_ms_ref.current = 0;
+    has_observed_active_take_ref.current = false;
 
     try {
       await audio_recorder.prepareToRecordAsync(RECORDING_OPTIONS);
@@ -191,13 +272,38 @@ function RecordScreen({ navigation, route, theme }) {
   }, [is_saving, navigation, permission_status, recording_phase, route.params?.auto_start]);
 
   function pause_recording() {
-    audio_recorder.pause();
+    try {
+      if (audio_recorder.isRecording) {
+        audio_recorder.pause();
+      }
+    } catch (error) {
+      // Native may already be stopped (e.g. Android notification Stop).
+    }
+
+    const status = audio_recorder.getStatus?.() || {};
+    if (!status.isRecording && !status.canRecord) {
+      set_recording_phase('stopped');
+      return;
+    }
+
     set_recording_phase('paused');
   }
 
   function resume_recording() {
-    audio_recorder.record();
-    set_recording_phase('recording');
+    if (recording_phase === 'stopped') {
+      return;
+    }
+
+    try {
+      audio_recorder.record();
+      set_recording_phase('recording');
+    } catch (error) {
+      Alert.alert(
+        'Could not resume',
+        'That take already ended. Save it, or delete it and record again.',
+      );
+      set_recording_phase('stopped');
+    }
   }
 
   async function save_recording() {
@@ -206,6 +312,7 @@ function RecordScreen({ navigation, route, theme }) {
     }
 
     const captured_seconds = Math.max(
+      last_known_duration_ms_ref.current / 1000,
       recorder_state.durationMillis / 1000,
       audio_recorder.currentTime || 0,
     );
@@ -218,12 +325,23 @@ function RecordScreen({ navigation, route, theme }) {
       return;
     }
 
+    is_saving_ref.current = true;
     set_is_saving(true);
-    await audio_recorder.stop();
+
+    // Notification Stop may have already finalized the file; never let a second
+    // stop() throw and leave the take unsaved.
+    if (recording_phase !== 'stopped') {
+      try {
+        await audio_recorder.stop();
+      } catch (error) {
+        // Recorder already finished; fall through and use the existing URI.
+      }
+    }
 
     const recording_uri = audio_recorder.uri;
 
     if (!recording_uri) {
+      is_saving_ref.current = false;
       set_is_saving(false);
       Alert.alert('Something went wrong', 'That recording could not be saved.');
       return;
@@ -231,17 +349,27 @@ function RecordScreen({ navigation, route, theme }) {
 
     const waveform = downsample_waveform(captured_samples_ref.current, WAVEFORM_SAMPLE_COUNT);
 
-    if (is_appending) {
-      await Episodes.append_clip_to_episode(episode_id, recording_uri, captured_seconds, waveform);
-      Episodes.export_merged_audio(episode_id);
-      set_is_saving(false);
-      navigation.goBack();
-      return;
-    }
+    try {
+      if (is_appending) {
+        await Episodes.append_clip_to_episode(episode_id, recording_uri, captured_seconds, waveform);
+        Episodes.export_merged_audio(episode_id);
+        is_saving_ref.current = false;
+        set_is_saving(false);
+        set_recording_phase('idle');
+        navigation.goBack();
+        return;
+      }
 
-    const created_episode_id = await Episodes.create_from_recording(recording_uri, captured_seconds, waveform);
-    set_is_saving(false);
-    navigation.replace('Edit', { episode_id: created_episode_id });
+      const created_episode_id = await Episodes.create_from_recording(recording_uri, captured_seconds, waveform);
+      is_saving_ref.current = false;
+      set_is_saving(false);
+      set_recording_phase('idle');
+      navigation.replace('Edit', { episode_id: created_episode_id });
+    } catch (error) {
+      is_saving_ref.current = false;
+      set_is_saving(false);
+      Alert.alert('Something went wrong', 'That recording could not be saved.');
+    }
   }
 
   async function discard_recording() {
@@ -262,6 +390,8 @@ function RecordScreen({ navigation, route, theme }) {
     }
 
     captured_samples_ref.current = [];
+    last_known_duration_ms_ref.current = 0;
+    has_observed_active_take_ref.current = false;
     set_is_saving(false);
     set_recording_phase('idle');
   }
@@ -271,6 +401,9 @@ function RecordScreen({ navigation, route, theme }) {
       pause_recording();
     } else if (recording_phase === 'paused') {
       resume_recording();
+    } else if (recording_phase === 'stopped') {
+      // Take already finished natively; only Save / Delete apply.
+      return;
     } else {
       start_recording();
     }
@@ -325,15 +458,19 @@ function RecordScreen({ navigation, route, theme }) {
   done_handler_ref.current = handle_done_press;
 
   const is_active_recording = recording_phase === 'recording';
+  const is_reviewing = is_review_recording_phase(recording_phase);
+  const display_duration_ms = Math.max(
+    last_known_duration_ms_ref.current,
+    Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
+  );
   const waveform_levels = use_recording_waveform_levels({
-    duration_millis: recorder_state.durationMillis,
+    duration_millis: display_duration_ms,
     is_recording: is_active_recording,
     metering: recorder_state.metering,
   });
-  const timer_label = format_clock(recorder_state.durationMillis);
+  const timer_label = format_clock(display_duration_ms);
   const status_label = resolve_status_label({ is_appending, is_saving, permission_status, recording_phase });
-  const is_button_disabled = permission_status !== 'granted' || is_saving;
-  const is_paused = recording_phase === 'paused';
+  const is_button_disabled = permission_status !== 'granted' || is_saving || recording_phase === 'stopped';
 
   const actions_style = useAnimatedStyle(() => ({
     opacity: actions_opacity.value,
@@ -382,7 +519,7 @@ function RecordScreen({ navigation, route, theme }) {
       </View>
 
       <Animated.View
-        pointerEvents={is_paused ? 'auto' : 'none'}
+        pointerEvents={is_reviewing ? 'auto' : 'none'}
         style={[styles.pausedActions, actions_style]}
       >
         <Pressable
@@ -445,6 +582,10 @@ function resolve_status_label({ is_appending, is_saving, permission_status, reco
 
   if (recording_phase === 'paused') {
     return 'Tap to resume';
+  }
+
+  if (recording_phase === 'stopped') {
+    return 'Recording stopped — save or delete';
   }
 
   return 'Tap to record';
