@@ -7,16 +7,24 @@ group = 'expo.modules.wavelengthmp3'
 version = '0.1.0'
 
 android {
+  ndkVersion "29.0.14206865"
   namespace "expo.modules.wavelengthmp3"
   defaultConfig {
     versionCode 1
     versionName "0.1.0"
+    externalNativeBuild {
+      cmake {
+        arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+      }
+    }
   }
   lintOptions {
     abortOnError false
   }
-}
-
-dependencies {
-  implementation 'com.github.axet:lame:1.0.9'
+  externalNativeBuild {
+    cmake {
+      path "src/main/cpp/CMakeLists.txt"
+      version "3.22.1"
+    }
+  }
 }
