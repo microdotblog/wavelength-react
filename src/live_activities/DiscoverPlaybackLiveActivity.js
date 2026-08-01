@@ -34,6 +34,10 @@ function DiscoverPlaybackLiveActivityLayout(props, environment) {
   const starts_at = new Date(props.startsAtMs ?? Date.now());
   const ends_at = new Date(props.endsAtMs ?? Date.now());
 
+  // Compact trailing fits MM:SS; widen for H:MM:SS when remaining ≥ 1h.
+  const remaining_ms = Math.max(0, ends_at.getTime() - starts_at.getTime());
+  const compact_timer_width = remaining_ms >= 60 * 60 * 1000 ? 54 : 42;
+
   function render_artwork(size) {
     if (artwork_uri) {
       return (
@@ -56,10 +60,6 @@ function DiscoverPlaybackLiveActivityLayout(props, environment) {
       />
     );
   }
-
-  // Compact trailing only needs room for M:SS (or H:MM:SS when remaining ≥ 1h).
-  const remaining_ms = Math.max(0, ends_at.getTime() - starts_at.getTime());
-  const compact_timer_width = remaining_ms >= 60 * 60 * 1000 ? 44 : 32;
 
   function render_remaining(size, color, width) {
     return (
@@ -102,7 +102,7 @@ function DiscoverPlaybackLiveActivityLayout(props, environment) {
           </Text>
         </VStack>
         <Spacer />
-        {render_remaining(15, banner_ink, 56)}
+        {render_remaining(15, banner_ink, compact_timer_width >= 54 ? 64 : 52)}
       </HStack>
     ),
     compactLeading: render_artwork(18),
@@ -136,7 +136,7 @@ function DiscoverPlaybackLiveActivityLayout(props, environment) {
     ),
     expandedTrailing: (
       <VStack modifiers={[padding({ trailing: 12, vertical: 8 })]}>
-        {render_remaining(16, island_ink, 64)}
+        {render_remaining(16, island_ink, compact_timer_width >= 54 ? 72 : 56)}
       </VStack>
     ),
     minimal: render_artwork(16),

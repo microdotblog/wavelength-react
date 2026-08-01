@@ -24,10 +24,14 @@ function RecordingLiveActivityLayout(props, environment) {
 
   const status_label = props.statusLabel || 'Recording';
   const timer_start_ms = props.timerStartMs ?? Date.now();
+  const timer_end_ms = props.timerEndMs
+    ?? (timer_start_ms + 60 * 60 * 1000 - 1);
   const timer_start = new Date(timer_start_ms);
-  // Match Live Activity's ~8h lifetime so the count-up doesn't freeze mid-recording.
-  const timer_end = new Date(timer_start_ms + 8 * 60 * 60 * 1000);
+  const timer_end = new Date(timer_end_ms);
   const pause_time = props.pauseTimeMs != null ? new Date(props.pauseTimeMs) : undefined;
+  // Default fits MM:SS (e.g. 12:34); props widen this for H:MM:SS after 1h.
+  const compact_timer_width = props.compactTimerWidth ?? 42;
+  const uses_hours = compact_timer_width >= 50;
 
   function render_timer(size, color, width) {
     return (
@@ -59,13 +63,11 @@ function RecordingLiveActivityLayout(props, environment) {
           </Text>
         </VStack>
         <Spacer />
-        {render_timer(15, banner_ink, 64)}
+        {render_timer(15, banner_ink, uses_hours ? 64 : 52)}
       </HStack>
     ),
     compactLeading: <Image color={mic_color} size={12} systemName="mic.fill" />,
-    // Recording uses an 8h count-up window (H:MM:SS). Keep this tighter than the
-    // unconstrained timer Text, but wide enough for the hours component.
-    compactTrailing: render_timer(12, island_ink, 44),
+    compactTrailing: render_timer(12, island_ink, compact_timer_width),
     expandedBottom: (
       <VStack alignment="leading" modifiers={[padding({ bottom: 10, horizontal: 12 })]} spacing={2}>
         <Text modifiers={[font({ size: 14, weight: 'bold' }), foregroundStyle(accent_color)]}>
@@ -83,7 +85,7 @@ function RecordingLiveActivityLayout(props, environment) {
     ),
     expandedTrailing: (
       <VStack modifiers={[padding({ trailing: 12, vertical: 8 })]}>
-        {render_timer(16, island_ink, 64)}
+        {render_timer(16, island_ink, uses_hours ? 72 : 56)}
       </VStack>
     ),
     minimal: <Image color={mic_color} size={12} systemName="mic.fill" />,
