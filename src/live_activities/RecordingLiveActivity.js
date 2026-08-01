@@ -63,7 +63,9 @@ function RecordingLiveActivityLayout(props, environment) {
       </HStack>
     ),
     compactLeading: <Image color={mic_color} size={12} systemName="mic.fill" />,
-    compactTrailing: render_timer(12, island_ink, 52),
+    // Recording uses an 8h count-up window (H:MM:SS). Keep this tighter than the
+    // unconstrained timer Text, but wide enough for the hours component.
+    compactTrailing: render_timer(12, island_ink, 44),
     expandedBottom: (
       <VStack alignment="leading" modifiers={[padding({ bottom: 10, horizontal: 12 })]} spacing={2}>
         <Text modifiers={[font({ size: 14, weight: 'bold' }), foregroundStyle(accent_color)]}>

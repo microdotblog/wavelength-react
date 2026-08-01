@@ -57,6 +57,10 @@ function DiscoverPlaybackLiveActivityLayout(props, environment) {
     );
   }
 
+  // Compact trailing only needs room for M:SS (or H:MM:SS when remaining ≥ 1h).
+  const remaining_ms = Math.max(0, ends_at.getTime() - starts_at.getTime());
+  const compact_timer_width = remaining_ms >= 60 * 60 * 1000 ? 44 : 32;
+
   function render_remaining(size, color, width) {
     return (
       <Text
@@ -98,11 +102,11 @@ function DiscoverPlaybackLiveActivityLayout(props, environment) {
           </Text>
         </VStack>
         <Spacer />
-        {render_remaining(15, banner_ink, 64)}
+        {render_remaining(15, banner_ink, 56)}
       </HStack>
     ),
-    compactLeading: render_artwork(20),
-    compactTrailing: render_remaining(12, island_ink, 52),
+    compactLeading: render_artwork(18),
+    compactTrailing: render_remaining(12, island_ink, compact_timer_width),
     expandedBottom: (
       <VStack alignment="leading" modifiers={[padding({ bottom: 10, horizontal: 12 })]} spacing={2}>
         <Text
