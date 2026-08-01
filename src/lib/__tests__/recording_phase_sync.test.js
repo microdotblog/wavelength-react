@@ -149,6 +149,26 @@ describe('resolve_phase_after_recording_status', () => {
       }),
     ).toBe('stopped');
   });
+
+  // Discard sets idle before stop(); finished status must not bounce back to stopped.
+  test('keeps idle when stop finishes after an intentional discard', () => {
+    expect(
+      resolve_phase_after_recording_status({
+        current_phase: 'idle',
+        is_finished: true,
+        url: 'file:///tmp/take.m4a',
+      }),
+    ).toBe('idle');
+
+    expect(
+      resolve_phase_after_recorder_state({
+        can_record: false,
+        current_phase: 'idle',
+        has_observed_active_take: false,
+        is_recording: false,
+      }),
+    ).toBe('idle');
+  });
 });
 
 describe('is_review_recording_phase', () => {

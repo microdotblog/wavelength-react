@@ -47,11 +47,13 @@ function RecordScreen({ navigation, route, theme }) {
   const [permission_status, set_permission_status] = React.useState('pending');
   const [recording_phase, set_recording_phase] = React.useState('idle');
   const [is_saving, set_is_saving] = React.useState(false);
+  const [is_discarding, set_is_discarding] = React.useState(false);
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
   const start_recording_ref = React.useRef(null);
   const recording_phase_ref = React.useRef(recording_phase);
   const is_saving_ref = React.useRef(is_saving);
+  const is_discarding_ref = React.useRef(is_discarding);
   const last_known_duration_ms_ref = React.useRef(0);
   const has_observed_active_take_ref = React.useRef(false);
   const recording_status_listener_ref = React.useRef(null);
@@ -60,6 +62,7 @@ function RecordScreen({ navigation, route, theme }) {
 
   recording_phase_ref.current = recording_phase;
   is_saving_ref.current = is_saving;
+  is_discarding_ref.current = is_discarding;
 
   recording_status_listener_ref.current = (status) => {
     const previous_phase = recording_phase_ref.current;
@@ -67,7 +70,8 @@ function RecordScreen({ navigation, route, theme }) {
       current_phase: previous_phase,
       has_error: status?.hasError === true,
       is_finished: status?.isFinished === true,
-      is_saving: is_saving_ref.current,
+      // Discard flips to idle before stop(); treat like save so finished events stay put.
+      is_saving: is_saving_ref.current || is_discarding_ref.current,
       media_services_did_reset: status?.mediaServicesDidReset === true,
       url: status?.url || null,
     });
@@ -171,13 +175,13 @@ function RecordScreen({ navigation, route, theme }) {
       current_phase: recording_phase,
       has_observed_active_take: has_observed_active_take_ref.current,
       is_recording: recorder_state.isRecording === true,
-      is_saving,
+      is_saving: is_saving || is_discarding,
     });
 
     if (next_phase !== recording_phase) {
       set_recording_phase(next_phase);
     }
-  }, [is_saving, recorder_state.canRecord, recorder_state.isRecording, recording_phase]);
+  }, [is_discarding, is_saving, recorder_state.canRecord, recorder_state.isRecording, recording_phase]);
 
   React.useEffect(() => {
     if (!recorder_state.isRecording || !Number.isFinite(recorder_state.metering)) {
@@ -194,9 +198,11 @@ function RecordScreen({ navigation, route, theme }) {
   }, [recording_phase, actions_opacity, actions_translate]);
 
   React.useLayoutEffect(() => {
+    const can_leave_freely = recording_phase === 'idle' && !is_discarding;
+
     if (Platform.OS === 'ios') {
       navigation.setOptions({
-        gestureEnabled: recording_phase === 'idle',
+        gestureEnabled: can_leave_freely,
         headerLargeTitle: false,
         headerLeft: undefined,
         unstable_headerLeftItems: () => [
@@ -214,7 +220,7 @@ function RecordScreen({ navigation, route, theme }) {
     }
 
     navigation.setOptions({
-      gestureEnabled: recording_phase === 'idle',
+      gestureEnabled: can_leave_freely,
       headerLargeTitle: false,
       headerLeft: () => (
         <HeaderBackButton
@@ -226,10 +232,10 @@ function RecordScreen({ navigation, route, theme }) {
       ),
       unstable_headerLeftItems: undefined,
     });
-  }, [navigation, recording_phase, theme]);
+  }, [is_discarding, navigation, recording_phase, theme]);
 
   async function start_recording() {
-    if (permission_status !== 'granted' || is_saving) {
+    if (permission_status !== 'granted' || is_saving || is_discarding_ref.current) {
       return;
     }
 
@@ -264,12 +270,17 @@ function RecordScreen({ navigation, route, theme }) {
 
     navigation.setParams({ auto_start: undefined });
 
-    if (permission_status === 'denied' || is_saving || recording_phase !== 'idle') {
+    if (
+      permission_status === 'denied'
+      || is_saving
+      || is_discarding
+      || recording_phase !== 'idle'
+    ) {
       return;
     }
 
     start_recording_ref.current?.();
-  }, [is_saving, navigation, permission_status, recording_phase, route.params?.auto_start]);
+  }, [is_discarding, is_saving, navigation, permission_status, recording_phase, route.params?.auto_start]);
 
   function pause_recording() {
     try {
@@ -373,27 +384,48 @@ function RecordScreen({ navigation, route, theme }) {
   }
 
   async function discard_recording() {
-    try {
-      await audio_recorder.stop();
-    } catch (error) {
-      // The recorder may already be stopped; deletion below still runs.
+    if (is_discarding_ref.current || is_saving_ref.current) {
+      return;
     }
 
-    const recording_uri = audio_recorder.uri;
+    // Keep controls disabled until stop/delete finish, otherwise a quick tap can
+    // prepare a new take on the same recorder and this continuation may delete it.
+    is_discarding_ref.current = true;
+    set_is_discarding(true);
 
-    if (recording_uri) {
-      try {
-        new File(recording_uri).delete();
-      } catch (error) {
-        // A missing temp file is fine to ignore.
-      }
-    }
-
+    // Flip to idle before stop(). Otherwise the finished-status listener / poller
+    // see paused→finished and park us in "Recording stopped" (same race save
+    // avoids with is_saving). Update the ref now; render would be too late.
+    const should_stop = recording_phase_ref.current !== 'stopped';
     captured_samples_ref.current = [];
     last_known_duration_ms_ref.current = 0;
     has_observed_active_take_ref.current = false;
+    recording_phase_ref.current = 'idle';
     set_is_saving(false);
     set_recording_phase('idle');
+
+    try {
+      if (should_stop) {
+        try {
+          await audio_recorder.stop();
+        } catch (error) {
+          // The recorder may already be stopped; deletion below still runs.
+        }
+      }
+
+      const recording_uri = audio_recorder.uri;
+
+      if (recording_uri) {
+        try {
+          new File(recording_uri).delete();
+        } catch (error) {
+          // A missing temp file is fine to ignore.
+        }
+      }
+    } finally {
+      is_discarding_ref.current = false;
+      set_is_discarding(false);
+    }
   }
 
   function handle_press() {
@@ -433,6 +465,10 @@ function RecordScreen({ navigation, route, theme }) {
   }
 
   function handle_done_press() {
+    if (is_discarding_ref.current || is_saving_ref.current) {
+      return;
+    }
+
     if (recording_phase === 'idle') {
       navigation.goBack();
       return;
@@ -459,10 +495,13 @@ function RecordScreen({ navigation, route, theme }) {
 
   const is_active_recording = recording_phase === 'recording';
   const is_reviewing = is_review_recording_phase(recording_phase);
-  const display_duration_ms = Math.max(
-    last_known_duration_ms_ref.current,
-    Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
-  );
+  // Idle ignores native duration: after delete/stop the recorder can still report the old take.
+  const display_duration_ms = recording_phase === 'idle'
+    ? 0
+    : Math.max(
+      last_known_duration_ms_ref.current,
+      Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
+    );
   const waveform_levels = use_recording_waveform_levels({
     duration_millis: display_duration_ms,
     is_recording: is_active_recording,
@@ -470,7 +509,12 @@ function RecordScreen({ navigation, route, theme }) {
   });
   const timer_label = format_clock(display_duration_ms);
   const status_label = resolve_status_label({ is_appending, is_saving, permission_status, recording_phase });
-  const is_button_disabled = permission_status !== 'granted' || is_saving || recording_phase === 'stopped';
+  const is_button_disabled = (
+    permission_status !== 'granted'
+    || is_saving
+    || is_discarding
+    || recording_phase === 'stopped'
+  );
 
   const actions_style = useAnimatedStyle(() => ({
     opacity: actions_opacity.value,
@@ -525,12 +569,12 @@ function RecordScreen({ navigation, route, theme }) {
         <Pressable
           accessibilityLabel={is_appending ? 'Save segment' : 'Save episode'}
           accessibilityRole="button"
-          accessibilityState={{ disabled: is_saving }}
-          disabled={is_saving}
+          accessibilityState={{ disabled: is_saving || is_discarding }}
+          disabled={is_saving || is_discarding}
           onPress={save_recording}
           style={({ pressed }) => [
             styles.saveButton,
-            { backgroundColor: theme.colors.accent, opacity: is_saving ? 0.6 : 1 },
+            { backgroundColor: theme.colors.accent, opacity: is_saving || is_discarding ? 0.6 : 1 },
             pressed ? styles.pressed : null,
           ]}
         >
@@ -542,8 +586,8 @@ function RecordScreen({ navigation, route, theme }) {
         <Pressable
           accessibilityLabel="Delete recording"
           accessibilityRole="button"
-          accessibilityState={{ disabled: is_saving }}
-          disabled={is_saving}
+          accessibilityState={{ disabled: is_saving || is_discarding }}
+          disabled={is_saving || is_discarding}
           onPress={confirm_discard_take}
           style={({ pressed }) => [
             styles.deleteButton,
