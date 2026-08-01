@@ -373,10 +373,23 @@ function RecordScreen({ navigation, route, theme }) {
   }
 
   async function discard_recording() {
-    try {
-      await audio_recorder.stop();
-    } catch (error) {
-      // The recorder may already be stopped; deletion below still runs.
+    // Flip to idle before stop(). Otherwise the finished-status listener / poller
+    // see paused→finished and park us in "Recording stopped" (same race save
+    // avoids with is_saving). Update the ref now; render would be too late.
+    const should_stop = recording_phase_ref.current !== 'stopped';
+    captured_samples_ref.current = [];
+    last_known_duration_ms_ref.current = 0;
+    has_observed_active_take_ref.current = false;
+    recording_phase_ref.current = 'idle';
+    set_is_saving(false);
+    set_recording_phase('idle');
+
+    if (should_stop) {
+      try {
+        await audio_recorder.stop();
+      } catch (error) {
+        // The recorder may already be stopped; deletion below still runs.
+      }
     }
 
     const recording_uri = audio_recorder.uri;
@@ -388,12 +401,6 @@ function RecordScreen({ navigation, route, theme }) {
         // A missing temp file is fine to ignore.
       }
     }
-
-    captured_samples_ref.current = [];
-    last_known_duration_ms_ref.current = 0;
-    has_observed_active_take_ref.current = false;
-    set_is_saving(false);
-    set_recording_phase('idle');
   }
 
   function handle_press() {
@@ -459,10 +466,13 @@ function RecordScreen({ navigation, route, theme }) {
 
   const is_active_recording = recording_phase === 'recording';
   const is_reviewing = is_review_recording_phase(recording_phase);
-  const display_duration_ms = Math.max(
-    last_known_duration_ms_ref.current,
-    Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
-  );
+  // Idle ignores native duration: after delete/stop the recorder can still report the old take.
+  const display_duration_ms = recording_phase === 'idle'
+    ? 0
+    : Math.max(
+      last_known_duration_ms_ref.current,
+      Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
+    );
   const waveform_levels = use_recording_waveform_levels({
     duration_millis: display_duration_ms,
     is_recording: is_active_recording,
