@@ -24,7 +24,7 @@
       },
       "allowBackup": false,
       "package": "blog.micro.wavelength",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/favicon.png"
