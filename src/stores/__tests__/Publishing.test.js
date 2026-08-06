@@ -85,6 +85,7 @@ describe('Publishing store', () => {
     create_episode_post.mockClear();
     fetch_micropub_post_id.mockClear();
     fetch_micropub_post_source.mockClear();
+    update_micropub_post.mockClear();
     upload_episode_audio.mockClear();
     read_file_size_bytes.mockClear();
     build_upload_size_limit_message.mockClear();
@@ -126,6 +127,7 @@ describe('Publishing store', () => {
 
   test('publish_episode marks the episode published and refreshes posts', async () => {
     Publishing.set_post_title('Episode 123: Hello');
+    Publishing.set_post_content('Show notes for the episode.');
 
     const post_url = await Publishing.publish_episode('episode-1');
 
@@ -143,6 +145,33 @@ describe('Publishing store', () => {
       post_url: 'https://example.micro.blog/post/1',
     });
     expect(Posts.refresh).toHaveBeenCalled();
+  });
+
+  test('publish_episode blocks empty content and summary before export', async () => {
+    Publishing.set_post_title('Episode 123: Hello');
+
+    const post_url = await Publishing.publish_episode('episode-1');
+
+    expect(post_url).toBeNull();
+    expect(Publishing.phase).toBe('idle');
+    expect(Publishing.is_publishing).toBe(false);
+    expect(Publishing.error_message).toBe('There is nothing to post. Type something to get started.');
+    expect(Episodes.export_published_audio).not.toHaveBeenCalled();
+    expect(upload_episode_audio).not.toHaveBeenCalled();
+    expect(create_episode_post).not.toHaveBeenCalled();
+  });
+
+  test('publish_episode allows a summary without body content', async () => {
+    Publishing.set_summary('Episode summary only');
+
+    const post_url = await Publishing.publish_episode('episode-1');
+
+    expect(post_url).toBe('https://example.micro.blog/post/1');
+    expect(upload_episode_audio).toHaveBeenCalled();
+    expect(create_episode_post).toHaveBeenCalledWith(expect.objectContaining({
+      content: '',
+      summary: 'Episode summary only',
+    }));
   });
 
   test('prep_post_edit hydrates the editor and links a local episode by post uid', () => {
@@ -203,6 +232,7 @@ describe('Publishing store', () => {
 
   test('publish_episode skips publish metadata when saving a draft', async () => {
     Publishing.handle_post_status_select('draft');
+    Publishing.set_post_content('Draft show notes.');
 
     const post_url = await Publishing.publish_episode('episode-1');
 
@@ -213,6 +243,7 @@ describe('Publishing store', () => {
   });
 
   test('publish_episode resets phase and sets an error when export fails', async () => {
+    Publishing.set_post_content('Show notes for the episode.');
     Episodes.export_published_audio.mockResolvedValueOnce('');
 
     const post_url = await Publishing.publish_episode('episode-1');
@@ -224,6 +255,7 @@ describe('Publishing store', () => {
   });
 
   test('publish_episode blocks oversized exported audio before upload', async () => {
+    Publishing.set_post_content('Show notes for the episode.');
     read_file_size_bytes.mockReturnValueOnce(80_000_000);
 
     const post_url = await Publishing.publish_episode('episode-1');
@@ -254,5 +286,23 @@ describe('Publishing store', () => {
       title: 'Morning show',
     }));
     expect(Posts.refresh).toHaveBeenCalled();
+  });
+
+  test('update_post blocks empty content and summary', async () => {
+    Publishing.prep_post_edit({
+      content: '<p>Notes</p>',
+      post_status: 'published',
+      title: 'Morning show',
+      uid: '12345',
+      url: 'https://example.micro.blog/post/1',
+    });
+    Publishing.set_post_content('   ');
+    Publishing.set_summary('');
+
+    const updated = await Publishing.update_post();
+
+    expect(updated).toBe(false);
+    expect(Publishing.error_message).toBe('There is nothing to post. Type something to get started.');
+    expect(update_micropub_post).not.toHaveBeenCalled();
   });
 });

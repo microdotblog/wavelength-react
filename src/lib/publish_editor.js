@@ -32,6 +32,10 @@ export function post_text_length(content = '') {
   return `${content || ''}`.length;
 }
 
+export function has_publishable_post_text({ content = '', summary = '' } = {}) {
+  return `${content || ''}`.trim().length > 0 || `${summary || ''}`.trim().length > 0;
+}
+
 export function build_episode_audio_filename(title = '') {
   const filename = `${title || ''}`
     .trim()

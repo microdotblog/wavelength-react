@@ -13,6 +13,7 @@ import {
   apply_text_format_action,
   build_episode_audio_filename,
   build_episode_publish_payload,
+  has_publishable_post_text,
   normalize_micropub_categories,
   normalize_micropub_syndicates,
   post_text_length,
@@ -297,6 +298,14 @@ const Publishing = types
         title: overrides.title ?? self.post_title,
       });
 
+      if (!has_publishable_post_text({
+        content: payload.content,
+        summary: payload.summary,
+      })) {
+        self.set_error('There is nothing to post. Type something to get started.');
+        return null;
+      }
+
       self.is_publishing = true;
       self.error_message = null;
       self.last_post_url = '';
@@ -381,6 +390,14 @@ const Publishing = types
       }
 
       const destination = `${Auth.default_site || ''}`.trim();
+
+      if (!has_publishable_post_text({
+        content: self.post_content,
+        summary: self.summary,
+      })) {
+        self.set_error('There is nothing to post. Type something to get started.');
+        return false;
+      }
 
       self.is_publishing = true;
       self.error_message = null;

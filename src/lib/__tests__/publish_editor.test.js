@@ -2,6 +2,7 @@ const {
   apply_text_format_action,
   build_episode_audio_filename,
   build_episode_publish_payload,
+  has_publishable_post_text,
   normalize_micropub_categories,
   normalize_micropub_syndicates,
   resolve_playback_toggle_action,
@@ -12,6 +13,13 @@ const {
 } = require('../publish_editor');
 
 describe('publish_editor', () => {
+  test('has_publishable_post_text requires content or summary', () => {
+    expect(has_publishable_post_text()).toBe(false);
+    expect(has_publishable_post_text({ content: '   ', summary: '' })).toBe(false);
+    expect(has_publishable_post_text({ content: 'Show notes' })).toBe(true);
+    expect(has_publishable_post_text({ summary: 'Episode summary' })).toBe(true);
+  });
+
   test('should_show_title when show_title is enabled', () => {
     expect(should_show_title({ show_title: true })).toBe(true);
   });
