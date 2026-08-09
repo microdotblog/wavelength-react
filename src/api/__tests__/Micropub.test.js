@@ -288,4 +288,26 @@ describe('Micropub update_micropub_post', () => {
       url: 'https://example.micro.blog/post/1',
     });
   });
+
+  test('includes empty summary so updates can clear it', async () => {
+    await update_micropub_post({
+      content: '<p>Updated notes</p>',
+      post_url: 'https://example.micro.blog/post/1',
+      summary: '   ',
+      title: 'Updated title',
+      token: 'token',
+    });
+
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({
+      action: 'update',
+      replace: {
+        category: [],
+        content: ['<p>Updated notes</p>'],
+        name: ['Updated title'],
+        'post-status': ['published'],
+        summary: [''],
+      },
+      url: 'https://example.micro.blog/post/1',
+    });
+  });
 });
