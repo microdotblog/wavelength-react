@@ -155,7 +155,7 @@ describe('Publishing store', () => {
     expect(post_url).toBeNull();
     expect(Publishing.phase).toBe('idle');
     expect(Publishing.is_publishing).toBe(false);
-    expect(Publishing.error_message).toBe('There is nothing to post. Type something to get started.');
+    expect(Publishing.error_message).toBe('You need show notes or a summary to publish.');
     expect(Episodes.export_published_audio).not.toHaveBeenCalled();
     expect(upload_episode_audio).not.toHaveBeenCalled();
     expect(create_episode_post).not.toHaveBeenCalled();
@@ -302,7 +302,7 @@ describe('Publishing store', () => {
     const updated = await Publishing.update_post();
 
     expect(updated).toBe(false);
-    expect(Publishing.error_message).toBe('There is nothing to post. Type something to get started.');
+    expect(Publishing.error_message).toBe('You need show notes or a summary to publish.');
     expect(update_micropub_post).not.toHaveBeenCalled();
   });
 });

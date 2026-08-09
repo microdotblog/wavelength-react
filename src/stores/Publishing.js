@@ -302,7 +302,7 @@ const Publishing = types
         content: payload.content,
         summary: payload.summary,
       })) {
-        self.set_error('There is nothing to post. Type something to get started.');
+        self.set_error('You need show notes or a summary to publish.');
         return null;
       }
 
@@ -395,7 +395,7 @@ const Publishing = types
         content: self.post_content,
         summary: self.summary,
       })) {
-        self.set_error('There is nothing to post. Type something to get started.');
+        self.set_error('You need show notes or a summary to publish.');
         return false;
       }
 
