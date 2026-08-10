@@ -224,12 +224,8 @@ export async function update_micropub_post({
     content: [`${content || ''}`],
     name: [`${title || ''}`],
     'post-status': [`${status || 'published'}`.trim() || 'published'],
+    summary: [`${summary || ''}`.trim()],
   };
-  const trimmed_summary = `${summary || ''}`.trim();
-
-  if (trimmed_summary) {
-    replace.summary = [trimmed_summary];
-  }
 
   const body = {
     action: 'update',
