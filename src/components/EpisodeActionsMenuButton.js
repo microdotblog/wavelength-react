@@ -5,7 +5,7 @@ import { SFSymbol } from 'react-native-sfsymbols';
 
 import { is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
-function EpisodeActionsMenuButton({ is_published = false, on_delete, on_duplicate, on_rename, theme }) {
+function EpisodeActionsMenuButton({ is_published = false, on_delete, on_duplicate, on_export, on_rename, theme }) {
   const should_use_liquid_glass = is_liquid_glass();
 
   function handle_press_action({ nativeEvent }) {
@@ -21,6 +21,11 @@ function EpisodeActionsMenuButton({ is_published = false, on_delete, on_duplicat
       return;
     }
 
+    if (action_id === 'export') {
+      on_export?.();
+      return;
+    }
+
     if (action_id === 'delete') {
       on_delete();
     }
@@ -33,6 +38,8 @@ function EpisodeActionsMenuButton({ is_published = false, on_delete, on_duplicat
   if (is_published) {
     actions.push({ id: 'duplicate', title: 'Duplicate' });
   }
+
+  actions.push({ id: 'export', title: 'Export' });
 
   actions.push({
     attributes: { destructive: true },

@@ -26,8 +26,9 @@ import PlatformSymbol from '../components/PlatformSymbol';
 import PlaybackControlButton from '../components/PlaybackControlButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
-import { format_duration } from '../lib/format_duration';
+import { share_episode_audio } from '../lib/episode_export';
 import { build_upload_size_limit_message } from '../lib/episode_upload_size';
+import { format_duration } from '../lib/format_duration';
 import { format_post_date } from '../lib/micropub_posts';
 import { show_toast } from '../lib/toast';
 import { use_episode_playback } from '../hooks/use_episode_playback';
@@ -55,6 +56,7 @@ function build_ios_episode_header_items({
   is_published,
   on_delete,
   on_duplicate,
+  on_export,
   on_publish,
   on_rename,
   on_save,
@@ -88,6 +90,13 @@ function build_ios_episode_header_items({
       type: 'action',
     });
   }
+
+  menu_items.push({
+    icon: { name: 'square.and.arrow.up', type: 'sfSymbol' },
+    label: 'Export',
+    onPress: on_export,
+    type: 'action',
+  });
 
   menu_items.push({
     destructive: true,
@@ -178,11 +187,13 @@ function EditScreen({ navigation, route, theme }) {
   const [initial_title_selection, set_initial_title_selection] = React.useState(null);
   const [is_editing_title, set_is_editing_title] = React.useState(false);
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
+  const [is_exporting_episode, set_is_exporting_episode] = React.useState(false);
   const [is_importing_audio, set_is_importing_audio] = React.useState(false);
   const [published_post_details, set_published_post_details] = React.useState(EMPTY_PUBLISHED_POST_DETAILS);
   const save_handler_ref = React.useRef(null);
   const rename_handler_ref = React.useRef(null);
   const delete_handler_ref = React.useRef(null);
+  const export_handler_ref = React.useRef(null);
   const publish_handler_ref = React.useRef(null);
   const duplicate_handler_ref = React.useRef(null);
   const playback_play_ref = React.useRef(null);
@@ -415,6 +426,28 @@ function EditScreen({ navigation, route, theme }) {
     }
   }
 
+  async function export_episode() {
+    if (!episode || is_exporting_episode) {
+      return;
+    }
+
+    set_is_exporting_episode(true);
+
+    try {
+      const merged_uri = await Episodes.export_merged_audio(episode_id);
+
+      if (!merged_uri) {
+        throw new Error('Could not export episode.');
+      }
+
+      await share_episode_audio(merged_uri, episode.title);
+    } catch (error) {
+      show_toast(error?.message || 'Could not export episode.');
+    } finally {
+      set_is_exporting_episode(false);
+    }
+  }
+
   async function move_clip(index, target_index) {
     if (!episode || episode.is_published()) {
       return;
@@ -586,6 +619,7 @@ function EditScreen({ navigation, route, theme }) {
   save_handler_ref.current = commit_title;
   rename_handler_ref.current = start_rename;
   delete_handler_ref.current = confirm_delete_episode;
+  export_handler_ref.current = export_episode;
   publish_handler_ref.current = open_publish;
   duplicate_handler_ref.current = duplicate_episode;
 
@@ -603,6 +637,7 @@ function EditScreen({ navigation, route, theme }) {
             is_published,
             on_delete: () => delete_handler_ref.current?.(),
             on_duplicate: () => duplicate_handler_ref.current?.(),
+            on_export: () => export_handler_ref.current?.(),
             on_publish: () => publish_handler_ref.current?.(),
             on_rename: () => rename_handler_ref.current?.(),
             on_save: () => save_handler_ref.current?.(),
@@ -637,6 +672,7 @@ function EditScreen({ navigation, route, theme }) {
               is_published={is_published}
               on_delete={() => delete_handler_ref.current?.()}
               on_duplicate={() => duplicate_handler_ref.current?.()}
+              on_export={() => export_handler_ref.current?.()}
               on_rename={() => rename_handler_ref.current?.()}
               theme={theme}
             />
