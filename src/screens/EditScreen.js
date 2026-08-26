@@ -92,7 +92,7 @@ function build_ios_episode_header_items({
   }
 
   menu_items.push({
-    icon: { name: 'square.and.arrow.up', type: 'sfSymbol' },
+    icon: { name: 'square.and.arrow.down', type: 'sfSymbol' },
     label: 'Export',
     onPress: on_export,
     type: 'action',
