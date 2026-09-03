@@ -266,9 +266,11 @@ const Auth = types
       if (is_legacy_wavelength_token_url(raw_url)) {
         const callback_token = extract_legacy_wavelength_token(raw_url);
         yield Tokens.clear_pending_oauth_state();
-        return yield self.sign_in_with_token(callback_token, {
+        const did_sign_in = yield self.sign_in_with_token(callback_token, {
           allow_while_hydrating: true,
         });
+        self.dismiss_open_auth_session();
+        return did_sign_in;
       }
 
       if (!is_micro_blog_callback_url(raw_url)) {
@@ -315,17 +317,17 @@ const Auth = types
           if (did_handle_callback) {
             return true;
           }
+        }
 
-          yield Tokens.clear_pending_oauth_state();
-          self.set_error('Micro.blog sign in did not complete. Please try again.');
-          return false;
+        if (!Tokens.has_pending_oauth_state()) {
+          return !self.error_message;
         }
 
         yield Tokens.clear_pending_oauth_state();
 
         if (auth_result?.type === 'cancel' || auth_result?.type === 'dismiss') {
           self.clear_error();
-        } else {
+        } else if (!self.error_message) {
           self.set_error('Micro.blog sign in did not complete. Please try again.');
         }
 
@@ -374,13 +376,19 @@ const Auth = types
       }
     }),
 
+    dismiss_open_auth_session() {
+      try {
+        WebBrowser.dismissAuthSession();
+      } catch {
+        return;
+      }
+    },
+
     complete_sign_in_callback: flow(function* (raw_url = '') {
       self.set_loading_phase('verifying');
 
       const { code, state } = extract_micro_blog_callback_params(raw_url);
       const expected_state = Tokens.get_pending_oauth_state();
-
-      yield Tokens.clear_pending_oauth_state();
 
       if (!code) {
         self.set_error('Micro.blog did not return an authorization code. Please try again.');
@@ -391,6 +399,8 @@ const Auth = types
         self.set_error('Micro.blog sign in could not be verified. Please try again.');
         return false;
       }
+
+      yield Tokens.clear_pending_oauth_state();
 
       try {
         const token_payload = yield exchange_micro_blog_code({ code });
@@ -427,6 +437,8 @@ const Auth = types
         self.set_error('We could not finish signing you in. Please try again.');
         return false;
       } finally {
+        self.dismiss_open_auth_session();
+
         if (!self.is_hydrating) {
           self.set_loading_phase();
         }
