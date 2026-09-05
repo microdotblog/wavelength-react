@@ -4,7 +4,7 @@ export const MICRO_BLOG_AUTH_URL = 'https://micro.blog/indieauth/auth';
 export const MICRO_BLOG_TOKEN_URL = 'https://micro.blog/indieauth/token';
 export const MICRO_BLOG_VERIFY_URL = 'https://micro.blog/account/verify';
 export const MICRO_BLOG_CLIENT_ID = 'https://micro.blog/wavelength/';
-export const MICRO_BLOG_SCOPE = 'create';
+export const MICRO_BLOG_SCOPE = 'read write';
 export const MICRO_BLOG_REDIRECT_PATH = 'auth/callback';
 export const WAVELENGTH_SCHEME = 'wavelength';
 
