@@ -34,11 +34,17 @@ import Auth from './Auth';
 import Posts from './Posts';
 import Tokens from './Tokens';
 
-async function upgrade_legacy_episode(legacy_episode) {
+const LEGACY_UPGRADE_TIMEOUT_MILLIS = 30_000;
+
+async function upgrade_legacy_episode(legacy_episode, upgrade) {
   const existing = await read_migrated_episode(
     legacy_episode.id,
     legacy_episode.clips.length,
   );
+
+  if (upgrade.is_cancelled) {
+    return null;
+  }
 
   if (existing) {
     await delete_legacy_episode(legacy_episode.id);
@@ -51,9 +57,19 @@ async function upgrade_legacy_episode(legacy_episode) {
     for (const clip of legacy_episode.clips) {
       const converted = await normalize_imported_audio(clip.uri);
       converted_clips.push(converted);
+
+      // Native conversion can finish after we have stopped waiting for it.
+      if (upgrade.is_cancelled) {
+        return null;
+      }
     }
 
     const migrated = await save_migrated_episode(legacy_episode, converted_clips);
+
+    if (upgrade.is_cancelled) {
+      return null;
+    }
+
     await delete_legacy_episode(legacy_episode.id);
 
     return migrated;
@@ -136,6 +152,7 @@ const Episodes = types
     export_fingerprints: {},
     is_loading: false,
     is_upgrading_legacy: false,
+    legacy_upgrade: null,
   }))
   .actions(self => ({
     apply_episode_snapshot(snapshot) {
@@ -149,41 +166,90 @@ const Episodes = types
     },
 
     refresh: flow(function* () {
+      if (self.is_loading) {
+        return;
+      }
+
       self.is_loading = true;
 
       try {
-        if (!self.did_check_for_legacy) {
-          self.did_check_for_legacy = true;
+        try {
+          const loaded_episodes = yield list_episodes();
+          applySnapshot(self.episodes, loaded_episodes);
+        } catch (error) {
+          console.warn('Could not load recordings:', error);
+        }
 
-          const legacy_episodes = yield list_legacy_episodes();
+        self.did_hydrate = true;
+        yield self.upgrade_legacy_recordings();
+      } finally {
+        self.is_loading = false;
+      }
+    }),
 
-          if (legacy_episodes.length > 0) {
-            self.is_upgrading_legacy = true;
+    upgrade_legacy_recordings: flow(function* () {
+      if (self.did_check_for_legacy) {
+        return;
+      }
 
+      self.did_check_for_legacy = true;
+
+      const upgrade = { is_cancelled: false, cancel: null };
+      const cancelled = new Promise(resolve => {
+        upgrade.cancel = () => {
+          upgrade.is_cancelled = true;
+          resolve();
+        };
+      });
+      self.legacy_upgrade = upgrade;
+
+      const timeout = setTimeout(() => {
+        console.warn('Legacy recording upgrade timed out.');
+        self.continue_without_legacy_upgrade();
+      }, LEGACY_UPGRADE_TIMEOUT_MILLIS);
+
+      try {
+        const legacy_episodes = yield Promise.race([list_legacy_episodes(), cancelled]);
+
+        if (!upgrade.is_cancelled && legacy_episodes.length > 0) {
+          self.is_upgrading_legacy = true;
+
+          for (const legacy_episode of legacy_episodes) {
             try {
-              for (const legacy_episode of legacy_episodes) {
-                try {
-                  yield upgrade_legacy_episode(legacy_episode);
-                } catch (error) {
-                  // Leave the old folder intact so a future launch can retry it.
-                }
+              const migrated = yield Promise.race([
+                upgrade_legacy_episode(legacy_episode, upgrade),
+                cancelled,
+              ]);
+
+              if (!upgrade.is_cancelled) {
+                self.apply_episode_snapshot(migrated);
               }
-            } finally {
-              self.is_upgrading_legacy = false;
+            } catch (error) {
+              // Leave the old folder intact so a future launch can retry it.
+              console.warn('Could not upgrade legacy recording:', legacy_episode.id, error);
+            }
+
+            if (upgrade.is_cancelled) {
+              break;
             }
           }
         }
-
-        const loaded_episodes = yield list_episodes();
-        applySnapshot(self.episodes, loaded_episodes);
-        self.did_hydrate = true;
       } catch (error) {
+        console.warn('Could not upgrade legacy recordings:', error);
+      } finally {
+        clearTimeout(timeout);
         self.is_upgrading_legacy = false;
-        self.did_hydrate = true;
+        self.legacy_upgrade = null;
+      }
+    }),
+
+    continue_without_legacy_upgrade() {
+      if (self.legacy_upgrade) {
+        self.legacy_upgrade.cancel();
       }
 
-      self.is_loading = false;
-    }),
+      self.is_upgrading_legacy = false;
+    },
 
     refresh_episode: flow(function* (episode_id = '') {
       const snapshot = yield read_episode(episode_id);
