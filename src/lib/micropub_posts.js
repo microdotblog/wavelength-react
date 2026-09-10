@@ -1,7 +1,56 @@
 const AUDIO_TAG_PATTERN = /<audio\b/i;
+const AUDIO_OPEN_TAG_PATTERN = /<audio\b[^>]*>/gi;
+const HIDDEN_AUDIO_STYLE_PATTERN = /style\s*=\s*["'][^"']*display\s*:\s*none/i;
 
 export function is_audio_post(content = '') {
   return AUDIO_TAG_PATTERN.test(`${content || ''}`);
+}
+
+export function is_narrated_post(content = '') {
+  const tags = `${content || ''}`.match(AUDIO_OPEN_TAG_PATTERN) || [];
+
+  return tags.some(tag => HIDDEN_AUDIO_STYLE_PATTERN.test(tag));
+}
+
+function has_visible_audio(content = '') {
+  const tags = `${content || ''}`.match(AUDIO_OPEN_TAG_PATTERN) || [];
+
+  return tags.some(tag => !HIDDEN_AUDIO_STYLE_PATTERN.test(tag));
+}
+
+export function post_kind(content = '') {
+  if (has_visible_audio(content)) {
+    return 'podcast';
+  }
+
+  if (is_narrated_post(content)) {
+    return 'narrated';
+  }
+
+  return 'post';
+}
+
+export function post_display_title(post = {}) {
+  const title = `${post?.title || ''}`.trim();
+
+  if (title) {
+    return title;
+  }
+
+  const first_line = first_plain_line(post?.content || '');
+
+  if (first_line) {
+    return first_line;
+  }
+
+  return 'Untitled';
+}
+
+function first_plain_line(content = '') {
+  const html = `${content || ''}`;
+  const first_block = html.split(/<\/p>|<br\s*\/?>|\n/i)[0] || html;
+
+  return post_plain_text(first_block);
 }
 
 function read_micropub_property(properties = {}, name = '') {
@@ -49,7 +98,7 @@ function normalize_micropub_post_item(item = null) {
   const content = read_micropub_property(properties, 'content');
   const post_status = read_micropub_property(properties, 'post-status') || 'published';
 
-  if (!uid || !url || !is_audio_post(content)) {
+  if (!uid || !url) {
     return null;
   }
 

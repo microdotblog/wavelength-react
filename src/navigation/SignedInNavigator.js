@@ -5,6 +5,7 @@ import { observer } from 'mobx-react';
 
 import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
+import NarrateScreen from '../screens/NarrateScreen';
 import PostEditScreen from '../screens/PostEditScreen';
 import PublishOptionsScreen from '../screens/PublishOptionsScreen';
 import PublishScreen from '../screens/PublishScreen';
@@ -113,6 +114,20 @@ function SignedInNavigator({ theme }) {
       >
         {screen_props => (
           <PostEditScreen
+            {...screen_props}
+            theme={theme}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="Narrate"
+        options={{
+          title: 'Narrate',
+          headerLargeTitle: false,
+        }}
+      >
+        {screen_props => (
+          <NarrateScreen
             {...screen_props}
             theme={theme}
           />

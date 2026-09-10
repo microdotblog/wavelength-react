@@ -2,19 +2,23 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react';
 
-import { format_post_date, post_plain_text } from '../lib/micropub_posts';
+import { format_post_date, post_display_title, post_kind, post_plain_text } from '../lib/micropub_posts';
 
 function PostRow({ onPress, post, theme }) {
   const summary = post_plain_text(post.content);
   const published_label = format_post_date(post.published_at);
-  const title = `${post.title || ''}`.trim() || 'Podcast';
+  const title = post_display_title(post);
+  const kind = post_kind(post.content);
   const accessibility_label = published_label.length > 0
     ? `${title}, ${published_label}`
     : title;
+  const accessibility_hint = kind === 'podcast'
+    ? 'Swipe left to delete. Double tap to edit.'
+    : 'Swipe left to delete. Double tap to narrate.';
 
   return (
     <Pressable
-      accessibilityHint="Swipe left to delete. Double tap to edit."
+      accessibilityHint={accessibility_hint}
       accessibilityLabel={accessibility_label}
       accessibilityRole="button"
       onPress={onPress}

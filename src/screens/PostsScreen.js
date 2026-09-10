@@ -14,16 +14,46 @@ import {
   discover_playback_content_padding,
   use_discover_playback_dock,
 } from '../components/DiscoverPlaybackProvider';
+import FilterPills from '../components/FilterPills';
 import PostRow from '../components/PostRow';
 import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
+import { post_kind } from '../lib/micropub_posts';
 import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
 import { show_toast } from '../lib/toast';
 import Posts from '../stores/Posts';
 
+function empty_copy_for_filter(filter = 'all', destination_label = 'your Micro.blog') {
+  if (filter === 'posts') {
+    return {
+      body: 'Posts without audio will show up here.',
+      title: 'No text posts',
+    };
+  }
+
+  if (filter === 'podcasts') {
+    return {
+      body: `Published audio posts from ${destination_label} will show up here.`,
+      title: 'No podcasts yet',
+    };
+  }
+
+  if (filter === 'narrated') {
+    return {
+      body: 'Posts with a hidden audio narration will show up here.',
+      title: 'No narrated posts yet',
+    };
+  }
+
+  return {
+    body: `Published posts from ${destination_label} will show up here.`,
+    title: 'No posts yet',
+  };
+}
+
 function PostsScreen({ navigation, theme }) {
-  const posts = Posts.sorted_posts();
+  const posts = Posts.filtered_posts();
   const destination_label =
     Auth.default_site_name || Auth.default_site || Auth.profile_url || 'your Micro.blog';
   const open_swipeable_ref = React.useRef(null);
@@ -53,14 +83,19 @@ function PostsScreen({ navigation, theme }) {
     }
   }
 
-  function open_post_edit(post) {
+  function open_post(post) {
     const post_uid = `${post?.uid || ''}`.trim();
 
     if (!post_uid) {
       return;
     }
 
-    navigation.navigate('PostEdit', { post_uid });
+    if (post_kind(post.content) === 'podcast') {
+      navigation.navigate('PostEdit', { post_uid });
+      return;
+    }
+
+    navigation.navigate('Narrate', { post_uid });
   }
 
   function handle_swipe_will_open(swipeable) {
@@ -119,6 +154,8 @@ function PostsScreen({ navigation, theme }) {
       return null;
     }
 
+    const empty_copy = empty_copy_for_filter(Posts.selected_filter, destination_label);
+
     return (
       <View
         style={[
@@ -129,9 +166,9 @@ function PostsScreen({ navigation, theme }) {
           },
         ]}
       >
-        <Text style={[styles.title, { color: theme.colors.ink }]}>No podcasts yet</Text>
+        <Text style={[styles.title, { color: theme.colors.ink }]}>{empty_copy.title}</Text>
         <Text style={[styles.body, { color: theme.colors.ink_soft }]}>
-          Published audio posts from {destination_label} will show up here.
+          {empty_copy.body}
         </Text>
       </View>
     );
@@ -149,11 +186,18 @@ function PostsScreen({ navigation, theme }) {
       keyExtractor={item => item.uid}
       ListEmptyComponent={render_empty_state}
       ListHeaderComponent={
-        Posts.error_message ? (
-          <Text style={[styles.error, { color: theme.colors.ink_soft }]}>
-            {Posts.error_message}
-          </Text>
-        ) : null
+        <View>
+          <FilterPills
+            on_select={Posts.set_selected_filter}
+            selected_id={Posts.selected_filter}
+            theme={theme}
+          />
+          {Posts.error_message ? (
+            <Text style={[styles.error, { color: theme.colors.ink_soft }]}>
+              {Posts.error_message}
+            </Text>
+          ) : null}
+        </View>
       }
       refreshControl={
         <RefreshControl
@@ -168,7 +212,7 @@ function PostsScreen({ navigation, theme }) {
           on_will_open={handle_swipe_will_open}
         >
           <PostRow
-            onPress={() => open_post_edit(item)}
+            onPress={() => open_post(item)}
             post={item}
             theme={theme}
           />
