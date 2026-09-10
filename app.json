@@ -62,7 +62,8 @@
         }
       ],
       "./plugins/withAndroidReleaseSigning",
-      "./plugins/withIosPodDeploymentTarget"
+      "./plugins/withIosPodDeploymentTarget",
+      "./plugins/withIosSceneLifecycle"
     ]
   }
 }
