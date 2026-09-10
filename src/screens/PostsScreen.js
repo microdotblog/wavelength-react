@@ -1,7 +1,9 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -14,8 +16,10 @@ import {
   discover_playback_content_padding,
   use_discover_playback_dock,
 } from '../components/DiscoverPlaybackProvider';
-import FilterPills from '../components/FilterPills';
 import PostRow from '../components/PostRow';
+import PostsFilterMenu, {
+  build_ios_posts_filter_header_items,
+} from '../components/PostsFilterMenu';
 import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
 import { post_kind } from '../lib/micropub_posts';
@@ -23,8 +27,9 @@ import Auth from '../stores/Auth';
 import Episodes from '../stores/Episodes';
 import { show_toast } from '../lib/toast';
 import Posts from '../stores/Posts';
+import { header_right_element } from '../theme/wavelengthTheme';
 
-function empty_copy_for_filter(filter = 'all', destination_label = 'your Micro.blog') {
+function empty_copy_for_filter(filter = 'podcasts', destination_label = 'your Micro.blog') {
   if (filter === 'posts') {
     return {
       body: 'Posts without audio will show up here.',
@@ -66,12 +71,51 @@ function PostsScreen({ navigation, theme }) {
     tab_bar_height,
   });
 
+  React.useEffect(() => {
+    Posts.refresh();
+    Episodes.refresh();
+  }, []);
+
   useFocusEffect(
     React.useCallback(() => {
       Posts.refresh();
       Episodes.refresh();
     }, []),
   );
+
+  React.useLayoutEffect(() => {
+    if (Platform.OS === 'ios') {
+      navigation.setOptions({
+        headerRight: undefined,
+        unstable_headerRightItems: () => build_ios_posts_filter_header_items({
+          did_hydrate: Posts.did_hydrate,
+          is_loading: Posts.is_loading,
+          selected_filter: Posts.selected_filter,
+          spinner: (
+            <ActivityIndicator
+              accessibilityLabel="Loading posts"
+              color={theme.colors.accent}
+              size="small"
+            />
+          ),
+        }),
+      });
+      return;
+    }
+
+    navigation.setOptions({
+      unstable_headerRightItems: undefined,
+      ...header_right_element(() => (
+        <PostsFilterMenu theme={theme} />
+      )),
+    });
+  }, [
+    navigation,
+    theme,
+    Posts.did_hydrate,
+    Posts.is_loading,
+    Posts.selected_filter,
+  ]);
 
   async function handle_pull_refresh() {
     set_is_pull_refreshing(true);
@@ -186,18 +230,11 @@ function PostsScreen({ navigation, theme }) {
       keyExtractor={item => item.uid}
       ListEmptyComponent={render_empty_state}
       ListHeaderComponent={
-        <View>
-          <FilterPills
-            on_select={Posts.set_selected_filter}
-            selected_id={Posts.selected_filter}
-            theme={theme}
-          />
-          {Posts.error_message ? (
-            <Text style={[styles.error, { color: theme.colors.ink_soft }]}>
-              {Posts.error_message}
-            </Text>
-          ) : null}
-        </View>
+        Posts.error_message ? (
+          <Text style={[styles.error, { color: theme.colors.ink_soft }]}>
+            {Posts.error_message}
+          </Text>
+        ) : null
       }
       refreshControl={
         <RefreshControl

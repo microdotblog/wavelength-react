@@ -25,7 +25,7 @@ const Post = types.model('Post', {
 const Posts = types
   .model('Posts', {
     posts: types.array(Post),
-    selected_filter: types.optional(types.string, 'all'),
+    selected_filter: types.optional(types.string, 'podcasts'),
   })
   .volatile(() => ({
     attach_phase: 'idle',
@@ -54,6 +54,10 @@ const Posts = types
     },
 
     refresh: flow(function* () {
+      if (self.is_loading) {
+        return;
+      }
+
       const token = Tokens.get_user_token();
 
       if (!token) {

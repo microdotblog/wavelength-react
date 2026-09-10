@@ -22,7 +22,7 @@ jest.mock('../../lib/attach_narration', () => ({
 }));
 
 const { applySnapshot } = require('mobx-state-tree');
-const { delete_micropub_post } = require('../../api/Micropub');
+const { delete_micropub_post, fetch_micropub_posts } = require('../../api/Micropub');
 const { attach_narration_to_post } = require('../../lib/attach_narration');
 const Posts = require('../Posts').default;
 
@@ -61,6 +61,8 @@ describe('Posts store', () => {
     });
     delete_micropub_post.mockClear();
     attach_narration_to_post.mockReset();
+    fetch_micropub_posts.mockReset();
+    fetch_micropub_posts.mockResolvedValue({ items: [] });
   });
 
   test('delete_post removes a post after micropub delete succeeds', async () => {
@@ -72,6 +74,34 @@ describe('Posts store', () => {
       token: 'token',
     });
     expect(Posts.get_post('2')).toBeNull();
+  });
+
+  test('refresh ignores a second call while a fetch is in flight', async () => {
+    let resolve_fetch;
+    fetch_micropub_posts.mockImplementation(
+      () => new Promise(resolve => {
+        resolve_fetch = resolve;
+      }),
+    );
+
+    const first = Posts.refresh();
+    const second = Posts.refresh();
+
+    expect(fetch_micropub_posts).toHaveBeenCalledTimes(1);
+    expect(Posts.is_loading).toBe(true);
+
+    resolve_fetch({ items: [] });
+    await first;
+    await second;
+
+    expect(Posts.is_loading).toBe(false);
+    expect(Posts.did_hydrate).toBe(true);
+  });
+
+  test('defaults to the podcasts filter', () => {
+    applySnapshot(Posts, { posts: SAMPLE_POSTS });
+    expect(Posts.selected_filter).toBe('podcasts');
+    expect(Posts.filtered_posts().map(post => post.uid)).toEqual(['2']);
   });
 
   test('filtered_posts respects selected_filter', () => {
