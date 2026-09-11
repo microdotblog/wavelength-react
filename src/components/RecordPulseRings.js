@@ -28,7 +28,7 @@ const DEFAULT_ATTENTION_CADENCE_MS = 1800;
 const RECORDING_EASING = Easing.out(Easing.quad);
 const ATTENTION_EASING = Easing.inOut(Easing.quad);
 
-function PulseRing({ delay, duration, easing, is_active, level, theme }) {
+function PulseRing({ delay, duration, easing, is_active, level, max_extra, size, theme }) {
   const progress = useSharedValue(0);
 
   React.useEffect(() => {
@@ -50,7 +50,7 @@ function PulseRing({ delay, duration, easing, is_active, level, theme }) {
   }, [delay, duration, easing, is_active, progress]);
 
   const animated_style = useAnimatedStyle(() => {
-    const reach = 1 + MAX_EXTRA * level.value;
+    const reach = 1 + max_extra * level.value;
     const scale = interpolate(progress.value, [0, 1], [1, reach]);
     const opacity = interpolate(progress.value, [0, 1], [RING_MAX_OPACITY * level.value, 0]);
 
@@ -63,7 +63,17 @@ function PulseRing({ delay, duration, easing, is_active, level, theme }) {
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.ring, { borderColor: theme.colors.accent }, animated_style]}
+      style={[
+        styles.ring,
+        {
+          borderColor: theme.colors.accent,
+          borderRadius: size / 2,
+          borderWidth: size >= RING_SIZE ? 3 : 1.5,
+          height: size,
+          width: size,
+        },
+        animated_style,
+      ]}
     />
   );
 }
@@ -72,7 +82,9 @@ function RecordPulseRings({
   attention = false,
   attention_cadence_ms = DEFAULT_ATTENTION_CADENCE_MS,
   is_recording = false,
+  max_extra = MAX_EXTRA,
   metering,
+  size = RING_SIZE,
   theme,
 }) {
   const level = useSharedValue(0);
@@ -108,6 +120,8 @@ function RecordPulseRings({
           easing={ring_easing}
           is_active={is_active}
           level={level}
+          max_extra={max_extra}
+          size={size}
           theme={theme}
         />
       ))}
@@ -118,11 +132,7 @@ function RecordPulseRings({
 const styles = StyleSheet.create({
   ring: {
     borderCurve: 'continuous',
-    borderRadius: RING_SIZE / 2,
-    borderWidth: 3,
-    height: RING_SIZE,
     position: 'absolute',
-    width: RING_SIZE,
   },
 });
 

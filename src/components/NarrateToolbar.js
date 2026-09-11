@@ -1,14 +1,56 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { observer } from 'mobx-react';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  FadeIn,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import PlatformSymbol from './PlatformSymbol';
 import PlaybackProgressBar from './PlaybackProgressBar';
 import PlaybackWaveform from './PlaybackWaveform';
+import RecordPulseRings from './RecordPulseRings';
+import RecordingWaveform from './RecordingWaveform';
 import { format_duration } from '../lib/format_duration';
-import { with_color_opacity } from '../theme/wavelengthTheme';
+import { WAVELENGTH_GOLD, with_color_opacity } from '../theme/wavelengthTheme';
 
 const CONTROL_SIZE = 40;
+const RECORDING_WAVEFORM_HEIGHT = 44;
+const COMPACT_PULSE_EXTRA = 0.4;
+const ENTICE_DURATION_MS = 7200;
+const ENTICE_FADE_MS = 480;
+const CHIP_LAYOUT_MS = 280;
+const CHIP_ENTER_MS = 200;
+const CHIP_LAYOUT = LinearTransition.duration(CHIP_LAYOUT_MS).easing(Easing.inOut(Easing.quad));
+const CHIP_ENTER = FadeIn.duration(CHIP_ENTER_MS);
+
+function narrate_chip_surface(theme) {
+  if (theme.is_dark) {
+    return {
+      backgroundColor: 'rgba(55, 65, 81, 0.92)',
+      borderColor: 'rgba(255, 255, 255, 0.12)',
+      experimental_backgroundImage: `linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, rgba(55, 65, 81, 0) 48%, ${with_color_opacity(theme.colors.accent, 0.12)} 100%)`,
+    };
+  }
+
+  return {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderColor: 'rgba(31, 41, 55, 0.12)',
+    experimental_backgroundImage: `linear-gradient(165deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 250, 240, 0.4) 50%, ${with_color_opacity(WAVELENGTH_GOLD, 0.18)} 100%)`,
+  };
+}
+
+export function should_entice_narration(mode = 'idle') {
+  return mode === 'idle';
+}
 
 export function resolve_narrate_toolbar_mode({
   has_remote = false,
@@ -38,6 +80,69 @@ export function resolve_narrate_toolbar_mode({
   }
 
   return 'idle';
+}
+
+function ChipEnticeGradient({ active = false, theme }) {
+  const presence = useSharedValue(active ? 1 : 0);
+  const shift = useSharedValue(0);
+
+  React.useEffect(() => {
+    presence.value = withTiming(active ? 1 : 0, {
+      duration: ENTICE_FADE_MS,
+      easing: Easing.inOut(Easing.quad),
+    });
+
+    if (!active) {
+      cancelAnimation(shift);
+      return () => cancelAnimation(shift);
+    }
+
+    shift.value = withRepeat(
+      withSequence(
+        withTiming(1, {
+          duration: ENTICE_DURATION_MS,
+          easing: Easing.inOut(Easing.sin),
+        }),
+        withTiming(0, {
+          duration: ENTICE_DURATION_MS,
+          easing: Easing.inOut(Easing.sin),
+        }),
+      ),
+      -1,
+      false,
+    );
+
+    return () => cancelAnimation(shift);
+  }, [active, presence, shift]);
+
+  const presence_style = useAnimatedStyle(() => ({
+    opacity: presence.value * (0.42 + shift.value * 0.28),
+  }));
+  const wash_style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: -8 + shift.value * 16 },
+      { translateY: -3 + shift.value * 6 },
+      { scale: 1.16 },
+    ],
+  }));
+
+  const highlight = theme.is_dark
+    ? with_color_opacity(theme.colors.accent, 0.22)
+    : with_color_opacity(WAVELENGTH_GOLD, 0.3);
+  const fade = theme.is_dark ? 'rgba(0, 0, 0, 0)' : 'rgba(255, 255, 255, 0)';
+
+  return (
+    <Animated.View pointerEvents="none" style={[styles.enticeOverlay, presence_style]}>
+      <Animated.View style={[styles.enticeFill, wash_style]}>
+        <LinearGradient
+          colors={[fade, highlight, fade]}
+          end={{ x: 1, y: 1 }}
+          start={{ x: 0, y: 0 }}
+          style={styles.enticeFill}
+        />
+      </Animated.View>
+    </Animated.View>
+  );
 }
 
 function CompactIconButton({
@@ -74,6 +179,14 @@ function CompactIconButton({
   );
 }
 
+function ModeBlock({ children }) {
+  return (
+    <Animated.View style={styles.modeBlock}>
+      {children}
+    </Animated.View>
+  );
+}
+
 function TextAction({ accessibilityLabel, disabled = false, label, onPress, theme, tone = 'default' }) {
   const color = tone === 'destructive' ? theme.colors.ink_soft : theme.colors.accent_strong;
 
@@ -103,6 +216,8 @@ function NarrateToolbar({
   has_take = false,
   is_attaching = false,
   is_playing = false,
+  levels = [],
+  metering,
   on_discard,
   on_finish,
   on_record_press,
@@ -123,6 +238,7 @@ function NarrateToolbar({
     recording_phase,
   });
   const time_label = `${format_duration(current_time)} / ${format_duration(duration_seconds)}`;
+  const is_live_recording = recording_phase === 'recording';
   let record_label = 'Start recording';
 
   if (recording_phase === 'recording') {
@@ -132,166 +248,193 @@ function NarrateToolbar({
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        styles.shadow,
-        {
-          backgroundColor: theme.is_dark ? 'rgba(55, 65, 81, 0.92)' : 'rgba(255, 255, 255, 0.9)',
-          borderColor: theme.is_dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(31, 41, 55, 0.12)',
-        },
-      ]}
-    >
-      {mode === 'saving' ? (
-        <View style={styles.controlsRow}>
-          <View
-            accessibilityLabel={status_label || 'Saving narration'}
-            style={[
-              styles.controlButton,
-              {
-                backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12),
-                borderColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35),
-              },
-            ]}
-          >
-            <ActivityIndicator color={theme.colors.accent} size="small" />
-          </View>
-          <Text style={[styles.status, { color: theme.colors.ink }]}>
-            {status_label || 'Saving narration…'}
-          </Text>
-        </View>
-      ) : null}
+    <Animated.View layout={CHIP_LAYOUT} style={[styles.shadowWrap, styles.shadow]}>
+      <Animated.View
+        layout={CHIP_LAYOUT}
+        style={[
+          styles.container,
+          narrate_chip_surface(theme),
+        ]}
+      >
+        <ChipEnticeGradient
+          active={should_entice_narration(mode)}
+          theme={theme}
+        />
+        {mode === 'saving' ? (
+          <ModeBlock>
+            <View style={styles.controlsRow}>
+              <View
+                accessibilityLabel={status_label || 'Saving narration'}
+                style={[
+                  styles.controlButton,
+                  {
+                    backgroundColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12),
+                    borderColor: with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35),
+                  },
+                ]}
+              >
+                <ActivityIndicator color={theme.colors.accent} size="small" />
+              </View>
+              <Text style={[styles.status, { color: theme.colors.ink }]}>
+                {status_label || 'Saving narration…'}
+              </Text>
+            </View>
+          </ModeBlock>
+        ) : null}
 
-      {mode === 'denied' ? (
-        <Text style={[styles.status, { color: theme.colors.ink }]}>
-          Microphone access is required to record narration.
-        </Text>
-      ) : null}
-
-      {mode === 'idle' ? (
-        <View style={styles.controlsRow}>
-          <CompactIconButton
-            accessibilityLabel={record_label}
-            background_color={theme.colors.accent}
-            border_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35)}
-            icon_color={theme.colors.button_text}
-            icon_name="microphone"
-            onPress={on_record_press}
-          />
-          <Text style={[styles.status, { color: theme.colors.ink }]}>
-            Record narration
-          </Text>
-        </View>
-      ) : null}
-
-      {mode === 'recording' ? (
-        <>
-          <View style={styles.controlsRow}>
-            <CompactIconButton
-              accessibilityLabel={record_label}
-              background_color={theme.colors.accent}
-              border_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35)}
-              icon_color={theme.colors.button_text}
-              icon_name={recording_phase === 'recording' ? 'pause' : 'microphone'}
-              onPress={on_record_press}
-            />
-            <Text style={[styles.status, { color: theme.colors.ink, fontVariant: ['tabular-nums'] }]}>
-              {format_duration(duration_seconds)}
+        {mode === 'denied' ? (
+          <ModeBlock>
+            <Text style={[styles.status, { color: theme.colors.ink }]}>
+              Microphone access is required to record narration.
             </Text>
-          </View>
-          <View style={styles.actionsRow}>
-            <View />
-            <View style={styles.actions}>
-              <TextAction
-                label="Discard"
-                onPress={on_discard}
-                theme={theme}
-                tone="destructive"
-              />
-              <TextAction
-                label="Done"
-                onPress={on_finish}
-                theme={theme}
-              />
-            </View>
-          </View>
-        </>
-      ) : null}
+          </ModeBlock>
+        ) : null}
 
-      {mode === 'review' ? (
-        <>
-          <View style={styles.controlsRow}>
-            <CompactIconButton
-              accessibilityLabel={is_playing ? 'Pause narration preview' : 'Play narration preview'}
-              background_color={theme.colors.accent}
-              border_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35)}
-              icon_color={theme.colors.button_text}
-              icon_name={is_playing ? 'pause' : 'play'}
-              onPress={on_toggle_playback}
-            />
-            <View style={styles.waveformWrap}>
-              <PlaybackWaveform
-                bar_area_height={44}
-                current_time={current_time}
-                duration_seconds={duration_seconds}
-                is_playing={is_playing}
-                onSeek={on_seek}
-                theme={theme}
-                waveform={waveform}
+        {mode === 'idle' ? (
+          <ModeBlock>
+            <View style={styles.controlsRow}>
+              <CompactIconButton
+                accessibilityLabel={record_label}
+                background_color={theme.colors.accent}
+                border_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35)}
+                icon_color={theme.colors.button_text}
+                icon_name="microphone"
+                onPress={on_record_press}
               />
+              <Text style={[styles.status, { color: theme.colors.ink }]}>
+                Record narration
+              </Text>
             </View>
-          </View>
-          <View style={styles.actionsRow}>
-            <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
-              {time_label}
-            </Text>
-            <View style={styles.actions}>
-              <TextAction
-                label="Discard"
-                onPress={on_discard}
-                theme={theme}
-                tone="destructive"
-              />
-              <TextAction
-                label="Save"
-                onPress={on_save}
-                theme={theme}
-              />
-            </View>
-          </View>
-        </>
-      ) : null}
+          </ModeBlock>
+        ) : null}
 
-      {mode === 'remote' ? (
-        <View style={styles.controlsRow}>
-          <CompactIconButton
-            accessibilityLabel={is_playing ? 'Pause narration' : 'Play narration'}
-            background_color={theme.colors.accent}
-            border_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35)}
-            icon_color={theme.colors.button_text}
-            icon_name={is_playing ? 'pause' : 'play'}
-            onPress={on_toggle_playback}
-          />
-          <View style={styles.waveformWrap}>
-            <PlaybackProgressBar
-              current_time={current_time}
-              duration_seconds={duration_seconds}
-              is_playing={is_playing}
-              onSeek={on_seek}
-              theme={theme}
-            />
-          </View>
-          <CompactIconButton
-            accessibilityLabel="Start recording"
-            background_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12)}
-            border_color={theme.colors.accent}
-            icon_color={theme.colors.accent}
-            icon_name="microphone"
-            onPress={on_record_press}
-          />
-        </View>
-      ) : null}
-    </View>
+        {mode === 'recording' ? (
+          <ModeBlock>
+            <View style={styles.controlsRow}>
+              <View style={styles.recordButtonWrap}>
+                <RecordPulseRings
+                  is_recording={is_live_recording}
+                  max_extra={COMPACT_PULSE_EXTRA}
+                  metering={metering}
+                  size={CONTROL_SIZE}
+                  theme={theme}
+                />
+                <CompactIconButton
+                  accessibilityLabel={record_label}
+                  background_color={theme.colors.accent}
+                  border_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35)}
+                  icon_color={theme.colors.button_text}
+                  icon_name={is_live_recording ? 'pause' : 'microphone'}
+                  onPress={on_record_press}
+                />
+              </View>
+              <View style={styles.waveformWrap}>
+                <RecordingWaveform
+                  bar_area_height={RECORDING_WAVEFORM_HEIGHT}
+                  is_recording={is_live_recording}
+                  levels={levels}
+                  theme={theme}
+                />
+              </View>
+            </View>
+            <Animated.View entering={CHIP_ENTER} style={styles.actionsRow}>
+              <Text style={[styles.timeLabel, { color: theme.colors.ink, fontVariant: ['tabular-nums'] }]}>
+                {format_duration(duration_seconds)}
+              </Text>
+              <View style={styles.actions}>
+                <TextAction
+                  label="Discard"
+                  onPress={on_discard}
+                  theme={theme}
+                  tone="destructive"
+                />
+                <TextAction
+                  label="Done"
+                  onPress={on_finish}
+                  theme={theme}
+                />
+              </View>
+            </Animated.View>
+          </ModeBlock>
+        ) : null}
+
+        {mode === 'review' ? (
+          <ModeBlock>
+            <View style={styles.controlsRow}>
+              <CompactIconButton
+                accessibilityLabel={is_playing ? 'Pause narration preview' : 'Play narration preview'}
+                background_color={theme.colors.accent}
+                border_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35)}
+                icon_color={theme.colors.button_text}
+                icon_name={is_playing ? 'pause' : 'play'}
+                onPress={on_toggle_playback}
+              />
+              <View style={styles.waveformWrap}>
+                <PlaybackWaveform
+                  bar_area_height={RECORDING_WAVEFORM_HEIGHT}
+                  current_time={current_time}
+                  duration_seconds={duration_seconds}
+                  is_playing={is_playing}
+                  onSeek={on_seek}
+                  theme={theme}
+                  waveform={waveform}
+                />
+              </View>
+            </View>
+            <Animated.View entering={CHIP_ENTER} style={styles.actionsRow}>
+              <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
+                {time_label}
+              </Text>
+              <View style={styles.actions}>
+                <TextAction
+                  label="Discard"
+                  onPress={on_discard}
+                  theme={theme}
+                  tone="destructive"
+                />
+                <TextAction
+                  label="Save"
+                  onPress={on_save}
+                  theme={theme}
+                />
+              </View>
+            </Animated.View>
+          </ModeBlock>
+        ) : null}
+
+        {mode === 'remote' ? (
+          <ModeBlock>
+            <View style={styles.controlsRow}>
+              <CompactIconButton
+                accessibilityLabel={is_playing ? 'Pause narration' : 'Play narration'}
+                background_color={theme.colors.accent}
+                border_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.5 : 0.35)}
+                icon_color={theme.colors.button_text}
+                icon_name={is_playing ? 'pause' : 'play'}
+                onPress={on_toggle_playback}
+              />
+              <View style={styles.waveformWrap}>
+                <PlaybackProgressBar
+                  current_time={current_time}
+                  duration_seconds={duration_seconds}
+                  is_playing={is_playing}
+                  onSeek={on_seek}
+                  theme={theme}
+                />
+              </View>
+              <CompactIconButton
+                accessibilityLabel="Start recording"
+                background_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12)}
+                border_color={theme.colors.accent}
+                icon_color={theme.colors.accent}
+                icon_name="microphone"
+                onPress={on_record_press}
+              />
+            </View>
+          </ModeBlock>
+        ) : null}
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -309,7 +452,7 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 10,
+    overflow: 'hidden',
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -321,6 +464,7 @@ const styles = StyleSheet.create({
     height: CONTROL_SIZE,
     justifyContent: 'center',
     width: CONTROL_SIZE,
+    zIndex: 1,
   },
   controlsRow: {
     alignItems: 'center',
@@ -330,11 +474,41 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.45,
   },
+  modeBlock: {
+    gap: 10,
+  },
+  enticeFill: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  enticeOverlay: {
+    borderCurve: 'continuous',
+    borderRadius: 22,
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
   pressed: {
     opacity: 0.72,
   },
+  recordButtonWrap: {
+    alignItems: 'center',
+    height: CONTROL_SIZE,
+    justifyContent: 'center',
+    width: CONTROL_SIZE,
+  },
   shadow: {
     boxShadow: '0 4px 14px rgba(0, 0, 0, 0.1)',
+  },
+  shadowWrap: {
+    borderCurve: 'continuous',
+    borderRadius: 22,
   },
   status: {
     flex: 1,

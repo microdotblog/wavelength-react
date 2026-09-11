@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 import NarrateToolbar from '../components/NarrateToolbar';
+import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { build_narrate_html, is_narrate_preview_document_url } from '../lib/narrate_html';
@@ -548,6 +549,19 @@ function NarrateScreen({ navigation, route, theme }) {
 
   done_handler_ref.current = handle_done_press;
 
+  const is_active_recording = recording_phase === 'recording';
+  const recording_duration_ms = recording_phase === 'recording' || recording_phase === 'paused'
+    ? Math.max(
+      last_known_duration_ms_ref.current,
+      Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
+    )
+    : 0;
+  const recording_levels = use_recording_waveform_levels({
+    duration_millis: recording_duration_ms,
+    is_recording: is_active_recording,
+    metering: recorder_state.metering,
+  });
+
   if (!post) {
     return (
       <View style={[styles.screen, styles.missingScreen, { backgroundColor: theme.colors.canvas }]}>
@@ -584,6 +598,8 @@ function NarrateScreen({ navigation, route, theme }) {
           has_take={Boolean(take_uri)}
           is_attaching={Posts.is_attaching}
           is_playing={player_status.playing === true}
+          levels={recording_levels}
+          metering={recorder_state.metering}
           on_discard={confirm_discard}
           on_finish={finish_take}
           on_record_press={handle_record_press}
