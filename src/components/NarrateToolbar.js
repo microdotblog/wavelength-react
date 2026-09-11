@@ -35,9 +35,9 @@ const CHIP_ENTER = FadeIn.duration(CHIP_ENTER_MS);
 function narrate_chip_surface(theme) {
   if (theme.is_dark) {
     return {
-      backgroundColor: 'rgba(55, 65, 81, 0.92)',
-      borderColor: 'rgba(255, 255, 255, 0.12)',
-      experimental_backgroundImage: `linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, rgba(55, 65, 81, 0) 48%, ${with_color_opacity(theme.colors.accent, 0.12)} 100%)`,
+      backgroundColor: with_color_opacity(theme.colors.paper_alt, 0.94),
+      borderColor: theme.colors.line,
+      experimental_backgroundImage: `linear-gradient(165deg, ${with_color_opacity(theme.colors.ink, 0.06)} 0%, ${with_color_opacity(theme.colors.paper_alt, 0)} 48%, ${with_color_opacity(theme.colors.accent, 0.16)} 100%)`,
     };
   }
 
