@@ -2,16 +2,43 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react';
 
+import PlatformSymbol from './PlatformSymbol';
 import { format_post_date, post_display_title, post_kind, post_plain_text } from '../lib/micropub_posts';
 
-function PostRow({ onPress, post, theme }) {
+function post_kind_label(kind = 'post') {
+  if (kind === 'podcast') {
+    return 'Podcast';
+  }
+
+  if (kind === 'narrated') {
+    return 'Narrated';
+  }
+
+  return '';
+}
+
+function post_kind_icon(kind = 'post') {
+  if (kind === 'podcast') {
+    return 'waveform';
+  }
+
+  if (kind === 'narrated') {
+    return 'microphone';
+  }
+
+  return '';
+}
+
+function PostRow({ onPress, post, show_kind = false, theme }) {
   const summary = post_plain_text(post.content);
   const published_label = format_post_date(post.published_at);
   const title = post_display_title(post);
   const kind = post_kind(post.content);
-  const accessibility_label = published_label.length > 0
-    ? `${title}, ${published_label}`
-    : title;
+  const kind_label = show_kind ? post_kind_label(kind) : '';
+  const kind_icon = show_kind ? post_kind_icon(kind) : '';
+  const accessibility_label = [title, kind_label, published_label]
+    .filter(Boolean)
+    .join(', ');
   const accessibility_hint = kind === 'podcast'
     ? 'Swipe left to delete. Double tap to edit.'
     : 'Swipe left to delete. Double tap to narrate.';
@@ -40,10 +67,28 @@ function PostRow({ onPress, post, theme }) {
             {summary}
           </Text>
         ) : null}
-        {published_label.length > 0 ? (
-          <Text style={[styles.date, { color: theme.colors.ink_soft }]}>
-            {published_label}
-          </Text>
+        {published_label.length > 0 || kind_label.length > 0 ? (
+          <View style={styles.meta}>
+            {published_label.length > 0 ? (
+              <Text style={[styles.date, { color: theme.colors.ink_soft }]}>
+                {published_label}
+              </Text>
+            ) : null}
+            {kind_label.length > 0 ? (
+              <View style={styles.kindMark}>
+                {kind_icon.length > 0 ? (
+                  <PlatformSymbol
+                    color={theme.colors.ink_soft}
+                    name={kind_icon}
+                    size={12}
+                  />
+                ) : null}
+                <Text style={[styles.date, { color: theme.colors.ink_soft }]}>
+                  {kind_label}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         ) : null}
       </View>
       <Text style={[styles.chevron, { color: theme.colors.ink_soft }]}>
@@ -67,6 +112,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 17,
+  },
+  kindMark: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  meta: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   pressed: {
     opacity: 0.72,

@@ -19,6 +19,15 @@ jest.mock('mobx-react', () => ({
   observer: component => component,
 }));
 
+jest.mock('../PlatformSymbol', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+
+  return function PlatformSymbol({ name }) {
+    return React.createElement(Text, null, name);
+  };
+});
+
 const React = require('react');
 const { render } = require('@testing-library/react-native');
 const PostRow = require('../PostRow').default;
@@ -76,5 +85,59 @@ describe('PostRow', () => {
     expect(podcast_row.getByLabelText('Show').props.accessibilityHint).toBe(
       'Swipe left to delete. Double tap to edit.',
     );
+  });
+
+  test('marks podcast and narrated posts when showing kind', async () => {
+    const podcast_row = await render(
+      React.createElement(PostRow, {
+        onPress: jest.fn(),
+        post: {
+          content: '<audio controls src="https://micro.blog/a.m4a"></audio>',
+          published_at: '2026-06-02T12:00:00Z',
+          title: 'Show',
+        },
+        show_kind: true,
+        theme,
+      }),
+    );
+
+    expect(podcast_row.getByText(/Podcast/)).toBeTruthy();
+    expect(podcast_row.getByText('waveform')).toBeTruthy();
+    expect(podcast_row.getByLabelText(/Podcast/)).toBeTruthy();
+
+    const narrated_row = await render(
+      React.createElement(PostRow, {
+        onPress: jest.fn(),
+        post: {
+          content: '<audio src="https://micro.blog/r.m4a" preload="metadata" style="display: none"></audio><p>Essay</p>',
+          title: 'Essay',
+        },
+        show_kind: true,
+        theme,
+      }),
+    );
+
+    expect(narrated_row.getByText('Narrated')).toBeTruthy();
+    expect(narrated_row.getByText('microphone')).toBeTruthy();
+    expect(narrated_row.queryByText('Podcast')).toBeNull();
+    expect(narrated_row.queryByText('waveform')).toBeNull();
+  });
+
+  test('hides kind marks unless showing kind', async () => {
+    const { queryByText } = await render(
+      React.createElement(PostRow, {
+        onPress: jest.fn(),
+        post: {
+          content: '<audio controls src="https://micro.blog/a.m4a"></audio>',
+          title: 'Show',
+        },
+        theme,
+      }),
+    );
+
+    expect(queryByText('Podcast')).toBeNull();
+    expect(queryByText('Narrated')).toBeNull();
+    expect(queryByText('waveform')).toBeNull();
+    expect(queryByText('microphone')).toBeNull();
   });
 });

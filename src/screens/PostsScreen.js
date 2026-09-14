@@ -251,6 +251,7 @@ function PostsScreen({ navigation, theme }) {
           <PostRow
             onPress={() => open_post(item)}
             post={item}
+            show_kind={Posts.selected_filter === 'all'}
             theme={theme}
           />
         </SegmentSwipeRow>
