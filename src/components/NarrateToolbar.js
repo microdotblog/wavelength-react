@@ -52,6 +52,43 @@ export function should_entice_narration(mode = 'idle') {
   return mode === 'idle';
 }
 
+export function should_show_narrate_edit({
+  has_remote = false,
+  is_attaching = false,
+  permission_status = 'granted',
+  recording_phase = 'idle',
+} = {}) {
+  return has_remote
+    && recording_phase === 'idle'
+    && !is_attaching
+    && permission_status === 'granted';
+}
+
+export function build_ios_narrate_header_items({ on_retake, show_edit = false } = {}) {
+  if (!show_edit) {
+    return [];
+  }
+
+  return [
+    {
+      accessibilityLabel: 'Edit narration',
+      label: 'Edit',
+      menu: {
+        items: [
+          {
+            icon: { name: 'arrow.counterclockwise', type: 'sfSymbol' },
+            label: 'Retake',
+            onPress: on_retake,
+            type: 'action',
+          },
+        ],
+        title: 'Narration',
+      },
+      type: 'menu',
+    },
+  ];
+}
+
 export function resolve_narrate_toolbar_mode({
   has_remote = false,
   has_take = false,
@@ -422,20 +459,13 @@ function NarrateToolbar({
                   theme={theme}
                 />
               </View>
-              <CompactIconButton
-                accessibilityLabel="Start recording"
-                background_color={with_color_opacity(theme.colors.accent, theme.is_dark ? 0.18 : 0.12)}
-                border_color={theme.colors.accent}
-                icon_color={theme.colors.accent}
-                icon_name="microphone"
-                onPress={on_record_press}
-              />
-            </View>
-            <Animated.View entering={CHIP_ENTER} style={styles.actionsRow}>
-              <Text style={[styles.timeLabel, { color: theme.colors.ink_soft, fontVariant: ['tabular-nums'] }]}>
+              <Text
+                accessibilityLabel={time_label}
+                style={[styles.timeLabel, styles.remoteTimeLabel, { color: theme.colors.ink_soft, fontVariant: ['tabular-nums'] }]}
+              >
                 {time_label}
               </Text>
-            </Animated.View>
+            </View>
           </ModeBlock>
         ) : null}
       </Animated.View>
@@ -529,6 +559,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     lineHeight: 18,
+  },
+  remoteTimeLabel: {
+    flexShrink: 0,
+    minWidth: 64,
+    textAlign: 'right',
   },
   timeLabel: {
     fontSize: 12,

@@ -85,7 +85,12 @@ jest.mock('../../theme/wavelengthTheme', () => ({
 const React = require('react');
 const { fireEvent, render } = require('@testing-library/react-native');
 const NarrateToolbar = require('../NarrateToolbar').default;
-const { resolve_narrate_toolbar_mode, should_entice_narration } = require('../NarrateToolbar');
+const {
+  build_ios_narrate_header_items,
+  resolve_narrate_toolbar_mode,
+  should_entice_narration,
+  should_show_narrate_edit,
+} = require('../NarrateToolbar');
 
 const theme = {
   colors: {
@@ -106,6 +111,53 @@ describe('resolve_narrate_toolbar_mode', () => {
     expect(resolve_narrate_toolbar_mode({ has_take: true, recording_phase: 'review' })).toBe('review');
     expect(resolve_narrate_toolbar_mode({ has_remote: true })).toBe('remote');
     expect(resolve_narrate_toolbar_mode({})).toBe('idle');
+  });
+});
+
+describe('should_show_narrate_edit', () => {
+  test('shows Edit only for an idle saved take with microphone access', () => {
+    expect(should_show_narrate_edit({
+      has_remote: true,
+      permission_status: 'granted',
+      recording_phase: 'idle',
+    })).toBe(true);
+    expect(should_show_narrate_edit({
+      has_remote: true,
+      permission_status: 'pending',
+      recording_phase: 'idle',
+    })).toBe(false);
+    expect(should_show_narrate_edit({
+      has_remote: true,
+      recording_phase: 'recording',
+    })).toBe(false);
+    expect(should_show_narrate_edit({
+      has_remote: true,
+      is_attaching: true,
+    })).toBe(false);
+    expect(should_show_narrate_edit({
+      has_remote: false,
+    })).toBe(false);
+  });
+});
+
+describe('build_ios_narrate_header_items', () => {
+  test('adds an Edit menu with Retake when a saved take exists', () => {
+    const on_retake = jest.fn();
+    const items = build_ios_narrate_header_items({
+      on_retake,
+      show_edit: true,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].label).toBe('Edit');
+    expect(items[0].menu.items.map(item => item.label)).toEqual(['Retake']);
+
+    items[0].menu.items[0].onPress();
+    expect(on_retake).toHaveBeenCalled();
+  });
+
+  test('hides the Edit menu while recording a new take', () => {
+    expect(build_ios_narrate_header_items({ show_edit: false })).toEqual([]);
   });
 });
 
@@ -150,8 +202,8 @@ describe('NarrateToolbar', () => {
     expect(on_save).toHaveBeenCalled();
   });
 
-  test('remote state shows elapsed time for the saved take', async () => {
-    const { getByLabelText, getByText } = await render(
+  test('remote state shows elapsed time beside the track', async () => {
+    const { getByLabelText, getByText, queryByLabelText } = await render(
       React.createElement(NarrateToolbar, {
         current_time: 3,
         duration_seconds: 11.5,
@@ -162,6 +214,7 @@ describe('NarrateToolbar', () => {
 
     expect(getByLabelText('Play narration')).toBeTruthy();
     expect(getByText('0:03 / 0:11')).toBeTruthy();
+    expect(queryByLabelText('Start recording')).toBeNull();
   });
 
   test('recording state shows a live waveform and duration', async () => {

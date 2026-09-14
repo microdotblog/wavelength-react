@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { MenuView } from '@react-native-menu/menu';
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -15,7 +16,10 @@ import { HeaderBackButton } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
-import NarrateToolbar from '../components/NarrateToolbar';
+import NarrateToolbar, {
+  build_ios_narrate_header_items,
+  should_show_narrate_edit,
+} from '../components/NarrateToolbar';
 import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
@@ -34,6 +38,7 @@ import { safe_audio_player_call } from '../lib/safe_audio_player';
 import { show_toast } from '../lib/toast';
 import Discover from '../stores/Discover';
 import Posts from '../stores/Posts';
+import { header_right_element, is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
 const MINIMUM_RECORDING_SECONDS = 1;
 const RECORDER_POLL_MS = 50;
@@ -93,6 +98,7 @@ function NarrateScreen({ navigation, route, theme }) {
   const [wants_playback, set_wants_playback] = React.useState(false);
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
+  const retake_handler_ref = React.useRef(null);
   const recording_phase_ref = React.useRef(recording_phase);
   const is_discarding_ref = React.useRef(false);
   const last_known_duration_ms_ref = React.useRef(0);
@@ -248,12 +254,19 @@ function NarrateScreen({ navigation, route, theme }) {
   React.useLayoutEffect(() => {
     const title = post ? post_display_title(post) : 'Narrate';
     const can_leave_freely = recording_phase === 'idle' && !Posts.is_attaching;
+    const show_edit = should_show_narrate_edit({
+      has_remote: remote_url.length > 0,
+      is_attaching: Posts.is_attaching,
+      permission_status,
+      recording_phase,
+    });
 
     if (Platform.OS === 'ios') {
       navigation.setOptions({
         gestureEnabled: can_leave_freely,
         headerLargeTitle: false,
         headerLeft: undefined,
+        headerRight: undefined,
         title,
         unstable_headerLeftItems: () => [
           {
@@ -265,6 +278,10 @@ function NarrateScreen({ navigation, route, theme }) {
             type: 'button',
           },
         ],
+        unstable_headerRightItems: () => build_ios_narrate_header_items({
+          on_retake: () => retake_handler_ref.current?.(),
+          show_edit,
+        }),
       });
       return;
     }
@@ -282,8 +299,17 @@ function NarrateScreen({ navigation, route, theme }) {
       ),
       title,
       unstable_headerLeftItems: undefined,
+      unstable_headerRightItems: undefined,
+      ...(show_edit
+        ? header_right_element(() => (
+          <NarrateEditMenu
+            on_retake={() => retake_handler_ref.current?.()}
+            theme={theme}
+          />
+        ))
+        : { headerRight: undefined }),
     });
-  }, [navigation, post, recording_phase, theme, Posts.is_attaching]);
+  }, [navigation, permission_status, post, recording_phase, remote_url, theme, Posts.is_attaching]);
 
   React.useEffect(() => {
     const unsubscribe = navigation.addListener('blur', () => {
@@ -593,6 +619,7 @@ function NarrateScreen({ navigation, route, theme }) {
   }
 
   done_handler_ref.current = handle_done_press;
+  retake_handler_ref.current = start_recording;
 
   const is_active_recording = recording_phase === 'recording';
   const recording_duration_ms = recording_phase === 'recording' || recording_phase === 'paused'
@@ -686,6 +713,83 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
+  },
+});
+
+function NarrateEditMenu({ on_retake, theme }) {
+  const should_use_liquid_glass = is_liquid_glass();
+
+  function handle_press_action({ nativeEvent }) {
+    if (nativeEvent.event === 'retake') {
+      on_retake?.();
+    }
+  }
+
+  return (
+    <MenuView
+      accessibilityLabel="Edit narration"
+      actions={[{ id: 'retake', title: 'Retake' }]}
+      onPressAction={handle_press_action}
+      themeVariant={theme.is_dark ? 'dark' : 'light'}
+    >
+      <Pressable
+        accessibilityHint="Opens a menu to retake narration"
+        accessibilityLabel="Edit narration"
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          Platform.OS === 'android' ? header_menu_styles.androidTrigger : header_menu_styles.iosTrigger,
+          Platform.OS === 'ios'
+            ? {
+                backgroundColor: should_use_liquid_glass
+                  ? 'transparent'
+                  : with_color_opacity(theme.colors.paper, theme.is_dark ? 0.72 : 0.84),
+                borderColor: should_use_liquid_glass ? 'transparent' : theme.colors.line,
+              }
+            : null,
+          pressed ? header_menu_styles.pressed : null,
+        ]}
+      >
+        <Text
+          style={[
+            Platform.OS === 'android' ? header_menu_styles.androidLabel : header_menu_styles.iosLabel,
+            { color: theme.colors.accent_strong },
+          ]}
+        >
+          Edit
+        </Text>
+      </Pressable>
+    </MenuView>
+  );
+}
+
+const header_menu_styles = StyleSheet.create({
+  androidLabel: {
+    fontSize: 17,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  androidTrigger: {
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 4,
+  },
+  iosLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  iosTrigger: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 32,
+    minWidth: 58,
+    paddingHorizontal: 11,
+  },
+  pressed: {
+    opacity: 0.68,
   },
 });
 
