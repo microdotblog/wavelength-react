@@ -46,6 +46,7 @@ describe('attach_narration_to_post', () => {
       token: 'token',
     });
     expect(update_micropub_post).toHaveBeenCalledWith({
+      audio_url: 'https://micro.blog/read.m4a',
       categories: ['notes'],
       content: '<audio src="https://micro.blog/read.m4a" preload="metadata" style="display: none"></audio>\n<p>Hello</p>',
       destination: 'https://example.micro.blog/',

@@ -27,6 +27,7 @@ export async function attach_narration_to_post({
   const content = apply_narration_html(source.content, audio_url);
 
   await update_micropub_post({
+    audio_url,
     categories: source.categories,
     content,
     destination,
