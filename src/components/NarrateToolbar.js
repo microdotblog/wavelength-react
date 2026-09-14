@@ -382,7 +382,7 @@ function NarrateToolbar({
               </View>
             </View>
             <Animated.View entering={CHIP_ENTER} style={styles.actionsRow}>
-              <Text style={[styles.timeLabel, { color: theme.colors.ink_soft }]}>
+              <Text style={[styles.timeLabel, { color: theme.colors.ink_soft, fontVariant: ['tabular-nums'] }]}>
                 {time_label}
               </Text>
               <View style={styles.actions}>
@@ -431,6 +431,11 @@ function NarrateToolbar({
                 onPress={on_record_press}
               />
             </View>
+            <Animated.View entering={CHIP_ENTER} style={styles.actionsRow}>
+              <Text style={[styles.timeLabel, { color: theme.colors.ink_soft, fontVariant: ['tabular-nums'] }]}>
+                {time_label}
+              </Text>
+            </Animated.View>
           </ModeBlock>
         ) : null}
       </Animated.View>

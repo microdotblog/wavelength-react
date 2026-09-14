@@ -21,6 +21,7 @@ import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { build_narrate_html, is_narrate_preview_document_url } from '../lib/narrate_html';
 import { read_narration_audio_url } from '../lib/narration';
+import { should_resume_narration_playback } from '../lib/narration_playback';
 import { post_display_title } from '../lib/micropub_posts';
 import { normalize_metering } from '../lib/normalize_metering';
 import { enable_playback_audio_mode } from '../lib/playback_audio_mode';
@@ -89,12 +90,14 @@ function NarrateScreen({ navigation, route, theme }) {
   const [take_uri, set_take_uri] = React.useState(null);
   const [take_waveform, set_take_waveform] = React.useState([]);
   const [take_duration, set_take_duration] = React.useState(0);
+  const [wants_playback, set_wants_playback] = React.useState(false);
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
   const recording_phase_ref = React.useRef(recording_phase);
   const is_discarding_ref = React.useRef(false);
   const last_known_duration_ms_ref = React.useRef(0);
   const has_observed_active_take_ref = React.useRef(false);
+  const pending_play_ref = React.useRef(false);
   const recording_status_listener_ref = React.useRef(null);
   const take_uri_ref = React.useRef(null);
 
@@ -103,7 +106,9 @@ function NarrateScreen({ navigation, route, theme }) {
 
   const remote_url = read_narration_audio_url(post?.content || '');
   const playback_uri = take_uri || (recording_phase === 'idle' ? remote_url : '') || null;
+  const is_remote_playback = /^https?:/i.test(`${playback_uri || ''}`);
   const player = useAudioPlayer(playback_uri ? { uri: playback_uri } : null, {
+    downloadFirst: is_remote_playback,
     updateInterval: PLAYER_STATUS_MS,
   });
   const player_status = useAudioPlayerStatus(player);
@@ -158,12 +163,6 @@ function NarrateScreen({ navigation, route, theme }) {
       if (!permission.granted) {
         set_permission_status('denied');
         return;
-      }
-
-      try {
-        await enable_recording_audio_mode();
-      } catch {
-        // Mode setup rarely fails; start_recording still surfaces prepare errors.
       }
 
       if (!is_cancelled) {
@@ -288,13 +287,44 @@ function NarrateScreen({ navigation, route, theme }) {
 
   React.useEffect(() => {
     const unsubscribe = navigation.addListener('blur', () => {
+      pending_play_ref.current = false;
+      set_wants_playback(false);
       safe_audio_player_call(player_status.isLoaded, () => player.pause());
     });
 
     return unsubscribe;
   }, [navigation, player, player_status.isLoaded]);
 
+  React.useEffect(() => {
+    pending_play_ref.current = false;
+    set_wants_playback(false);
+  }, [playback_uri]);
+
+  React.useEffect(() => {
+    if (!player_status.didJustFinish) {
+      return;
+    }
+
+    pending_play_ref.current = false;
+    set_wants_playback(false);
+  }, [player_status.didJustFinish]);
+
+  React.useEffect(() => {
+    if (!should_resume_narration_playback({
+      is_loaded: player_status.isLoaded,
+      pending_play: pending_play_ref.current,
+      playing: player_status.playing === true,
+    })) {
+      return;
+    }
+
+    safe_audio_player_call(player_status.isLoaded, () => player.play());
+    pending_play_ref.current = false;
+  }, [player, player_status.isLoaded, player_status.playing]);
+
   function pause_playback() {
+    pending_play_ref.current = false;
+    set_wants_playback(false);
     safe_audio_player_call(player_status.isLoaded, () => player.pause());
   }
 
@@ -470,6 +500,11 @@ function NarrateScreen({ navigation, route, theme }) {
 
     try {
       await Posts.attach_narration(post_uid, recording_uri);
+      try {
+        await enable_playback_audio_mode();
+      } catch {
+        // Remote playback can still load in the current session.
+      }
       delete_take_file(recording_uri);
       captured_samples_ref.current = [];
       last_known_duration_ms_ref.current = 0;
@@ -491,10 +526,13 @@ function NarrateScreen({ navigation, route, theme }) {
 
     Discover.clear_playback();
 
-    if (player_status.playing) {
+    if (player_status.playing || wants_playback) {
       pause_playback();
       return;
     }
+
+    pending_play_ref.current = true;
+    set_wants_playback(true);
 
     try {
       await enable_playback_audio_mode();
@@ -502,7 +540,14 @@ function NarrateScreen({ navigation, route, theme }) {
       // Playback can still proceed in the current audio session.
     }
 
-    safe_audio_player_call(player_status.isLoaded, () => player.play());
+    if (!pending_play_ref.current) {
+      return;
+    }
+
+    if (player_status.isLoaded) {
+      safe_audio_player_call(true, () => player.play());
+      pending_play_ref.current = false;
+    }
   }
 
   function handle_seek(fraction = 0) {
@@ -597,7 +642,7 @@ function NarrateScreen({ navigation, route, theme }) {
           has_remote={remote_url.length > 0}
           has_take={Boolean(take_uri)}
           is_attaching={Posts.is_attaching}
-          is_playing={player_status.playing === true}
+          is_playing={player_status.playing === true || wants_playback}
           levels={recording_levels}
           metering={recorder_state.metering}
           on_discard={confirm_discard}

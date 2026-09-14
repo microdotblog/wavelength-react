@@ -150,6 +150,20 @@ describe('NarrateToolbar', () => {
     expect(on_save).toHaveBeenCalled();
   });
 
+  test('remote state shows elapsed time for the saved take', async () => {
+    const { getByLabelText, getByText } = await render(
+      React.createElement(NarrateToolbar, {
+        current_time: 3,
+        duration_seconds: 11.5,
+        has_remote: true,
+        theme,
+      }),
+    );
+
+    expect(getByLabelText('Play narration')).toBeTruthy();
+    expect(getByText('0:03 / 0:11')).toBeTruthy();
+  });
+
   test('recording state shows a live waveform and duration', async () => {
     const { getByLabelText, getByText } = await render(
       React.createElement(NarrateToolbar, {
