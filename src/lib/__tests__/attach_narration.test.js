@@ -9,7 +9,10 @@ const {
   update_micropub_post,
   upload_episode_audio,
 } = require('../../api/Micropub');
-const { attach_narration_to_post } = require('../attach_narration');
+const {
+  attach_narration_to_post,
+  remove_narration_from_post,
+} = require('../attach_narration');
 
 describe('attach_narration_to_post', () => {
   beforeEach(() => {
@@ -95,6 +98,55 @@ describe('attach_narration_to_post', () => {
       post_url: 'https://example.micro.blog/1',
       token: 'token',
     })).rejects.toThrow('We could not load this post to add narration.');
+
+    expect(update_micropub_post).not.toHaveBeenCalled();
+  });
+});
+
+describe('remove_narration_from_post', () => {
+  beforeEach(() => {
+    fetch_micropub_post_source.mockReset();
+    update_micropub_post.mockReset();
+  });
+
+  test('strips the hidden tag and updates the post without audio', async () => {
+    fetch_micropub_post_source.mockResolvedValue({
+      categories: ['notes'],
+      content: '<audio src="https://micro.blog/read.m4a" preload="metadata" style="display: none"></audio>\n<p>Hello</p>',
+      post_status: 'published',
+      summary: '',
+      title: 'Existing title',
+      uid: '1',
+      url: 'https://example.micro.blog/1',
+    });
+    update_micropub_post.mockResolvedValue(true);
+
+    const result = await remove_narration_from_post({
+      destination: 'https://example.micro.blog/',
+      post_url: 'https://example.micro.blog/1',
+      token: 'token',
+    });
+
+    expect(update_micropub_post).toHaveBeenCalledWith({
+      categories: ['notes'],
+      content: '<p>Hello</p>',
+      destination: 'https://example.micro.blog/',
+      post_url: 'https://example.micro.blog/1',
+      status: 'published',
+      summary: '',
+      title: 'Existing title',
+      token: 'token',
+    });
+    expect(result).toEqual({ content: '<p>Hello</p>' });
+  });
+
+  test('throws when the post source cannot be loaded', async () => {
+    fetch_micropub_post_source.mockResolvedValue(null);
+
+    await expect(remove_narration_from_post({
+      post_url: 'https://example.micro.blog/1',
+      token: 'token',
+    })).rejects.toThrow('We could not load this post to remove narration.');
 
     expect(update_micropub_post).not.toHaveBeenCalled();
   });

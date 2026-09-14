@@ -26,6 +26,13 @@ describe('narration html', () => {
     expect(apply_narration_html(content, 'https://micro.blog/new.m4a')).not.toContain('old.m4a');
   });
 
+  test('apply_narration_html with no url strips the hidden tag', () => {
+    expect(apply_narration_html(
+      '<audio src="https://micro.blog/read.m4a" preload="metadata" style="display: none"></audio>\n<p>Hello</p>',
+      '',
+    )).toBe('<p>Hello</p>');
+  });
+
   test('read_narration_audio_url returns the hidden src', () => {
     expect(read_narration_audio_url(
       '<audio src="https://micro.blog/read.m4a" preload="metadata" style="display: none"></audio><p>Hi</p>',

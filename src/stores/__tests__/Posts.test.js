@@ -19,11 +19,15 @@ jest.mock('../../api/Micropub', () => ({
 
 jest.mock('../../lib/attach_narration', () => ({
   attach_narration_to_post: jest.fn(),
+  remove_narration_from_post: jest.fn(),
 }));
 
 const { applySnapshot } = require('mobx-state-tree');
 const { delete_micropub_post, fetch_micropub_posts } = require('../../api/Micropub');
-const { attach_narration_to_post } = require('../../lib/attach_narration');
+const {
+  attach_narration_to_post,
+  remove_narration_from_post,
+} = require('../../lib/attach_narration');
 const Posts = require('../Posts').default;
 
 const SAMPLE_POSTS = [
@@ -61,6 +65,7 @@ describe('Posts store', () => {
     });
     delete_micropub_post.mockClear();
     attach_narration_to_post.mockReset();
+    remove_narration_from_post.mockReset();
     fetch_micropub_posts.mockReset();
     fetch_micropub_posts.mockResolvedValue({ items: [] });
   });
@@ -158,6 +163,37 @@ describe('Posts store', () => {
     attach_narration_to_post.mockRejectedValue(new Error('nope'));
 
     await expect(Posts.attach_narration('1', 'file:///tmp/take.m4a')).rejects.toThrow('nope');
+    expect(Posts.is_attaching).toBe(false);
+    expect(Posts.attach_phase).toBe('idle');
+  });
+
+  test('remove_narration strips local content and clears attaching', async () => {
+    remove_narration_from_post.mockResolvedValue({ content: '<p>Essay</p>' });
+
+    const result = await Posts.remove_narration('3');
+
+    expect(remove_narration_from_post).toHaveBeenCalledWith({
+      destination: 'https://test.micro.blog',
+      post_url: 'https://example.micro.blog/3',
+      token: 'token',
+    });
+    expect(Posts.get_post('3').content).toBe('<p>Essay</p>');
+    expect(result.content).toBe('<p>Essay</p>');
+    expect(Posts.is_attaching).toBe(false);
+    expect(Posts.attach_phase).toBe('idle');
+  });
+
+  test('remove_narration throws when the post is missing', async () => {
+    await expect(Posts.remove_narration('missing')).rejects.toThrow(
+      'This post is no longer available.',
+    );
+    expect(remove_narration_from_post).not.toHaveBeenCalled();
+  });
+
+  test('remove_narration clears is_attaching after failure', async () => {
+    remove_narration_from_post.mockRejectedValue(new Error('nope'));
+
+    await expect(Posts.remove_narration('3')).rejects.toThrow('nope');
     expect(Posts.is_attaching).toBe(false);
     expect(Posts.attach_phase).toBe('idle');
   });

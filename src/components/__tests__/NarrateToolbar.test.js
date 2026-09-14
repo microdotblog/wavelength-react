@@ -141,19 +141,24 @@ describe('should_show_narrate_edit', () => {
 });
 
 describe('build_ios_narrate_header_items', () => {
-  test('adds an Edit menu with Retake when a saved take exists', () => {
+  test('adds an Edit menu with Retake and Delete when a saved take exists', () => {
+    const on_delete = jest.fn();
     const on_retake = jest.fn();
     const items = build_ios_narrate_header_items({
+      on_delete,
       on_retake,
       show_edit: true,
     });
 
     expect(items).toHaveLength(1);
     expect(items[0].label).toBe('Edit');
-    expect(items[0].menu.items.map(item => item.label)).toEqual(['Retake']);
+    expect(items[0].menu.items.map(item => item.label)).toEqual(['Retake', 'Delete']);
+    expect(items[0].menu.items[1].destructive).toBe(true);
 
     items[0].menu.items[0].onPress();
+    items[0].menu.items[1].onPress();
     expect(on_retake).toHaveBeenCalled();
+    expect(on_delete).toHaveBeenCalled();
   });
 
   test('hides the Edit menu while recording a new take', () => {

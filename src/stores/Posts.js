@@ -1,7 +1,7 @@
 import { applySnapshot, flow, types } from 'mobx-state-tree';
 
 import { delete_micropub_post, fetch_micropub_posts } from '../api/Micropub';
-import { attach_narration_to_post } from '../lib/attach_narration';
+import { attach_narration_to_post, remove_narration_from_post } from '../lib/attach_narration';
 import { normalize_micropub_posts, post_kind } from '../lib/micropub_posts';
 import Auth from './Auth';
 import Tokens from './Tokens';
@@ -138,6 +138,41 @@ const Posts = types
           destination,
           file_name: 'narration.m4a',
           file_uri: trimmed_uri,
+          post_url,
+          token,
+        });
+
+        post.content = result.content;
+
+        return result;
+      } finally {
+        self.attach_phase = 'idle';
+        self.is_attaching = false;
+      }
+    }),
+
+    remove_narration: flow(function* (post_uid = '') {
+      const post = self.get_post(post_uid);
+      const post_url = `${post?.url || ''}`.trim();
+
+      if (!post_url) {
+        throw new Error('This post is no longer available.');
+      }
+
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        throw new Error('You need to be signed in to Micro.blog to remove narration.');
+      }
+
+      const destination = `${Auth.default_site || ''}`.trim();
+
+      self.is_attaching = true;
+      self.attach_phase = 'removing';
+
+      try {
+        const result = yield remove_narration_from_post({
+          destination,
           post_url,
           token,
         });

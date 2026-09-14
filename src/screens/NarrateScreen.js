@@ -99,6 +99,7 @@ function NarrateScreen({ navigation, route, theme }) {
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
   const retake_handler_ref = React.useRef(null);
+  const delete_handler_ref = React.useRef(null);
   const recording_phase_ref = React.useRef(recording_phase);
   const is_discarding_ref = React.useRef(false);
   const last_known_duration_ms_ref = React.useRef(0);
@@ -279,6 +280,7 @@ function NarrateScreen({ navigation, route, theme }) {
           },
         ],
         unstable_headerRightItems: () => build_ios_narrate_header_items({
+          on_delete: () => delete_handler_ref.current?.(),
           on_retake: () => retake_handler_ref.current?.(),
           show_edit,
         }),
@@ -303,6 +305,7 @@ function NarrateScreen({ navigation, route, theme }) {
       ...(show_edit
         ? header_right_element(() => (
           <NarrateEditMenu
+            on_delete={() => delete_handler_ref.current?.()}
             on_retake={() => retake_handler_ref.current?.()}
             theme={theme}
           />
@@ -545,6 +548,43 @@ function NarrateScreen({ navigation, route, theme }) {
     }
   }
 
+  function confirm_delete_narration() {
+    if (Posts.is_attaching || recording_phase !== 'idle') {
+      return;
+    }
+
+    Alert.alert(
+      'Delete narration?',
+      'This removes the audio from the post. The post itself stays.',
+      [
+        {
+          style: 'cancel',
+          text: 'Keep',
+        },
+        {
+          onPress: delete_narration,
+          style: 'destructive',
+          text: 'Delete',
+        },
+      ],
+    );
+  }
+
+  async function delete_narration() {
+    if (Posts.is_attaching) {
+      return;
+    }
+
+    pause_playback();
+
+    try {
+      await Posts.remove_narration(post_uid);
+      show_toast('Narration deleted.');
+    } catch (error) {
+      show_toast(error?.message || 'Could not delete narration. Please try again.');
+    }
+  }
+
   async function handle_toggle_playback() {
     if (!playback_uri) {
       return;
@@ -620,6 +660,7 @@ function NarrateScreen({ navigation, route, theme }) {
 
   done_handler_ref.current = handle_done_press;
   retake_handler_ref.current = start_recording;
+  delete_handler_ref.current = confirm_delete_narration;
 
   const is_active_recording = recording_phase === 'recording';
   const recording_duration_ms = recording_phase === 'recording' || recording_phase === 'paused'
@@ -680,7 +721,7 @@ function NarrateScreen({ navigation, route, theme }) {
           on_toggle_playback={handle_toggle_playback}
           permission_status={permission_status}
           recording_phase={recording_phase}
-          status_label="Saving narration…"
+          status_label={Posts.attach_phase === 'removing' ? 'Removing narration…' : 'Saving narration…'}
           theme={theme}
           waveform={take_waveform}
         />
@@ -716,19 +757,27 @@ const styles = StyleSheet.create({
   },
 });
 
-function NarrateEditMenu({ on_retake, theme }) {
+function NarrateEditMenu({ on_delete, on_retake, theme }) {
   const should_use_liquid_glass = is_liquid_glass();
 
   function handle_press_action({ nativeEvent }) {
     if (nativeEvent.event === 'retake') {
       on_retake?.();
+      return;
+    }
+
+    if (nativeEvent.event === 'delete') {
+      on_delete?.();
     }
   }
 
   return (
     <MenuView
       accessibilityLabel="Edit narration"
-      actions={[{ id: 'retake', title: 'Retake' }]}
+      actions={[
+        { id: 'retake', title: 'Retake' },
+        { attributes: { destructive: true }, id: 'delete', title: 'Delete' },
+      ]}
       onPressAction={handle_press_action}
       themeVariant={theme.is_dark ? 'dark' : 'light'}
     >

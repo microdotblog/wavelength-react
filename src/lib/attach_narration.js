@@ -40,3 +40,30 @@ export async function attach_narration_to_post({
 
   return { audio_url, content };
 }
+
+export async function remove_narration_from_post({
+  token = '',
+  destination = '',
+  post_url = '',
+} = {}) {
+  const source = await fetch_micropub_post_source({ destination, post_url, token });
+
+  if (!source) {
+    throw new Error('We could not load this post to remove narration.');
+  }
+
+  const content = apply_narration_html(source.content, '');
+
+  await update_micropub_post({
+    categories: source.categories,
+    content,
+    destination,
+    post_url,
+    status: source.post_status,
+    summary: source.summary,
+    title: source.title,
+    token,
+  });
+
+  return { content };
+}

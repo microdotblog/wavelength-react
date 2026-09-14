@@ -64,7 +64,11 @@ export function should_show_narrate_edit({
     && permission_status === 'granted';
 }
 
-export function build_ios_narrate_header_items({ on_retake, show_edit = false } = {}) {
+export function build_ios_narrate_header_items({
+  on_delete,
+  on_retake,
+  show_edit = false,
+} = {}) {
   if (!show_edit) {
     return [];
   }
@@ -79,6 +83,13 @@ export function build_ios_narrate_header_items({ on_retake, show_edit = false } 
             icon: { name: 'arrow.counterclockwise', type: 'sfSymbol' },
             label: 'Retake',
             onPress: on_retake,
+            type: 'action',
+          },
+          {
+            destructive: true,
+            icon: { name: 'trash', type: 'sfSymbol' },
+            label: 'Delete',
+            onPress: on_delete,
             type: 'action',
           },
         ],
