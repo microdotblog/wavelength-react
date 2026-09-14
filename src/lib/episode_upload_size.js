@@ -26,9 +26,10 @@ export function is_over_upload_limit(size_bytes = 0) {
   return sanitize_size_bytes(size_bytes) > EPISODE_UPLOAD_MAX_BYTES;
 }
 
-export function build_upload_size_limit_message(size_bytes = 0) {
+export function build_upload_size_limit_message(size_bytes = 0, noun = 'episode') {
   const formatted_size = format_file_size(size_bytes);
   const formatted_limit = format_file_size(EPISODE_UPLOAD_MAX_BYTES);
+  const label = `${noun || 'episode'}`.trim() || 'episode';
 
-  return `This episode is ${formatted_size}. Micro.blog uploads must be ${formatted_limit} or smaller.`;
+  return `This ${label} is ${formatted_size}. Micro.blog uploads must be ${formatted_limit} or smaller.`;
 }

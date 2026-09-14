@@ -18,6 +18,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Episodes from '../stores/Episodes';
+import NarrationDraft from '../stores/NarrationDraft';
 import RecordControlButton from '../components/RecordControlButton';
 import RecordingWaveform from '../components/RecordingWaveform';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
@@ -43,7 +44,9 @@ const RECORDING_OPTIONS = {
 
 function RecordScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;
-  const is_appending = typeof episode_id === 'string' && episode_id.length > 0;
+  const narration_post_uid = `${route.params?.narration_post_uid || ''}`.trim();
+  const is_appending = (typeof episode_id === 'string' && episode_id.length > 0)
+    || narration_post_uid.length > 0;
   const [permission_status, set_permission_status] = React.useState('pending');
   const [recording_phase, set_recording_phase] = React.useState('idle');
   const [is_saving, set_is_saving] = React.useState(false);
@@ -361,6 +364,15 @@ function RecordScreen({ navigation, route, theme }) {
     const waveform = downsample_waveform(captured_samples_ref.current, WAVEFORM_SAMPLE_COUNT);
 
     try {
+      if (narration_post_uid) {
+        await NarrationDraft.append_clip(recording_uri, captured_seconds, waveform);
+        is_saving_ref.current = false;
+        set_is_saving(false);
+        set_recording_phase('idle');
+        navigation.goBack();
+        return;
+      }
+
       if (is_appending) {
         await Episodes.append_clip_to_episode(episode_id, recording_uri, captured_seconds, waveform);
         Episodes.export_merged_audio(episode_id);

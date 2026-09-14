@@ -66,6 +66,7 @@ export function should_show_narrate_edit({
 
 export function build_ios_narrate_header_items({
   on_delete,
+  on_edit_audio,
   on_retake,
   show_edit = false,
 } = {}) {
@@ -83,6 +84,12 @@ export function build_ios_narrate_header_items({
             icon: { name: 'arrow.counterclockwise', type: 'sfSymbol' },
             label: 'Retake',
             onPress: on_retake,
+            type: 'action',
+          },
+          {
+            icon: { name: 'waveform', type: 'sfSymbol' },
+            label: 'Edit Audio',
+            onPress: on_edit_audio,
             type: 'action',
           },
           {
@@ -267,6 +274,7 @@ function NarrateToolbar({
   levels = [],
   metering,
   on_discard,
+  on_edit_audio,
   on_finish,
   on_record_press,
   on_save,
@@ -439,6 +447,11 @@ function NarrateToolbar({
                   onPress={on_discard}
                   theme={theme}
                   tone="destructive"
+                />
+                <TextAction
+                  label="Edit"
+                  onPress={on_edit_audio}
+                  theme={theme}
                 />
                 <TextAction
                   label="Save"

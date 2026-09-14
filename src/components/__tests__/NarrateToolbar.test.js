@@ -141,23 +141,31 @@ describe('should_show_narrate_edit', () => {
 });
 
 describe('build_ios_narrate_header_items', () => {
-  test('adds an Edit menu with Retake and Delete when a saved take exists', () => {
+  test('adds an Edit menu with Retake, Edit Audio, and Delete when a saved take exists', () => {
     const on_delete = jest.fn();
+    const on_edit_audio = jest.fn();
     const on_retake = jest.fn();
     const items = build_ios_narrate_header_items({
       on_delete,
+      on_edit_audio,
       on_retake,
       show_edit: true,
     });
 
     expect(items).toHaveLength(1);
     expect(items[0].label).toBe('Edit');
-    expect(items[0].menu.items.map(item => item.label)).toEqual(['Retake', 'Delete']);
-    expect(items[0].menu.items[1].destructive).toBe(true);
+    expect(items[0].menu.items.map(item => item.label)).toEqual([
+      'Retake',
+      'Edit Audio',
+      'Delete',
+    ]);
+    expect(items[0].menu.items[2].destructive).toBe(true);
 
     items[0].menu.items[0].onPress();
     items[0].menu.items[1].onPress();
+    items[0].menu.items[2].onPress();
     expect(on_retake).toHaveBeenCalled();
+    expect(on_edit_audio).toHaveBeenCalled();
     expect(on_delete).toHaveBeenCalled();
   });
 
@@ -192,19 +200,22 @@ describe('NarrateToolbar', () => {
     expect(on_record_press).toHaveBeenCalled();
   });
 
-  test('review state saves the take', async () => {
-    const on_save = jest.fn();
+  test('review state can edit the take before saving', async () => {
+    const on_edit_audio = jest.fn();
     const { getByText } = await render(
       React.createElement(NarrateToolbar, {
         has_take: true,
-        on_save,
+        on_edit_audio,
         recording_phase: 'review',
         theme,
       }),
     );
 
-    fireEvent.press(getByText('Save'));
-    expect(on_save).toHaveBeenCalled();
+    expect(getByText('Cancel')).toBeTruthy();
+    expect(getByText('Edit')).toBeTruthy();
+    expect(getByText('Save')).toBeTruthy();
+    fireEvent.press(getByText('Edit'));
+    expect(on_edit_audio).toHaveBeenCalled();
   });
 
   test('remote state shows elapsed time beside the track', async () => {

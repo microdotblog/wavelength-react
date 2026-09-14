@@ -37,6 +37,7 @@ import {
 import { safe_audio_player_call } from '../lib/safe_audio_player';
 import { show_toast } from '../lib/toast';
 import Discover from '../stores/Discover';
+import NarrationDraft from '../stores/NarrationDraft';
 import Posts from '../stores/Posts';
 import { header_right_element, is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
@@ -99,6 +100,7 @@ function NarrateScreen({ navigation, route, theme }) {
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
   const retake_handler_ref = React.useRef(null);
+  const edit_audio_handler_ref = React.useRef(null);
   const delete_handler_ref = React.useRef(null);
   const recording_phase_ref = React.useRef(recording_phase);
   const is_discarding_ref = React.useRef(false);
@@ -281,6 +283,7 @@ function NarrateScreen({ navigation, route, theme }) {
         ],
         unstable_headerRightItems: () => build_ios_narrate_header_items({
           on_delete: () => delete_handler_ref.current?.(),
+          on_edit_audio: () => edit_audio_handler_ref.current?.(),
           on_retake: () => retake_handler_ref.current?.(),
           show_edit,
         }),
@@ -306,6 +309,7 @@ function NarrateScreen({ navigation, route, theme }) {
         ? header_right_element(() => (
           <NarrateEditMenu
             on_delete={() => delete_handler_ref.current?.()}
+            on_edit_audio={() => edit_audio_handler_ref.current?.()}
             on_retake={() => retake_handler_ref.current?.()}
             theme={theme}
           />
@@ -313,6 +317,33 @@ function NarrateScreen({ navigation, route, theme }) {
         : { headerRight: undefined }),
     });
   }, [navigation, permission_status, post, recording_phase, remote_url, theme, Posts.is_attaching]);
+
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      const take = NarrationDraft.consume_pending_take();
+      const applied_uri = `${take?.uri || ''}`.trim();
+
+      if (!applied_uri) {
+        return;
+      }
+
+      const previous_uri = take_uri_ref.current;
+      const applied_duration = Number(take.duration_seconds);
+
+      set_take_uri(applied_uri);
+      set_take_duration(Number.isFinite(applied_duration) ? Math.max(applied_duration, 0) : 0);
+      set_take_waveform(Array.isArray(take.waveform) ? take.waveform.filter(Number.isFinite) : []);
+      set_recording_phase('review');
+      pending_play_ref.current = false;
+      set_wants_playback(false);
+
+      if (previous_uri && previous_uri !== applied_uri) {
+        delete_take_file(previous_uri);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   React.useEffect(() => {
     const unsubscribe = navigation.addListener('blur', () => {
@@ -658,8 +689,23 @@ function NarrateScreen({ navigation, route, theme }) {
     );
   }
 
+  function open_edit_audio() {
+    const audio_url = `${take_uri || remote_url || ''}`.trim();
+
+    if (!post_uid || !audio_url) {
+      return;
+    }
+
+    pause_playback();
+    navigation.navigate('NarrateEdit', {
+      audio_url,
+      post_uid,
+    });
+  }
+
   done_handler_ref.current = handle_done_press;
   retake_handler_ref.current = start_recording;
+  edit_audio_handler_ref.current = open_edit_audio;
   delete_handler_ref.current = confirm_delete_narration;
 
   const is_active_recording = recording_phase === 'recording';
@@ -714,6 +760,7 @@ function NarrateScreen({ navigation, route, theme }) {
           levels={recording_levels}
           metering={recorder_state.metering}
           on_discard={confirm_discard}
+          on_edit_audio={open_edit_audio}
           on_finish={finish_take}
           on_record_press={handle_record_press}
           on_save={save_narration}
@@ -757,12 +804,17 @@ const styles = StyleSheet.create({
   },
 });
 
-function NarrateEditMenu({ on_delete, on_retake, theme }) {
+function NarrateEditMenu({ on_delete, on_edit_audio, on_retake, theme }) {
   const should_use_liquid_glass = is_liquid_glass();
 
   function handle_press_action({ nativeEvent }) {
     if (nativeEvent.event === 'retake') {
       on_retake?.();
+      return;
+    }
+
+    if (nativeEvent.event === 'edit_audio') {
+      on_edit_audio?.();
       return;
     }
 
@@ -776,13 +828,14 @@ function NarrateEditMenu({ on_delete, on_retake, theme }) {
       accessibilityLabel="Edit narration"
       actions={[
         { id: 'retake', title: 'Retake' },
+        { id: 'edit_audio', title: 'Edit Audio' },
         { attributes: { destructive: true }, id: 'delete', title: 'Delete' },
       ]}
       onPressAction={handle_press_action}
       themeVariant={theme.is_dark ? 'dark' : 'light'}
     >
       <Pressable
-        accessibilityHint="Opens a menu to retake narration"
+        accessibilityHint="Opens a menu to edit or retake narration"
         accessibilityLabel="Edit narration"
         accessibilityRole="button"
         style={({ pressed }) => [

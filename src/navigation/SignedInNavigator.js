@@ -5,6 +5,7 @@ import { observer } from 'mobx-react';
 
 import EditScreen from '../screens/EditScreen';
 import HeaderPillButton from '../components/HeaderPillButton';
+import NarrateEditScreen from '../screens/NarrateEditScreen';
 import NarrateScreen from '../screens/NarrateScreen';
 import PostEditScreen from '../screens/PostEditScreen';
 import PublishOptionsScreen from '../screens/PublishOptionsScreen';
@@ -64,7 +65,9 @@ function SignedInNavigator({ theme }) {
       <Stack.Screen
         name="Record"
         options={({ route }) => ({
-          title: route.params?.episode_id ? 'Add Segment' : 'New Recording',
+          title: route.params?.episode_id || route.params?.narration_post_uid
+            ? 'Add Segment'
+            : 'New Recording',
           headerLargeTitle: false,
         })}
       >
@@ -128,6 +131,20 @@ function SignedInNavigator({ theme }) {
       >
         {screen_props => (
           <NarrateScreen
+            {...screen_props}
+            theme={theme}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="NarrateEdit"
+        options={{
+          title: 'Edit Narration',
+          headerLargeTitle: false,
+        }}
+      >
+        {screen_props => (
+          <NarrateEditScreen
             {...screen_props}
             theme={theme}
           />
