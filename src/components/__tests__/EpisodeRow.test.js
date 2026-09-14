@@ -88,6 +88,21 @@ describe('EpisodeRow', () => {
     expect(published.getByText('Published')).toBeTruthy();
   });
 
+  test('shows a linked post summary under the title', async () => {
+    const { getByText } = await render(
+      React.createElement(EpisodeRow, {
+        episode: episode({
+          is_published: () => true,
+          published_at: '2026-09-03T18:56:00Z',
+        }),
+        summary: 'A walk around the lake',
+        theme,
+      }),
+    );
+
+    expect(getByText('A walk around the lake')).toBeTruthy();
+  });
+
   test('marks podcasts when showing kind', async () => {
     const { getByText, queryByText } = await render(
       React.createElement(EpisodeRow, {

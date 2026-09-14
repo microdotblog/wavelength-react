@@ -17,6 +17,7 @@ const Post = types.model('Post', {
   content: types.optional(types.string, ''),
   post_status: types.optional(types.string, 'published'),
   published_at: types.optional(types.string, ''),
+  summary: types.optional(types.string, ''),
   title: types.optional(types.string, ''),
   uid: types.identifier,
   url: types.string,

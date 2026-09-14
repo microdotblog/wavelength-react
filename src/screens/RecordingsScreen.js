@@ -24,6 +24,7 @@ import RecordingsFilterMenu, {
 } from '../components/RecordingsFilterMenu';
 import SegmentSwipeRow from '../components/SegmentSwipeRow';
 import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
+import { post_display_summary } from '../lib/micropub_posts';
 import {
   build_recording_items,
   recordings_empty_copy,
@@ -34,6 +35,21 @@ import Discover from '../stores/Discover';
 import Episodes from '../stores/Episodes';
 import Posts from '../stores/Posts';
 import { header_right_element, is_liquid_glass } from '../theme/wavelengthTheme';
+
+function episode_post_summary(episode) {
+  const post_id = `${episode?.post_id || ''}`.trim();
+  const post_url = `${episode?.post_url || ''}`.trim();
+  const post = Posts.get_post(post_id)
+    || (post_url
+      ? Posts.sorted_posts().find(item => item.url === post_url)
+      : null);
+
+  if (!post) {
+    return '';
+  }
+
+  return post_display_summary(post);
+}
 
 function RecordingsScreen({ navigation, theme }) {
   const selected_filter = Episodes.selected_filter;
@@ -366,6 +382,7 @@ function RecordingsScreen({ navigation, theme }) {
               onMenuAction={handle_episode_menu_action}
               onPress={() => open_edit(item.episode.id)}
               show_kind={selected_filter === 'all'}
+              summary={episode_post_summary(item.episode)}
               theme={theme}
             />
           </SegmentSwipeRow>

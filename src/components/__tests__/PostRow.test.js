@@ -58,6 +58,22 @@ describe('PostRow', () => {
     expect(queryByText('Podcast')).toBeNull();
   });
 
+  test('shows a podcast summary under the title', async () => {
+    const { getByText } = await render(
+      React.createElement(PostRow, {
+        onPress: jest.fn(),
+        post: {
+          content: '<audio controls src="https://micro.blog/a.m4a"></audio>',
+          summary: 'A walk around the lake',
+          title: 'Show',
+        },
+        theme,
+      }),
+    );
+
+    expect(getByText('A walk around the lake')).toBeTruthy();
+  });
+
   test('hints narrate for text posts and edit for podcasts', async () => {
     const text_row = await render(
       React.createElement(PostRow, {

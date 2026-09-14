@@ -5,15 +5,15 @@ import { observer } from 'mobx-react';
 import PlatformSymbol from './PlatformSymbol';
 import {
   format_post_date,
+  post_display_summary,
   post_display_title,
   post_kind,
   post_kind_icon,
   post_kind_label,
-  post_plain_text,
 } from '../lib/micropub_posts';
 
 function PostRow({ onPress, post, show_kind = false, theme }) {
-  const summary = post_plain_text(post.content);
+  const summary = post_display_summary(post);
   const published_label = format_post_date(post.published_at);
   const title = post_display_title(post);
   const kind = post_kind(post.content);

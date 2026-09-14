@@ -70,6 +70,22 @@ export function post_display_title(post = {}) {
   return 'Untitled';
 }
 
+export function post_display_summary(post = {}) {
+  const title = post_display_title(post);
+  const from_summary = `${post?.summary || ''}`.trim();
+  const from_content = post_plain_text(post?.content || '');
+
+  if (from_summary && from_summary !== title) {
+    return from_summary;
+  }
+
+  if (from_content && from_content !== title) {
+    return from_content;
+  }
+
+  return '';
+}
+
 function first_plain_line(content = '') {
   const html = `${content || ''}`;
   const first_block = html.split(/<\/p>|<br\s*\/?>|\n/i)[0] || html;
@@ -134,6 +150,7 @@ function normalize_micropub_post_item(item = null) {
     content,
     post_status,
     published_at: read_micropub_property(properties, 'published'),
+    summary: read_micropub_property(properties, 'summary'),
     title: read_micropub_property(properties, 'name'),
     uid,
     url,

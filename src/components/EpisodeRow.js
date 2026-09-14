@@ -73,12 +73,20 @@ function build_menu_actions(episode, theme) {
   return actions;
 }
 
-function EpisodeRow({ episode, onMenuAction, onPress, show_kind = false, theme }) {
+function EpisodeRow({
+  episode,
+  onMenuAction,
+  onPress,
+  show_kind = false,
+  summary = '',
+  theme,
+}) {
   const is_published = episode.is_published();
   const timestamp_label = format_post_date(episode.published_at || episode.created_at);
   const kind_label = show_kind ? post_kind_label('podcast') : '';
   const kind_icon = show_kind ? post_kind_icon('podcast') : '';
-  const accessibility_label = [episode.title, kind_label, timestamp_label]
+  const summary_label = `${summary || ''}`.trim();
+  const accessibility_label = [episode.title, summary_label, kind_label, timestamp_label]
     .filter(Boolean)
     .join(', ');
 
@@ -92,6 +100,11 @@ function EpisodeRow({ episode, onMenuAction, onPress, show_kind = false, theme }
         <Text numberOfLines={1} style={[styles.title, { color: theme.colors.ink }]}>
           {episode.title}
         </Text>
+        {summary_label.length > 0 ? (
+          <Text numberOfLines={2} style={[styles.summary, { color: theme.colors.ink_soft }]}>
+            {summary_label}
+          </Text>
+        ) : null}
         <Text style={[styles.meta, { color: theme.colors.ink_soft }]}>
           {format_duration(episode.duration_seconds)}
           {is_published ? (
@@ -213,6 +226,11 @@ const styles = StyleSheet.create({
     minHeight: 68,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  summary: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 19,
   },
   title: {
     fontSize: 17,

@@ -3,6 +3,7 @@ const {
   is_audio_post,
   normalize_micropub_post_source,
   normalize_micropub_posts,
+  post_display_summary,
   post_display_title,
   post_kind,
   post_kind_icon,
@@ -34,6 +35,7 @@ describe('micropub_posts', () => {
             content: ['<audio controls src="https://micro.blog/audio.m4a"></audio><p>Notes</p>'],
             name: ['Morning microcast'],
             published: ['2026-06-02T12:00:00Z'],
+            summary: ['A walk around the lake'],
             uid: ['2'],
             url: ['https://example.micro.blog/2'],
           },
@@ -59,6 +61,8 @@ describe('micropub_posts', () => {
     });
 
     expect(posts.map(post => post.uid)).toEqual(['3', '2', '1']);
+    expect(posts.find(post => post.uid === '2').summary).toBe('A walk around the lake');
+    expect(posts.find(post => post.uid === '1').summary).toBe('');
   });
 
   test('post_kind classifies visible audio, hidden audio, and text', () => {
@@ -91,6 +95,24 @@ describe('micropub_posts', () => {
       content: '<p>First paragraph.</p><p>Second paragraph that should not appear.</p>',
     })).toBe('First paragraph.');
     expect(post_display_title({ title: '', content: '' })).toBe('Untitled');
+  });
+
+  test('post_display_summary prefers the post summary, then body text', () => {
+    expect(post_display_summary({
+      content: '<audio controls src="https://micro.blog/a.m4a"></audio>',
+      summary: 'Show notes for the episode',
+      title: 'Morning microcast',
+    })).toBe('Show notes for the episode');
+    expect(post_display_summary({
+      content: '<audio controls src="https://micro.blog/a.m4a"></audio><p>Notes in the body</p>',
+      summary: '',
+      title: 'Morning microcast',
+    })).toBe('Notes in the body');
+    expect(post_display_summary({
+      content: '<p>A walk around the lake</p>',
+      summary: 'A walk around the lake',
+      title: '',
+    })).toBe('');
   });
 
   test('read_micropub_post_id reads uid from a source item', () => {
