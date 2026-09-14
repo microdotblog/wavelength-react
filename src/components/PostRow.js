@@ -3,31 +3,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react';
 
 import PlatformSymbol from './PlatformSymbol';
-import { format_post_date, post_display_title, post_kind, post_plain_text } from '../lib/micropub_posts';
-
-function post_kind_label(kind = 'post') {
-  if (kind === 'podcast') {
-    return 'Podcast';
-  }
-
-  if (kind === 'narrated') {
-    return 'Narrated';
-  }
-
-  return '';
-}
-
-function post_kind_icon(kind = 'post') {
-  if (kind === 'podcast') {
-    return 'waveform';
-  }
-
-  if (kind === 'narrated') {
-    return 'microphone';
-  }
-
-  return '';
-}
+import {
+  format_post_date,
+  post_display_title,
+  post_kind,
+  post_kind_icon,
+  post_kind_label,
+  post_plain_text,
+} from '../lib/micropub_posts';
 
 function PostRow({ onPress, post, show_kind = false, theme }) {
   const summary = post_plain_text(post.content);

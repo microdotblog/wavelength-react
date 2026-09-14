@@ -433,4 +433,16 @@ describe('Episodes store', () => {
       await expect(Episodes.export_published_audio('episode-1')).resolves.toBe('');
     });
   });
+
+  describe('selected_filter', () => {
+    test('defaults to all and ignores unknown values', () => {
+      expect(Episodes.selected_filter).toBe('all');
+
+      Episodes.set_selected_filter('narrations');
+      expect(Episodes.selected_filter).toBe('narrations');
+
+      Episodes.set_selected_filter('nope');
+      expect(Episodes.selected_filter).toBe('narrations');
+    });
+  });
 });

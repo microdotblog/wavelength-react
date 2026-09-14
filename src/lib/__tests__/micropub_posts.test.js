@@ -5,6 +5,8 @@ const {
   normalize_micropub_posts,
   post_display_title,
   post_kind,
+  post_kind_icon,
+  post_kind_label,
   post_plain_text,
   read_micropub_post_id,
 } = require('../micropub_posts');
@@ -64,6 +66,15 @@ describe('micropub_posts', () => {
     expect(post_kind('<audio controls src="https://micro.blog/a.m4a"></audio>')).toBe('podcast');
     expect(post_kind('<audio src="https://micro.blog/a.m4a" preload="metadata" style="display: none"></audio><p>Hi</p>')).toBe('narrated');
     expect(post_kind('<audio controls="controls" src="https://micro.blog/a.m4a" preload="metadata" style="display: none;"></audio>')).toBe('narrated');
+  });
+
+  test('post_kind_label and post_kind_icon mark podcasts and narrations', () => {
+    expect(post_kind_label('podcast')).toBe('Podcast');
+    expect(post_kind_icon('podcast')).toBe('waveform');
+    expect(post_kind_label('narrated')).toBe('Narrated');
+    expect(post_kind_icon('narrated')).toBe('microphone');
+    expect(post_kind_label('post')).toBe('');
+    expect(post_kind_icon('post')).toBe('');
   });
 
   test('post_kind treats visible audio as a podcast even if a hidden tag is also present', () => {

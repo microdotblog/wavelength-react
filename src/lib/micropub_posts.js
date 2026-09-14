@@ -30,6 +30,30 @@ export function post_kind(content = '') {
   return 'post';
 }
 
+export function post_kind_label(kind = 'post') {
+  if (kind === 'podcast') {
+    return 'Podcast';
+  }
+
+  if (kind === 'narrated') {
+    return 'Narrated';
+  }
+
+  return '';
+}
+
+export function post_kind_icon(kind = 'post') {
+  if (kind === 'podcast') {
+    return 'waveform';
+  }
+
+  if (kind === 'narrated') {
+    return 'microphone';
+  }
+
+  return '';
+}
+
 export function post_display_title(post = {}) {
   const title = `${post?.title || ''}`.trim();
 
