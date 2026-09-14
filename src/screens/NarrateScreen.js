@@ -443,17 +443,17 @@ function NarrateScreen({ navigation, route, theme }) {
 
   function confirm_discard() {
     Alert.alert(
-      'Discard recording?',
+      'Cancel recording?',
       'This removes the current take without saving it.',
       [
         {
           style: 'cancel',
-          text: 'Cancel',
+          text: 'Keep',
         },
         {
           onPress: discard_recording,
           style: 'destructive',
-          text: 'Discard',
+          text: 'Cancel',
         },
       ],
     );
@@ -531,17 +531,17 @@ function NarrateScreen({ navigation, route, theme }) {
     }
 
     Alert.alert(
-      'Discard recording?',
-      'You have an unsaved recording. Discard it and leave?',
+      'Cancel recording?',
+      'You have an unsaved recording. Cancel it and leave?',
       [
         {
           style: 'cancel',
-          text: 'Cancel',
+          text: 'Keep',
         },
         {
           onPress: discard_and_leave,
           style: 'destructive',
-          text: 'Discard',
+          text: 'Cancel',
         },
       ],
     );

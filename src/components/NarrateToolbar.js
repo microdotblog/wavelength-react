@@ -343,7 +343,7 @@ function NarrateToolbar({
               </Text>
               <View style={styles.actions}>
                 <TextAction
-                  label="Discard"
+                  label="Cancel"
                   onPress={on_discard}
                   theme={theme}
                   tone="destructive"
@@ -387,7 +387,7 @@ function NarrateToolbar({
               </Text>
               <View style={styles.actions}>
                 <TextAction
-                  label="Discard"
+                  label="Cancel"
                   onPress={on_discard}
                   theme={theme}
                   tone="destructive"

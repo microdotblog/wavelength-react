@@ -162,7 +162,7 @@ describe('NarrateToolbar', () => {
     expect(getByLabelText('Recording level')).toBeTruthy();
     expect(getByLabelText('Pause recording')).toBeTruthy();
     expect(getByText('0:12')).toBeTruthy();
-    expect(getByText('Discard')).toBeTruthy();
+    expect(getByText('Cancel')).toBeTruthy();
     expect(getByText('Done')).toBeTruthy();
   });
 });
