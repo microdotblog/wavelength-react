@@ -2,6 +2,7 @@ const {
   fetch_discover_posts,
   fetch_listen_later_posts,
   remove_listen_later,
+  save_listen_later,
 } = require('../Discover');
 
 describe('Discover API', () => {
@@ -116,6 +117,39 @@ describe('Discover API', () => {
         method: 'DELETE',
       },
     );
+  });
+
+  test('save_listen_later posts the bookmark id', async () => {
+    global.fetch.mockResolvedValue({
+      json: async () => ({}),
+      ok: true,
+    });
+
+    await save_listen_later({
+      id: '93223982',
+      token: 'token',
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://micro.blog/posts/bookmarks?id=93223982',
+      {
+        headers: {
+          Accept: 'application/json',
+          Authorization: 'Bearer token',
+        },
+        method: 'POST',
+      },
+    );
+  });
+
+  test('save_listen_later requires a token and id', async () => {
+    await expect(save_listen_later({ id: '93223982' })).rejects.toThrow(
+      'You need to be signed in to Micro.blog to save Listen Later episodes.',
+    );
+    await expect(save_listen_later({ token: 'token' })).rejects.toThrow(
+      'A Discover episode is required.',
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   test('remove_listen_later requires a token and id', async () => {

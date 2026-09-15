@@ -84,6 +84,45 @@ export async function fetch_listen_later_posts({
   return payload;
 }
 
+export async function save_listen_later({
+  id = '',
+  token = '',
+} = {}) {
+  const trimmed_token = `${token || ''}`.trim();
+  const trimmed_id = `${id || ''}`.trim();
+
+  if (!trimmed_token) {
+    throw create_request_error(
+      'You need to be signed in to Micro.blog to save Listen Later episodes.',
+    );
+  }
+
+  if (!trimmed_id) {
+    throw create_request_error('A Discover episode is required.');
+  }
+
+  const url = new URL(MICRO_BLOG_BOOKMARKS_URL);
+  url.searchParams.set('id', trimmed_id);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${trimmed_token}`,
+    },
+    method: 'POST',
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload?.error) {
+    throw create_request_error(
+      resolve_error_message(payload, 'We could not save that Listen Later episode.'),
+      response.status,
+    );
+  }
+
+  return true;
+}
+
 export async function remove_listen_later({
   id = '',
   token = '',

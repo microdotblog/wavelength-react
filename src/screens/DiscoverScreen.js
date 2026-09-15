@@ -164,6 +164,42 @@ function DiscoverScreen({ navigation, theme }) {
     }
   }
 
+  async function save_listen_later(post) {
+    const post_id = `${post?.id || ''}`.trim();
+
+    if (!post_id) {
+      return;
+    }
+
+    try {
+      await Discover.save_listen_later(post_id);
+      show_toast('Saved to Listen Later.');
+    } catch (error) {
+      show_toast(error?.message || 'Could not save that episode. Please try again.');
+    }
+  }
+
+  function handle_row_menu_action(action_id, post) {
+    if (action_id === 'play') {
+      handle_play_press?.(post);
+      return;
+    }
+
+    if (action_id === 'open') {
+      open_post(post);
+      return;
+    }
+
+    if (action_id === 'listen_later') {
+      save_listen_later(post);
+      return;
+    }
+
+    if (action_id === 'remove') {
+      confirm_remove_listen_later(post);
+    }
+  }
+
   const list_bottom_padding = discover_playback_content_padding({
     has_active_playback,
     tab_bar_height,
@@ -252,6 +288,8 @@ function DiscoverScreen({ navigation, theme }) {
             is_buffering={is_active && playback?.is_buffering}
             is_playable={is_playable}
             is_playing={is_active && playback?.playing}
+            is_saved={item.is_saved || Discover.is_listen_later()}
+            on_menu_action={action_id => handle_row_menu_action(action_id, item)}
             on_play_press={() => handle_play_press?.(item)}
             onPress={() => open_post(item)}
             secondary_source_label={row_content.secondary_source_label}

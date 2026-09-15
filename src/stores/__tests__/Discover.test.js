@@ -12,6 +12,7 @@ jest.mock('../../api/Discover', () => ({
   fetch_discover_posts: jest.fn(async () => ({ items: [] })),
   fetch_listen_later_posts: jest.fn(async () => ({ items: [] })),
   remove_listen_later: jest.fn(async () => true),
+  save_listen_later: jest.fn(async () => true),
 }));
 
 const { applySnapshot } = require('mobx-state-tree');
@@ -19,6 +20,7 @@ const {
   fetch_discover_posts,
   fetch_listen_later_posts,
   remove_listen_later,
+  save_listen_later,
 } = require('../../api/Discover');
 const Discover = require('../Discover').default;
 
@@ -56,6 +58,8 @@ describe('Discover store', () => {
     fetch_discover_posts.mockClear();
     fetch_listen_later_posts.mockClear();
     remove_listen_later.mockClear();
+    save_listen_later.mockClear();
+    save_listen_later.mockResolvedValue(true);
     fetch_discover_posts.mockResolvedValue({
       items: [
         {
@@ -404,5 +408,72 @@ describe('Discover store', () => {
 
     await expect(Discover.remove_listen_later('55')).rejects.toThrow('Nope');
     expect(Discover.listen_later_posts.map(post => post.id)).toEqual(['55']);
+  });
+
+  test('save_listen_later marks the Discover episode saved and reloads Listen Later next time', async () => {
+    await Discover.refresh();
+    Discover.set_selected_filter('listen_later');
+    await Discover.refresh();
+    Discover.set_selected_filter('discover');
+
+    expect(Discover.listen_later_did_hydrate).toBe(true);
+
+    await Discover.save_listen_later('12345');
+
+    expect(save_listen_later).toHaveBeenCalledWith({
+      id: '12345',
+      token: 'token',
+    });
+    expect(Discover.posts[0].is_saved).toBe(true);
+    expect(Discover.listen_later_did_hydrate).toBe(false);
+  });
+
+  test('remove_listen_later unsaves a Discover episode matched by url', async () => {
+    applySnapshot(Discover, {
+      listen_later_posts: [
+        {
+          audio_url: 'https://cdn.micro.blog/episode.m4a',
+          id: '99',
+          is_saved: true,
+          url: 'https://example.com/episode',
+        },
+      ],
+      posts: [
+        {
+          audio_url: 'https://cdn.micro.blog/episode.m4a',
+          id: '12345',
+          is_saved: true,
+          url: 'https://example.com/episode',
+        },
+      ],
+      selected_filter: 'listen_later',
+      topic: 'podcasts',
+    });
+
+    await Discover.remove_listen_later('99');
+
+    expect(Discover.listen_later_posts).toHaveLength(0);
+    expect(Discover.posts[0].is_saved).toBe(false);
+  });
+
+  test('remove_listen_later can unsave a Discover episode by post id', async () => {
+    await Discover.refresh();
+    await Discover.save_listen_later('12345');
+
+    await Discover.remove_listen_later('12345');
+
+    expect(remove_listen_later).toHaveBeenCalledWith({
+      id: '12345',
+      token: 'token',
+    });
+    expect(Discover.posts[0].is_saved).toBe(false);
+  });
+
+  test('save_listen_later leaves the episode unsaved when the API fails', async () => {
+    await Discover.refresh();
+    save_listen_later.mockRejectedValueOnce(new Error('Nope'));
+
+    await expect(Discover.save_listen_later('12345')).rejects.toThrow('Nope');
+    expect(Discover.posts[0].is_saved).toBe(false);
   });
 });

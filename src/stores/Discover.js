@@ -7,6 +7,7 @@ import {
   fetch_discover_posts,
   fetch_listen_later_posts,
   remove_listen_later as delete_listen_later,
+  save_listen_later as create_listen_later,
 } from '../api/Discover';
 import { is_playable_discover_post, normalize_discover_posts } from '../lib/discover_posts';
 import Tokens from './Tokens';
@@ -25,6 +26,7 @@ const DiscoverPost = types.model('DiscoverPost', {
   id: types.identifier,
   image_url: types.optional(types.string, ''),
   is_podcast: types.optional(types.boolean, false),
+  is_saved: types.optional(types.boolean, false),
   published_at: types.optional(types.string, ''),
   summary: types.optional(types.string, ''),
   title: types.optional(types.string, ''),
@@ -289,11 +291,36 @@ const Discover = types
       }
     }),
 
-    remove_listen_later: flow(function* (post_id = '') {
+    save_listen_later: flow(function* (post_id = '') {
       const trimmed_post_id = `${post_id || ''}`.trim();
-      const post = self.listen_later_posts.find(item => item.id === trimmed_post_id);
+      const post = self.posts.find(item => item.id === trimmed_post_id);
 
       if (!post) {
+        throw new Error('This episode is no longer in Discover.');
+      }
+
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        throw new Error('You need to be signed in to Micro.blog to save Listen Later episodes.');
+      }
+
+      yield create_listen_later({
+        id: trimmed_post_id,
+        token,
+      });
+
+      post.is_saved = true;
+      self.listen_later_did_hydrate = false;
+      return true;
+    }),
+
+    remove_listen_later: flow(function* (post_id = '') {
+      const trimmed_post_id = `${post_id || ''}`.trim();
+      const queued_post = self.listen_later_posts.find(item => item.id === trimmed_post_id);
+      const discovered_post = self.posts.find(item => item.id === trimmed_post_id);
+
+      if (!queued_post && !discovered_post) {
         throw new Error('This episode is no longer in Listen Later.');
       }
 
@@ -308,11 +335,27 @@ const Discover = types
         token,
       });
 
-      if (self.active_post_id === trimmed_post_id) {
-        self.active_post_id = null;
+      if (queued_post) {
+        const queued_url = queued_post.url;
+
+        if (self.active_post_id === queued_post.id) {
+          self.active_post_id = null;
+        }
+
+        self.listen_later_posts.remove(queued_post);
+
+        const matching_discover_post = self.posts.find(item => item.url === queued_url);
+
+        if (matching_discover_post) {
+          matching_discover_post.is_saved = false;
+        }
       }
 
-      self.listen_later_posts.remove(post);
+      if (discovered_post) {
+        discovered_post.is_saved = false;
+        self.listen_later_did_hydrate = false;
+      }
+
       return true;
     }),
   }))
