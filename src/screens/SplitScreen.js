@@ -4,9 +4,11 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { observer } from 'mobx-react';
 
 import Episodes from '../stores/Episodes';
+import NarrationDraft from '../stores/NarrationDraft';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import PlatformSymbol from '../components/PlatformSymbol';
 import { place_clip_file } from '../lib/EpisodeStorage';
+import { place_narration_clip_file } from '../lib/narration_storage';
 import { slice_waveform } from '../lib/merge_episode_waveform';
 import { split_clip_at } from '../lib/episode_audio';
 import { format_duration } from '../lib/format_duration';
@@ -17,11 +19,16 @@ const MINIMUM_SEGMENT_SECONDS = 1;
 
 function SplitScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;
+  const narration_post_uid = `${route.params?.narration_post_uid || ''}`.trim();
+  const is_narration = narration_post_uid.length > 0;
   const clip_name = route.params?.clip_name;
-  const episode = Episodes.get_episode(episode_id);
-  const clip_index = episode ? episode.clip_meta.findIndex(clip => clip.name === clip_name) : -1;
-  const clip = clip_index >= 0 ? episode.clip_meta[clip_index] : null;
-  const clip_uri = clip ? episode.clip_uri(clip_name) : null;
+  const episode = is_narration ? null : Episodes.get_episode(episode_id);
+  const host = is_narration
+    ? (NarrationDraft.is_open_for(narration_post_uid) ? NarrationDraft : null)
+    : episode;
+  const clip_index = host ? host.clip_meta.findIndex(clip => clip.name === clip_name) : -1;
+  const clip = clip_index >= 0 ? host.clip_meta[clip_index] : null;
+  const clip_uri = clip && host ? host.clip_uri(clip_name) : null;
 
   const player = useAudioPlayer(clip_uri ? { uri: clip_uri } : null, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
@@ -90,11 +97,15 @@ function SplitScreen({ navigation, route, theme }) {
 
     try {
       const result = await split_clip_at(clip_uri, split_seconds, clip_duration);
-      const first_name = await place_clip_file(episode_id, result.first_uri);
-      const second_name = await place_clip_file(episode_id, result.second_uri);
+      const first_name = is_narration
+        ? await place_narration_clip_file(narration_post_uid, result.first_uri)
+        : await place_clip_file(episode_id, result.first_uri);
+      const second_name = is_narration
+        ? await place_narration_clip_file(narration_post_uid, result.second_uri)
+        : await place_clip_file(episode_id, result.second_uri);
       const fraction = clip_duration > 0 ? split_seconds / clip_duration : 0.5;
 
-      const next_clips = episode.clip_meta.map(item => ({
+      const next_clips = host.clip_meta.map(item => ({
         duration_seconds: item.duration_seconds,
         name: item.name,
         waveform: item.waveform.slice(),
@@ -115,8 +126,13 @@ function SplitScreen({ navigation, route, theme }) {
         },
       );
 
-      await Episodes.update_episode_clips(episode_id, next_clips);
-      Episodes.export_merged_audio(episode_id);
+      if (is_narration) {
+        await NarrationDraft.update_clips(next_clips);
+      } else {
+        await Episodes.update_episode_clips(episode_id, next_clips);
+        Episodes.export_merged_audio(episode_id);
+      }
+
       navigation.goBack();
     } catch (error) {
       set_is_busy(false);
@@ -142,7 +158,7 @@ function SplitScreen({ navigation, route, theme }) {
     set_is_busy(true);
     player.pause();
 
-    const next_clips = episode.clip_meta
+    const next_clips = host.clip_meta
       .filter((_, index) => index !== clip_index)
       .map(item => ({
         duration_seconds: item.duration_seconds,
@@ -150,8 +166,13 @@ function SplitScreen({ navigation, route, theme }) {
         waveform: item.waveform.slice(),
       }));
 
-    await Episodes.update_episode_clips(episode_id, next_clips);
-    Episodes.export_merged_audio(episode_id);
+    if (is_narration) {
+      await NarrationDraft.update_clips(next_clips);
+    } else {
+      await Episodes.update_episode_clips(episode_id, next_clips);
+      Episodes.export_merged_audio(episode_id);
+    }
+
     navigation.goBack();
   }
 
@@ -217,14 +238,24 @@ function SplitScreen({ navigation, route, theme }) {
   }
 
   function confirm_delete_segment() {
-    if (episode.clips.length <= 1) {
+    if (host.clips.length <= 1) {
+      if (is_narration) {
+        Alert.alert(
+          'Keep one segment',
+          'Narration needs at least one segment. Delete the narration from the post instead.',
+        );
+        return;
+      }
+
       confirm_delete_episode();
       return;
     }
 
     Alert.alert(
       'Delete segment?',
-      'This removes the segment from this episode.',
+      is_narration
+        ? 'This removes the segment from this narration.'
+        : 'This removes the segment from this episode.',
       [
         {
           style: 'cancel',
@@ -239,7 +270,7 @@ function SplitScreen({ navigation, route, theme }) {
     );
   }
 
-  if (!episode || !clip) {
+  if (!host || !clip) {
     return (
       <View style={[styles.screen, styles.missingScreen, { backgroundColor: theme.colors.canvas }]}>
         <Text style={[styles.missingText, { color: theme.colors.ink_soft }]}>

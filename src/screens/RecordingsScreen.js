@@ -1,5 +1,14 @@
 import React from 'react';
-import { Alert, FlatList, Linking, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Linking,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { observer } from 'mobx-react';
 
@@ -7,17 +16,58 @@ import {
   discover_playback_content_padding,
   use_discover_playback_dock,
 } from '../components/DiscoverPlaybackProvider';
+import EpisodeRow from '../components/EpisodeRow';
+import PostRow from '../components/PostRow';
+import RecordControlButton from '../components/RecordControlButton';
+import RecordingsFilterMenu, {
+  build_ios_recordings_filter_header_items,
+} from '../components/RecordingsFilterMenu';
+import SegmentSwipeRow from '../components/SegmentSwipeRow';
+import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
+import { post_display_summary } from '../lib/micropub_posts';
+import {
+  build_recording_items,
+  recordings_empty_copy,
+  recordings_list_status,
+} from '../lib/recordings_filter';
+import { show_toast } from '../lib/toast';
 import Discover from '../stores/Discover';
 import Episodes from '../stores/Episodes';
-import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
-import EpisodeRow from '../components/EpisodeRow';
-import RecordControlButton from '../components/RecordControlButton';
-import SegmentSwipeRow from '../components/SegmentSwipeRow';
-import { show_toast } from '../lib/toast';
+import Posts from '../stores/Posts';
+import { header_right_element, is_liquid_glass } from '../theme/wavelengthTheme';
+
+function episode_post_summary(episode) {
+  const post_id = `${episode?.post_id || ''}`.trim();
+  const post_url = `${episode?.post_url || ''}`.trim();
+  const post = Posts.get_post(post_id)
+    || (post_url
+      ? Posts.sorted_posts().find(item => item.url === post_url)
+      : null);
+
+  if (!post) {
+    return '';
+  }
+
+  return post_display_summary(post);
+}
 
 function RecordingsScreen({ navigation, theme }) {
-  const episodes = Episodes.sorted_episodes();
+  const selected_filter = Episodes.selected_filter;
+  const list_status = recordings_list_status({
+    episodes_did_hydrate: Episodes.did_hydrate,
+    episodes_is_loading: Episodes.is_loading,
+    filter: selected_filter,
+    posts_did_hydrate: Posts.did_hydrate,
+    posts_error_message: Posts.error_message,
+    posts_is_loading: Posts.is_loading,
+  });
+  const items = build_recording_items({
+    episodes: Episodes.sorted_episodes(),
+    filter: selected_filter,
+    posts: Posts.sorted_posts(),
+  });
   const open_swipeable_ref = React.useRef(null);
+  const record_handler_ref = React.useRef(null);
   const tab_bar_height = use_tab_bar_bottom_offset();
   const { has_active_playback } = use_discover_playback_dock() || {};
   const list_bottom_padding = discover_playback_content_padding({
@@ -25,10 +75,12 @@ function RecordingsScreen({ navigation, theme }) {
     tab_bar_height,
   });
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
+  const show_header_record_button = Platform.OS === 'ios' && !is_liquid_glass();
 
   useFocusEffect(
     React.useCallback(() => {
       Episodes.refresh();
+      Posts.refresh();
 
       if (!Discover.did_hydrate) {
         Discover.refresh();
@@ -36,9 +88,51 @@ function RecordingsScreen({ navigation, theme }) {
     }, []),
   );
 
+  React.useLayoutEffect(() => {
+    if (Platform.OS === 'ios') {
+      navigation.setOptions({
+        headerRight: undefined,
+        unstable_headerRightItems: () => build_ios_recordings_filter_header_items({
+          did_hydrate: !list_status.is_loading,
+          is_loading: list_status.is_loading,
+          on_record: () => record_handler_ref.current?.(),
+          selected_filter,
+          show_record: show_header_record_button,
+          spinner: (
+            <ActivityIndicator
+              accessibilityLabel="Loading recordings"
+              color={theme.colors.accent}
+              size="small"
+            />
+          ),
+        }),
+      });
+      return;
+    }
+
+    navigation.setOptions({
+      unstable_headerRightItems: undefined,
+      ...header_right_element(() => (
+        <RecordingsFilterMenu theme={theme} />
+      )),
+    });
+  }, [
+    navigation,
+    selected_filter,
+    show_header_record_button,
+    theme,
+    list_status.is_loading,
+  ]);
+
   function open_record_screen() {
     navigation.navigate('Record', { auto_start: true });
   }
+
+  function open_header_record() {
+    navigation.navigate('Record');
+  }
+
+  record_handler_ref.current = open_header_record;
 
   function open_edit(episode_id, extra_params = {}) {
     navigation.navigate('Edit', { episode_id, ...extra_params });
@@ -155,6 +249,49 @@ function RecordingsScreen({ navigation, theme }) {
     }
   }
 
+  function open_narration(post) {
+    const post_uid = `${post?.uid || ''}`.trim();
+
+    if (!post_uid) {
+      return;
+    }
+
+    navigation.navigate('Narrate', { post_uid });
+  }
+
+  function confirm_delete_narration(post) {
+    Alert.alert(
+      'Delete narration?',
+      'This removes the audio from the post. The post itself stays.',
+      [
+        {
+          style: 'cancel',
+          text: 'Keep',
+        },
+        {
+          onPress: () => delete_narration(post),
+          style: 'destructive',
+          text: 'Delete',
+        },
+      ],
+    );
+  }
+
+  async function delete_narration(post) {
+    const post_uid = `${post?.uid || ''}`.trim();
+
+    if (!post_uid) {
+      return;
+    }
+
+    try {
+      await Posts.remove_narration(post_uid);
+      show_toast('Narration deleted.');
+    } catch (error) {
+      show_toast(error?.message || 'Could not delete narration. Please try again.');
+    }
+  }
+
   async function handle_delete_episode(episode, delete_post = false) {
     const episode_id = episode.id;
     const was_published = episode.is_published();
@@ -171,48 +308,86 @@ function RecordingsScreen({ navigation, theme }) {
     }
   }
 
-  if (episodes.length === 0) {
-    return (
-      <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
-        <View style={styles.emptyContent}>
-          <View style={styles.emptyCopy}>
-            <Text style={[styles.emptyTitle, { color: theme.colors.ink }]}>
-              Record your first podcast
-            </Text>
-            <Text style={[styles.emptyBody, { color: theme.colors.ink_soft }]}>
-              Tap the button to start recording. Then you can edit it and publish it to Micro.blog.
-            </Text>
-          </View>
+  function render_empty_state() {
+    if (list_status.is_loading || list_status.error_message) {
+      return null;
+    }
 
+    const empty_copy = recordings_empty_copy(selected_filter);
+
+    return (
+      <View style={styles.emptyContent}>
+        <View style={styles.emptyCopy}>
+          <Text style={[styles.emptyTitle, { color: theme.colors.ink }]}>
+            {empty_copy.title}
+          </Text>
+          <Text style={[styles.emptyBody, { color: theme.colors.ink_soft }]}>
+            {empty_copy.body}
+          </Text>
+        </View>
+
+        {empty_copy.show_record ? (
           <RecordControlButton
             attention
             onPress={open_record_screen}
             theme={theme}
           />
-        </View>
+        ) : null}
       </View>
     );
   }
 
   return (
     <FlatList
-      contentContainerStyle={[styles.content, { paddingBottom: list_bottom_padding }]}
+      contentContainerStyle={[
+        styles.content,
+        items.length === 0 ? styles.emptyList : null,
+        { paddingBottom: list_bottom_padding },
+      ]}
       contentInsetAdjustmentBehavior="automatic"
-      data={episodes}
+      data={items}
+      ListEmptyComponent={render_empty_state}
+      ListHeaderComponent={
+        list_status.error_message ? (
+          <Text style={[styles.error, { color: theme.colors.ink_soft }]}>
+            {list_status.error_message}
+          </Text>
+        ) : null
+      }
       keyExtractor={item => item.id}
-      renderItem={({ item }) => (
-        <SegmentSwipeRow
-          on_delete={() => request_delete_episode(item)}
-          on_will_open={handle_swipe_will_open}
-        >
-          <EpisodeRow
-            episode={item}
-            onMenuAction={handle_episode_menu_action}
-            onPress={() => open_edit(item.id)}
-            theme={theme}
-          />
-        </SegmentSwipeRow>
-      )}
+      renderItem={({ item }) => {
+        if (item.kind === 'narration') {
+          return (
+            <SegmentSwipeRow
+              on_delete={() => confirm_delete_narration(item.post)}
+              on_will_open={handle_swipe_will_open}
+            >
+              <PostRow
+                onPress={() => open_narration(item.post)}
+                post={item.post}
+                show_kind={selected_filter === 'all'}
+                theme={theme}
+              />
+            </SegmentSwipeRow>
+          );
+        }
+
+        return (
+          <SegmentSwipeRow
+            on_delete={() => request_delete_episode(item.episode)}
+            on_will_open={handle_swipe_will_open}
+          >
+            <EpisodeRow
+              episode={item.episode}
+              onMenuAction={handle_episode_menu_action}
+              onPress={() => open_edit(item.episode.id)}
+              show_kind={selected_filter === 'all'}
+              summary={episode_post_summary(item.episode)}
+              theme={theme}
+            />
+          </SegmentSwipeRow>
+        );
+      }}
       style={[styles.screen, { backgroundColor: theme.colors.canvas }]}
     />
   );
@@ -241,6 +416,15 @@ const styles = StyleSheet.create({
   emptyCopy: {
     alignItems: 'center',
     gap: 10,
+  },
+  emptyList: {
+    flexGrow: 1,
+  },
+  error: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 20,
+    paddingBottom: 8,
   },
   emptyTitle: {
     fontSize: 24,

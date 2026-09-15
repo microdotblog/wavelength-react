@@ -1,8 +1,18 @@
 import { applySnapshot, flow, types } from 'mobx-state-tree';
 
-import { DISCOVER_PODCASTS_TOPIC, fetch_discover_posts } from '../api/Discover';
+import {
+  DISCOVER_PAGE_SIZE,
+  DISCOVER_PODCASTS_TOPIC,
+  LISTEN_LATER_PAGE_SIZE,
+  fetch_discover_posts,
+  fetch_listen_later_posts,
+  remove_listen_later as delete_listen_later,
+  save_listen_later as create_listen_later,
+} from '../api/Discover';
 import { is_playable_discover_post, normalize_discover_posts } from '../lib/discover_posts';
 import Tokens from './Tokens';
+
+const DISCOVER_FILTERS = ['discover', 'listen_later'];
 
 const DiscoverPost = types.model('DiscoverPost', {
   author_avatar: types.optional(types.string, ''),
@@ -16,15 +26,54 @@ const DiscoverPost = types.model('DiscoverPost', {
   id: types.identifier,
   image_url: types.optional(types.string, ''),
   is_podcast: types.optional(types.boolean, false),
+  is_saved: types.optional(types.boolean, false),
   published_at: types.optional(types.string, ''),
   summary: types.optional(types.string, ''),
   title: types.optional(types.string, ''),
   url: types.string,
 });
 
+function find_post(self, post_id = '') {
+  const trimmed_post_id = `${post_id || ''}`.trim();
+
+  if (!trimmed_post_id) {
+    return null;
+  }
+
+  let primary_posts = self.posts;
+  let secondary_posts = self.listen_later_posts;
+
+  if (self.selected_filter === 'listen_later') {
+    primary_posts = self.listen_later_posts;
+    secondary_posts = self.posts;
+  }
+
+  const primary_post = primary_posts.find(item => item.id === trimmed_post_id);
+
+  if (primary_post) {
+    return primary_post;
+  }
+
+  const secondary_post = secondary_posts.find(item => item.id === trimmed_post_id);
+
+  if (secondary_post) {
+    return secondary_post;
+  } else {
+    return null;
+  }
+}
+
+function sort_discover_posts(posts = []) {
+  return posts
+    .slice()
+    .sort((first, second) => second.published_at.localeCompare(first.published_at));
+}
+
 const Discover = types
   .model('Discover', {
+    listen_later_posts: types.array(DiscoverPost),
     posts: types.array(DiscoverPost),
+    selected_filter: types.optional(types.string, 'discover'),
     topic: types.optional(types.string, DISCOVER_PODCASTS_TOPIC),
   })
   .volatile(() => ({
@@ -34,6 +83,10 @@ const Discover = types
     has_more: true,
     is_loading: false,
     is_loading_more: false,
+    listen_later_did_hydrate: false,
+    listen_later_has_more: true,
+    listen_later_is_loading: false,
+    listen_later_is_loading_more: false,
   }))
   .actions(self => ({
     clear_playback() {
@@ -52,7 +105,7 @@ const Discover = types
         return;
       }
 
-      const post = self.posts.find(item => item.id === trimmed_post_id);
+      const post = find_post(self, trimmed_post_id);
 
       if (!post || !is_playable_discover_post(post)) {
         return;
@@ -65,14 +118,36 @@ const Discover = types
       self.error_message = `${message || ''}`.trim() || null;
     },
 
+    set_selected_filter(filter = 'discover') {
+      const trimmed_filter = `${filter || ''}`.trim();
+
+      if (!DISCOVER_FILTERS.includes(trimmed_filter)) {
+        return;
+      }
+
+      self.selected_filter = trimmed_filter;
+    },
+
     refresh: flow(function* () {
+      if (self.selected_filter === 'listen_later') {
+        yield self.refresh_listen_later();
+        return;
+      }
+
+      yield self.refresh_discover();
+    }),
+
+    refresh_discover: flow(function* () {
       if (self.is_loading) {
         return;
       }
 
       self.is_loading = true;
-      self.error_message = null;
       self.has_more = true;
+
+      if (self.selected_filter !== 'listen_later') {
+        self.error_message = null;
+      }
 
       try {
         const payload = yield fetch_discover_posts({
@@ -82,18 +157,63 @@ const Discover = types
         const posts = normalize_discover_posts(payload);
 
         applySnapshot(self.posts, posts);
-        self.has_more = posts.length >= 40;
+        self.has_more = posts.length >= DISCOVER_PAGE_SIZE;
       } catch (error) {
         applySnapshot(self.posts, []);
-        self.set_error(error?.message || 'We could not load Discover posts.');
         self.has_more = false;
+
+        if (self.selected_filter !== 'listen_later') {
+          self.set_error(error?.message || 'We could not load Discover posts.');
+        }
       } finally {
         self.did_hydrate = true;
         self.is_loading = false;
       }
     }),
 
+    refresh_listen_later: flow(function* () {
+      if (self.listen_later_is_loading) {
+        return;
+      }
+
+      self.listen_later_is_loading = true;
+      self.listen_later_has_more = true;
+
+      if (self.selected_filter === 'listen_later') {
+        self.error_message = null;
+      }
+
+      try {
+        const payload = yield fetch_listen_later_posts({
+          token: Tokens.get_user_token(),
+        });
+        const posts = normalize_discover_posts(payload);
+
+        applySnapshot(self.listen_later_posts, posts);
+        self.listen_later_has_more = posts.length >= LISTEN_LATER_PAGE_SIZE;
+      } catch (error) {
+        applySnapshot(self.listen_later_posts, []);
+        self.listen_later_has_more = false;
+
+        if (self.selected_filter === 'listen_later') {
+          self.set_error(error?.message || 'We could not load Listen Later.');
+        }
+      } finally {
+        self.listen_later_did_hydrate = true;
+        self.listen_later_is_loading = false;
+      }
+    }),
+
     load_more: flow(function* () {
+      if (self.selected_filter === 'listen_later') {
+        yield self.load_more_listen_later();
+        return;
+      }
+
+      yield self.load_more_discover();
+    }),
+
+    load_more_discover: flow(function* () {
       if (!self.has_more || self.is_loading || self.is_loading_more || self.posts.length === 0) {
         return;
       }
@@ -122,12 +242,121 @@ const Discover = types
           }
         }
 
-        self.has_more = posts.length >= 40;
+        self.has_more = posts.length >= DISCOVER_PAGE_SIZE;
       } catch (error) {
         self.set_error(error?.message || 'We could not load more Discover posts.');
       } finally {
         self.is_loading_more = false;
       }
+    }),
+
+    load_more_listen_later: flow(function* () {
+      if (
+        !self.listen_later_has_more
+        || self.listen_later_is_loading
+        || self.listen_later_is_loading_more
+        || self.listen_later_posts.length === 0
+      ) {
+        return;
+      }
+
+      const before_id = self.listen_later_posts[self.listen_later_posts.length - 1]?.id || '';
+
+      if (!before_id) {
+        return;
+      }
+
+      self.listen_later_is_loading_more = true;
+      self.error_message = null;
+
+      try {
+        const payload = yield fetch_listen_later_posts({
+          before_id,
+          token: Tokens.get_user_token(),
+        });
+        const posts = normalize_discover_posts(payload);
+        const existing_ids = new Set(self.listen_later_posts.map(post => post.id));
+
+        for (const post of posts) {
+          if (!existing_ids.has(post.id)) {
+            self.listen_later_posts.push(post);
+          }
+        }
+
+        self.listen_later_has_more = posts.length >= LISTEN_LATER_PAGE_SIZE;
+      } catch (error) {
+        self.set_error(error?.message || 'We could not load more Listen Later episodes.');
+      } finally {
+        self.listen_later_is_loading_more = false;
+      }
+    }),
+
+    save_listen_later: flow(function* (post_id = '') {
+      const trimmed_post_id = `${post_id || ''}`.trim();
+      const post = self.posts.find(item => item.id === trimmed_post_id);
+
+      if (!post) {
+        throw new Error('This episode is no longer in Discover.');
+      }
+
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        throw new Error('You need to be signed in to Micro.blog to save Listen Later episodes.');
+      }
+
+      yield create_listen_later({
+        id: trimmed_post_id,
+        token,
+      });
+
+      post.is_saved = true;
+      self.listen_later_did_hydrate = false;
+      return true;
+    }),
+
+    remove_listen_later: flow(function* (post_id = '') {
+      const trimmed_post_id = `${post_id || ''}`.trim();
+      const queued_post = self.listen_later_posts.find(item => item.id === trimmed_post_id);
+      const discovered_post = self.posts.find(item => item.id === trimmed_post_id);
+
+      if (!queued_post && !discovered_post) {
+        throw new Error('This episode is no longer in Listen Later.');
+      }
+
+      const token = Tokens.get_user_token();
+
+      if (!token) {
+        throw new Error('You need to be signed in to Micro.blog to remove Listen Later episodes.');
+      }
+
+      yield delete_listen_later({
+        id: trimmed_post_id,
+        token,
+      });
+
+      if (queued_post) {
+        const queued_url = queued_post.url;
+
+        if (self.active_post_id === queued_post.id) {
+          self.active_post_id = null;
+        }
+
+        self.listen_later_posts.remove(queued_post);
+
+        const matching_discover_post = self.posts.find(item => item.url === queued_url);
+
+        if (matching_discover_post) {
+          matching_discover_post.is_saved = false;
+        }
+      }
+
+      if (discovered_post) {
+        discovered_post.is_saved = false;
+        self.listen_later_did_hydrate = false;
+      }
+
+      return true;
     }),
   }))
   .views(self => ({
@@ -136,13 +365,47 @@ const Discover = types
         return null;
       }
 
-      return self.posts.find(post => post.id === self.active_post_id) || null;
+      return find_post(self, self.active_post_id);
+    },
+
+    is_listen_later() {
+      return self.selected_filter === 'listen_later';
     },
 
     sorted_posts() {
-      return self.posts
-        .slice()
-        .sort((first, second) => second.published_at.localeCompare(first.published_at));
+      return sort_discover_posts(self.posts);
+    },
+
+    visible_did_hydrate() {
+      if (self.selected_filter === 'listen_later') {
+        return self.listen_later_did_hydrate;
+      } else {
+        return self.did_hydrate;
+      }
+    },
+
+    visible_is_loading() {
+      if (self.selected_filter === 'listen_later') {
+        return self.listen_later_is_loading;
+      } else {
+        return self.is_loading;
+      }
+    },
+
+    visible_is_loading_more() {
+      if (self.selected_filter === 'listen_later') {
+        return self.listen_later_is_loading_more;
+      } else {
+        return self.is_loading_more;
+      }
+    },
+
+    visible_posts() {
+      if (self.selected_filter === 'listen_later') {
+        return self.listen_later_posts.slice();
+      } else {
+        return sort_discover_posts(self.posts);
+      }
     },
   }))
   .create();

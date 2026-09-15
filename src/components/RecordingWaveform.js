@@ -52,12 +52,12 @@ function edge_fade(index, total) {
   return 1;
 }
 
-function level_to_height(level) {
+function level_to_height(level, bar_area_height) {
   'worklet';
 
   const clamped_level = Math.min(Math.max(level, 0), 1);
 
-  return Math.max(MIN_BAR_HEIGHT, clamped_level * BAR_AREA_HEIGHT);
+  return Math.max(MIN_BAR_HEIGHT, clamped_level * bar_area_height);
 }
 
 function level_to_color(level, theme, edge_opacity = 1) {
@@ -82,8 +82,8 @@ function idle_wave_level(progress, phase) {
   return IDLE_LEVEL + wave * IDLE_WAVE_AMPLITUDE;
 }
 
-function WaveformBar({ animate_idle, color, idle_phase, level }) {
-  const height = useSharedValue(level_to_height(level));
+function WaveformBar({ animate_idle, bar_area_height, color, idle_phase, level }) {
+  const height = useSharedValue(level_to_height(level, bar_area_height));
   const wave_progress = useSharedValue(0);
 
   React.useEffect(() => {
@@ -106,13 +106,13 @@ function WaveformBar({ animate_idle, color, idle_phase, level }) {
 
   React.useEffect(() => {
     if (!animate_idle) {
-      height.value = withSpring(level_to_height(level), SPRING_CONFIG);
+      height.value = withSpring(level_to_height(level, bar_area_height), SPRING_CONFIG);
     }
-  }, [animate_idle, height, level]);
+  }, [animate_idle, bar_area_height, height, level]);
 
   const animated_style = useAnimatedStyle(() => {
     if (animate_idle) {
-      return { height: level_to_height(idle_wave_level(wave_progress.value, idle_phase)) };
+      return { height: level_to_height(idle_wave_level(wave_progress.value, idle_phase), bar_area_height) };
     }
 
     return { height: height.value };
@@ -121,7 +121,13 @@ function WaveformBar({ animate_idle, color, idle_phase, level }) {
   return <Animated.View style={[styles.bar, { backgroundColor: color }, animated_style]} />;
 }
 
-function RecordingWaveform({ attention = false, is_recording = false, levels = [], theme }) {
+function RecordingWaveform({
+  attention = false,
+  bar_area_height = BAR_AREA_HEIGHT,
+  is_recording = false,
+  levels = [],
+  theme,
+}) {
   const [track_width, set_track_width] = React.useState(0);
   const display_levels = React.useMemo(
     () => upsample_waveform_levels(levels, bar_count_for_width(track_width)),
@@ -134,19 +140,21 @@ function RecordingWaveform({ attention = false, is_recording = false, levels = [
 
   const animate_idle = attention && !is_recording;
   const bar_count = display_levels.length;
+  const is_compact = bar_area_height < BAR_AREA_HEIGHT;
 
   return (
     <View
       accessibilityLabel={is_recording ? 'Recording level' : 'Ready to record'}
       accessibilityRole="image"
       onLayout={handle_layout}
-      style={styles.panel}
+      style={[styles.panel, is_compact ? styles.compactPanel : null]}
     >
-      <View style={styles.bars}>
+      <View style={[styles.bars, { height: bar_area_height }]}>
         {display_levels.map((level, index) => (
           <WaveformBar
             key={index}
             animate_idle={animate_idle}
+            bar_area_height={bar_area_height}
             color={level_to_color(level, theme, edge_fade(index, bar_count))}
             idle_phase={bar_count > 0 ? index / bar_count : 0}
             level={level}
@@ -167,8 +175,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: BAR_GAP,
-    height: BAR_AREA_HEIGHT,
     width: '100%',
+  },
+  compactPanel: {
+    paddingVertical: 0,
   },
   panel: {
     justifyContent: 'center',

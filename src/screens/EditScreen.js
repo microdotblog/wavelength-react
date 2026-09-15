@@ -28,6 +28,10 @@ import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
 import { share_episode_audio } from '../lib/episode_export';
 import { build_upload_size_limit_message } from '../lib/episode_upload_size';
+import {
+  resolve_active_clip_index,
+  resolve_playback_status_label,
+} from '../lib/episode_playback_ui';
 import { format_duration } from '../lib/format_duration';
 import { format_post_date } from '../lib/micropub_posts';
 import { show_toast } from '../lib/toast';
@@ -139,44 +143,6 @@ function clip_meta_snapshot(episode) {
     size_bytes: clip.size_bytes,
     waveform: clip.waveform.slice(),
   }));
-}
-
-function resolve_active_clip_index({ clip_count, current_clip_index, current_time, playing, total_duration }) {
-  if (clip_count <= 0) {
-    return -1;
-  }
-
-  if (playing) {
-    return current_clip_index;
-  }
-
-  if (current_time > 0 && total_duration > 0 && current_time < total_duration) {
-    return current_clip_index;
-  }
-
-  return -1;
-}
-
-function resolve_playback_status_label({
-  clip_count,
-  current_clip_index,
-  current_time,
-  playing,
-  total_duration,
-}) {
-  if (playing) {
-    if (clip_count <= 1) {
-      return 'Playing preview';
-    }
-
-    return `Playing segment ${current_clip_index + 1} of ${clip_count}`;
-  }
-
-  if (current_time > 0 && total_duration > 0 && current_time < total_duration) {
-    return `Paused at ${format_duration(current_time)}`;
-  }
-
-  return 'Tap play to preview';
 }
 
 function EditScreen({ navigation, route, theme }) {

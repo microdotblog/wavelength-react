@@ -3,7 +3,9 @@ import { MenuView } from '@react-native-menu/menu';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react';
 
+import PlatformSymbol from './PlatformSymbol';
 import { format_duration } from '../lib/format_duration';
+import { format_post_date, post_kind_icon, post_kind_label } from '../lib/micropub_posts';
 
 const DESTRUCTIVE_MENU_ICON_COLOR = '#ef4444';
 
@@ -71,8 +73,22 @@ function build_menu_actions(episode, theme) {
   return actions;
 }
 
-function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
+function EpisodeRow({
+  episode,
+  onMenuAction,
+  onPress,
+  show_kind = false,
+  summary = '',
+  theme,
+}) {
   const is_published = episode.is_published();
+  const timestamp_label = format_post_date(episode.published_at || episode.created_at);
+  const kind_label = show_kind ? post_kind_label('podcast') : '';
+  const kind_icon = show_kind ? post_kind_icon('podcast') : '';
+  const summary_label = `${summary || ''}`.trim();
+  const accessibility_label = [episode.title, summary_label, kind_label, timestamp_label]
+    .filter(Boolean)
+    .join(', ');
 
   function handle_press_action({ nativeEvent }) {
     onMenuAction?.(nativeEvent.event, episode);
@@ -84,6 +100,11 @@ function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
         <Text numberOfLines={1} style={[styles.title, { color: theme.colors.ink }]}>
           {episode.title}
         </Text>
+        {summary_label.length > 0 ? (
+          <Text numberOfLines={2} style={[styles.summary, { color: theme.colors.ink_soft }]}>
+            {summary_label}
+          </Text>
+        ) : null}
         <Text style={[styles.meta, { color: theme.colors.ink_soft }]}>
           {format_duration(episode.duration_seconds)}
           {is_published ? (
@@ -95,6 +116,29 @@ function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
             </>
           ) : null}
         </Text>
+        {timestamp_label.length > 0 || kind_label.length > 0 ? (
+          <View style={styles.kindRow}>
+            {timestamp_label.length > 0 ? (
+              <Text style={[styles.date, { color: theme.colors.ink_soft }]}>
+                {timestamp_label}
+              </Text>
+            ) : null}
+            {kind_label.length > 0 ? (
+              <View style={styles.kindMark}>
+                {kind_icon.length > 0 ? (
+                  <PlatformSymbol
+                    color={theme.colors.ink_soft}
+                    name={kind_icon}
+                    size={12}
+                  />
+                ) : null}
+                <Text style={[styles.date, { color: theme.colors.ink_soft }]}>
+                  {kind_label}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
       <Text style={[styles.chevron, { color: theme.colors.ink_soft }]}>
         ›
@@ -105,7 +149,7 @@ function EpisodeRow({ episode, onMenuAction, onPress, theme }) {
   return (
     <Pressable
       accessibilityHint="Long press for episode actions. Swipe left to delete."
-      accessibilityLabel={episode.title}
+      accessibilityLabel={accessibility_label}
       accessibilityRole="button"
       onLongPress={() => {}}
       onPress={onPress}
@@ -147,6 +191,22 @@ const styles = StyleSheet.create({
     gap: 4,
     minWidth: 0,
   },
+  date: {
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  kindMark: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  kindRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   meta: {
     fontSize: 14,
     fontVariant: ['tabular-nums'],
@@ -166,6 +226,11 @@ const styles = StyleSheet.create({
     minHeight: 68,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  summary: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 19,
   },
   title: {
     fontSize: 17,

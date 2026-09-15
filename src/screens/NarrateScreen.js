@@ -1,0 +1,931 @@
+import React from 'react';
+import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { MenuView } from '@react-native-menu/menu';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from 'expo-audio';
+import { File } from 'expo-file-system';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { observer } from 'mobx-react';
+import { HeaderBackButton } from '@react-navigation/elements';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
+
+import NarrateToolbar, {
+  build_ios_narrate_header_items,
+  should_show_narrate_edit,
+} from '../components/NarrateToolbar';
+import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
+import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
+import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
+import { build_narrate_html, is_narrate_preview_document_url } from '../lib/narrate_html';
+import { read_narration_audio_url } from '../lib/narration';
+import { should_resume_narration_playback } from '../lib/narration_playback';
+import { post_display_title } from '../lib/micropub_posts';
+import { normalize_metering } from '../lib/normalize_metering';
+import { enable_playback_audio_mode } from '../lib/playback_audio_mode';
+import { enable_recording_audio_mode } from '../lib/recording_audio_mode';
+import {
+  resolve_phase_after_recorder_state,
+  resolve_phase_after_recording_status,
+} from '../lib/recording_phase_sync';
+import { safe_audio_player_call } from '../lib/safe_audio_player';
+import { show_toast } from '../lib/toast';
+import Discover from '../stores/Discover';
+import NarrationDraft from '../stores/NarrationDraft';
+import Posts from '../stores/Posts';
+import { header_right_element, is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
+
+const MINIMUM_RECORDING_SECONDS = 1;
+const RECORDER_POLL_MS = 50;
+const PLAYER_STATUS_MS = 100;
+const RECORDING_KEEP_AWAKE_TAG = 'wavelength-narration';
+const RECORDING_OPTIONS = {
+  ...RecordingPresets.HIGH_QUALITY,
+  isMeteringEnabled: true,
+};
+
+function map_recorder_phase(phase = 'idle') {
+  if (phase === 'stopped') {
+    return 'review';
+  }
+
+  return phase;
+}
+
+function handle_preview_navigation(request) {
+  if (is_narrate_preview_document_url(request?.url)) {
+    return true;
+  }
+
+  const url = `${request?.url || ''}`.trim();
+
+  if (url) {
+    Linking.openURL(url).catch(() => {});
+  }
+
+  return false;
+}
+
+function delete_take_file(uri = '') {
+  const trimmed_uri = `${uri || ''}`.trim();
+
+  if (!trimmed_uri) {
+    return;
+  }
+
+  try {
+    new File(trimmed_uri).delete();
+  } catch {
+    // A missing temp file is fine to ignore.
+  }
+}
+
+function NarrateScreen({ navigation, route, theme }) {
+  const post_uid = route.params?.post_uid;
+  const post = Posts.get_post(post_uid);
+  const top_inset = use_stack_top_inset();
+  const insets = useSafeAreaInsets();
+  const [permission_status, set_permission_status] = React.useState('pending');
+  const [recording_phase, set_recording_phase] = React.useState('idle');
+  const [take_uri, set_take_uri] = React.useState(null);
+  const [take_waveform, set_take_waveform] = React.useState([]);
+  const [take_duration, set_take_duration] = React.useState(0);
+  const [wants_playback, set_wants_playback] = React.useState(false);
+  const captured_samples_ref = React.useRef([]);
+  const done_handler_ref = React.useRef(null);
+  const retake_handler_ref = React.useRef(null);
+  const edit_audio_handler_ref = React.useRef(null);
+  const delete_handler_ref = React.useRef(null);
+  const recording_phase_ref = React.useRef(recording_phase);
+  const is_discarding_ref = React.useRef(false);
+  const last_known_duration_ms_ref = React.useRef(0);
+  const has_observed_active_take_ref = React.useRef(false);
+  const pending_play_ref = React.useRef(false);
+  const recording_status_listener_ref = React.useRef(null);
+  const take_uri_ref = React.useRef(null);
+
+  recording_phase_ref.current = recording_phase;
+  take_uri_ref.current = take_uri;
+
+  const remote_url = read_narration_audio_url(post?.content || '');
+  const playback_uri = take_uri || (recording_phase === 'idle' ? remote_url : '') || null;
+  const is_remote_playback = /^https?:/i.test(`${playback_uri || ''}`);
+  const player = useAudioPlayer(playback_uri ? { uri: playback_uri } : null, {
+    downloadFirst: is_remote_playback,
+    updateInterval: PLAYER_STATUS_MS,
+  });
+  const player_status = useAudioPlayerStatus(player);
+
+  recording_status_listener_ref.current = (status) => {
+    const previous_phase = recording_phase_ref.current;
+    const next_phase = map_recorder_phase(resolve_phase_after_recording_status({
+      current_phase: previous_phase === 'review' ? 'stopped' : previous_phase,
+      has_error: status?.hasError === true,
+      is_finished: status?.isFinished === true,
+      is_saving: is_discarding_ref.current,
+      media_services_did_reset: status?.mediaServicesDidReset === true,
+      url: status?.url || null,
+    }));
+
+    if (next_phase !== previous_phase) {
+      set_recording_phase(next_phase);
+
+      if (
+        next_phase === 'idle'
+        && (previous_phase === 'recording' || previous_phase === 'paused')
+      ) {
+        captured_samples_ref.current = [];
+        last_known_duration_ms_ref.current = 0;
+        has_observed_active_take_ref.current = false;
+        set_take_uri(null);
+        set_take_waveform([]);
+        set_take_duration(0);
+        Alert.alert(
+          'Recording interrupted',
+          'The system interrupted that take. Start a new recording when you are ready.',
+        );
+      }
+    }
+  };
+
+  const audio_recorder = useAudioRecorder(RECORDING_OPTIONS, (status) => {
+    recording_status_listener_ref.current?.(status);
+  });
+  const recorder_state = useAudioRecorderState(audio_recorder, RECORDER_POLL_MS);
+
+  React.useEffect(() => {
+    let is_cancelled = false;
+
+    async function prepare_audio() {
+      const permission = await requestRecordingPermissionsAsync();
+
+      if (is_cancelled) {
+        return;
+      }
+
+      if (!permission.granted) {
+        set_permission_status('denied');
+        return;
+      }
+
+      if (!is_cancelled) {
+        set_permission_status('granted');
+      }
+    }
+
+    prepare_audio();
+
+    return () => {
+      is_cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const should_keep_awake = recording_phase === 'recording' || recording_phase === 'paused' || recording_phase === 'review';
+
+    if (!should_keep_awake) {
+      deactivateKeepAwake(RECORDING_KEEP_AWAKE_TAG).catch(() => {});
+      return;
+    }
+
+    activateKeepAwakeAsync(RECORDING_KEEP_AWAKE_TAG).catch(() => {});
+
+    return () => {
+      deactivateKeepAwake(RECORDING_KEEP_AWAKE_TAG).catch(() => {});
+    };
+  }, [recording_phase]);
+
+  React.useEffect(() => {
+    const is_active = recorder_state.isRecording === true || recorder_state.canRecord === true;
+
+    if (is_active && (recording_phase === 'recording' || recording_phase === 'paused')) {
+      has_observed_active_take_ref.current = true;
+    }
+
+    if (
+      is_active
+      && Number.isFinite(recorder_state.durationMillis)
+      && recorder_state.durationMillis > last_known_duration_ms_ref.current
+    ) {
+      last_known_duration_ms_ref.current = recorder_state.durationMillis;
+    }
+  }, [recorder_state.canRecord, recorder_state.durationMillis, recorder_state.isRecording, recording_phase]);
+
+  React.useEffect(() => {
+    const next_phase = map_recorder_phase(resolve_phase_after_recorder_state({
+      can_record: recorder_state.canRecord === true,
+      current_phase: recording_phase === 'review' ? 'stopped' : recording_phase,
+      has_observed_active_take: has_observed_active_take_ref.current,
+      is_recording: recorder_state.isRecording === true,
+      is_saving: is_discarding_ref.current || Posts.is_attaching,
+    }));
+
+    if (next_phase !== recording_phase) {
+      set_recording_phase(next_phase);
+    }
+  }, [recorder_state.canRecord, recorder_state.isRecording, recording_phase]);
+
+  React.useEffect(() => {
+    if (!recorder_state.isRecording || !Number.isFinite(recorder_state.metering)) {
+      return;
+    }
+
+    captured_samples_ref.current.push(normalize_metering(recorder_state.metering));
+  }, [recorder_state.isRecording, recorder_state.metering, recorder_state.durationMillis]);
+
+  React.useEffect(() => {
+    if (recording_phase !== 'review' || take_uri || !audio_recorder.uri) {
+      return;
+    }
+
+    const captured_seconds = Math.max(
+      last_known_duration_ms_ref.current / 1000,
+      Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis / 1000 : 0,
+    );
+
+    set_take_uri(audio_recorder.uri);
+    set_take_waveform(downsample_waveform(captured_samples_ref.current, WAVEFORM_SAMPLE_COUNT));
+    set_take_duration(captured_seconds);
+  }, [audio_recorder.uri, recorder_state.durationMillis, recording_phase, take_uri]);
+
+  React.useLayoutEffect(() => {
+    const title = post ? post_display_title(post) : 'Narrate';
+    const can_leave_freely = recording_phase === 'idle' && !Posts.is_attaching;
+    const show_edit = should_show_narrate_edit({
+      has_remote: remote_url.length > 0,
+      is_attaching: Posts.is_attaching,
+      permission_status,
+      recording_phase,
+    });
+
+    if (Platform.OS === 'ios') {
+      navigation.setOptions({
+        gestureEnabled: can_leave_freely,
+        headerLargeTitle: false,
+        headerLeft: undefined,
+        headerRight: undefined,
+        title,
+        unstable_headerLeftItems: () => [
+          {
+            accessibilityLabel: 'Back',
+            icon: { name: 'chevron.left', type: 'sfSymbol' },
+            label: '',
+            onPress: () => done_handler_ref.current?.(),
+            tintColor: theme.colors.ink,
+            type: 'button',
+          },
+        ],
+        unstable_headerRightItems: () => build_ios_narrate_header_items({
+          on_delete: () => delete_handler_ref.current?.(),
+          on_edit_audio: () => edit_audio_handler_ref.current?.(),
+          on_retake: () => retake_handler_ref.current?.(),
+          show_edit,
+        }),
+      });
+      return;
+    }
+
+    navigation.setOptions({
+      gestureEnabled: can_leave_freely,
+      headerLargeTitle: false,
+      headerLeft: () => (
+        <HeaderBackButton
+          accessibilityLabel="Back"
+          displayMode="minimal"
+          onPress={() => done_handler_ref.current?.()}
+          tintColor={theme.colors.ink}
+        />
+      ),
+      title,
+      unstable_headerLeftItems: undefined,
+      unstable_headerRightItems: undefined,
+      ...(show_edit
+        ? header_right_element(() => (
+          <NarrateEditMenu
+            on_delete={() => delete_handler_ref.current?.()}
+            on_edit_audio={() => edit_audio_handler_ref.current?.()}
+            on_retake={() => retake_handler_ref.current?.()}
+            theme={theme}
+          />
+        ))
+        : { headerRight: undefined }),
+    });
+  }, [navigation, permission_status, post, recording_phase, remote_url, theme, Posts.is_attaching]);
+
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      const take = NarrationDraft.consume_pending_take();
+      const applied_uri = `${take?.uri || ''}`.trim();
+
+      if (!applied_uri) {
+        return;
+      }
+
+      const previous_uri = take_uri_ref.current;
+      const applied_duration = Number(take.duration_seconds);
+
+      set_take_uri(applied_uri);
+      set_take_duration(Number.isFinite(applied_duration) ? Math.max(applied_duration, 0) : 0);
+      set_take_waveform(Array.isArray(take.waveform) ? take.waveform.filter(Number.isFinite) : []);
+      set_recording_phase('review');
+      pending_play_ref.current = false;
+      set_wants_playback(false);
+
+      if (previous_uri && previous_uri !== applied_uri) {
+        delete_take_file(previous_uri);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      pending_play_ref.current = false;
+      set_wants_playback(false);
+      safe_audio_player_call(player_status.isLoaded, () => player.pause());
+    });
+
+    return unsubscribe;
+  }, [navigation, player, player_status.isLoaded]);
+
+  React.useEffect(() => {
+    pending_play_ref.current = false;
+    set_wants_playback(false);
+  }, [playback_uri]);
+
+  React.useEffect(() => {
+    if (!player_status.didJustFinish) {
+      return;
+    }
+
+    pending_play_ref.current = false;
+    set_wants_playback(false);
+  }, [player_status.didJustFinish]);
+
+  React.useEffect(() => {
+    if (!should_resume_narration_playback({
+      is_loaded: player_status.isLoaded,
+      pending_play: pending_play_ref.current,
+      playing: player_status.playing === true,
+    })) {
+      return;
+    }
+
+    safe_audio_player_call(player_status.isLoaded, () => player.play());
+    pending_play_ref.current = false;
+  }, [player, player_status.isLoaded, player_status.playing]);
+
+  function pause_playback() {
+    pending_play_ref.current = false;
+    set_wants_playback(false);
+    safe_audio_player_call(player_status.isLoaded, () => player.pause());
+  }
+
+  async function start_recording() {
+    if (permission_status !== 'granted' || Posts.is_attaching || is_discarding_ref.current) {
+      return;
+    }
+
+    Discover.clear_playback();
+    pause_playback();
+    captured_samples_ref.current = [];
+    last_known_duration_ms_ref.current = 0;
+    has_observed_active_take_ref.current = false;
+    set_take_uri(null);
+    set_take_waveform([]);
+    set_take_duration(0);
+
+    try {
+      await enable_recording_audio_mode();
+      await audio_recorder.prepareToRecordAsync(RECORDING_OPTIONS);
+      audio_recorder.record();
+    } catch {
+      Alert.alert(
+        'Recording failed',
+        'Wavelength could not start recording. Check that a microphone is available, then try again.',
+      );
+      return;
+    }
+
+    set_recording_phase('recording');
+  }
+
+  function pause_recording() {
+    try {
+      if (audio_recorder.isRecording) {
+        audio_recorder.pause();
+      }
+    } catch {
+      // Native may already be stopped.
+    }
+
+    const status = audio_recorder.getStatus?.() || {};
+    if (!status.isRecording && !status.canRecord) {
+      set_recording_phase('review');
+      return;
+    }
+
+    set_recording_phase('paused');
+  }
+
+  function resume_recording() {
+    try {
+      audio_recorder.record();
+      set_recording_phase('recording');
+    } catch {
+      Alert.alert(
+        'Could not resume',
+        'That take already ended. Save it, or discard it and record again.',
+      );
+      set_recording_phase('review');
+    }
+  }
+
+  function handle_record_press() {
+    if (recording_phase === 'recording') {
+      pause_recording();
+      return;
+    }
+
+    if (recording_phase === 'paused') {
+      resume_recording();
+      return;
+    }
+
+    start_recording();
+  }
+
+  async function finish_take() {
+    const captured_seconds = Math.max(
+      last_known_duration_ms_ref.current / 1000,
+      Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis / 1000 : 0,
+      audio_recorder.currentTime || 0,
+    );
+
+    if (captured_seconds < MINIMUM_RECORDING_SECONDS) {
+      Alert.alert(
+        'Recording too short',
+        'Hold on a moment longer so there is something to save.',
+      );
+      return;
+    }
+
+    try {
+      await audio_recorder.stop();
+    } catch {
+      // Recorder already finished; fall through and use the existing URI.
+    }
+
+    const recording_uri = audio_recorder.uri;
+
+    if (!recording_uri) {
+      Alert.alert('Something went wrong', 'That recording could not be saved.');
+      return;
+    }
+
+    set_take_uri(recording_uri);
+    set_take_waveform(downsample_waveform(captured_samples_ref.current, WAVEFORM_SAMPLE_COUNT));
+    set_take_duration(captured_seconds);
+    set_recording_phase('review');
+  }
+
+  async function discard_recording() {
+    if (is_discarding_ref.current || Posts.is_attaching) {
+      return;
+    }
+
+    is_discarding_ref.current = true;
+    pause_playback();
+
+    const should_stop = recording_phase_ref.current === 'recording' || recording_phase_ref.current === 'paused';
+    captured_samples_ref.current = [];
+    last_known_duration_ms_ref.current = 0;
+    has_observed_active_take_ref.current = false;
+    recording_phase_ref.current = 'idle';
+    set_recording_phase('idle');
+    set_take_waveform([]);
+    set_take_duration(0);
+
+    const uri_to_delete = take_uri_ref.current;
+
+    try {
+      if (should_stop) {
+        try {
+          await audio_recorder.stop();
+        } catch {
+          // The recorder may already be stopped; deletion below still runs.
+        }
+      }
+
+      delete_take_file(uri_to_delete || audio_recorder.uri);
+    } finally {
+      set_take_uri(null);
+      is_discarding_ref.current = false;
+    }
+  }
+
+  function confirm_discard() {
+    Alert.alert(
+      'Cancel recording?',
+      'This removes the current take without saving it.',
+      [
+        {
+          style: 'cancel',
+          text: 'Keep',
+        },
+        {
+          onPress: discard_recording,
+          style: 'destructive',
+          text: 'Cancel',
+        },
+      ],
+    );
+  }
+
+  async function save_narration() {
+    const recording_uri = `${take_uri || audio_recorder.uri || ''}`.trim();
+
+    if (!recording_uri || Posts.is_attaching) {
+      return;
+    }
+
+    pause_playback();
+
+    try {
+      await Posts.attach_narration(post_uid, recording_uri);
+      try {
+        await enable_playback_audio_mode();
+      } catch {
+        // Remote playback can still load in the current session.
+      }
+      delete_take_file(recording_uri);
+      captured_samples_ref.current = [];
+      last_known_duration_ms_ref.current = 0;
+      has_observed_active_take_ref.current = false;
+      set_take_uri(null);
+      set_take_waveform([]);
+      set_take_duration(0);
+      set_recording_phase('idle');
+      show_toast('Narration saved.');
+    } catch (error) {
+      show_toast(error?.message || 'Could not save narration. Please try again.');
+    }
+  }
+
+  function confirm_delete_narration() {
+    if (Posts.is_attaching || recording_phase !== 'idle') {
+      return;
+    }
+
+    Alert.alert(
+      'Delete narration?',
+      'This removes the audio from the post. The post itself stays.',
+      [
+        {
+          style: 'cancel',
+          text: 'Keep',
+        },
+        {
+          onPress: delete_narration,
+          style: 'destructive',
+          text: 'Delete',
+        },
+      ],
+    );
+  }
+
+  async function delete_narration() {
+    if (Posts.is_attaching) {
+      return;
+    }
+
+    pause_playback();
+
+    try {
+      await Posts.remove_narration(post_uid);
+      show_toast('Narration deleted.');
+    } catch (error) {
+      show_toast(error?.message || 'Could not delete narration. Please try again.');
+    }
+  }
+
+  async function handle_toggle_playback() {
+    if (!playback_uri) {
+      return;
+    }
+
+    Discover.clear_playback();
+
+    if (player_status.playing || wants_playback) {
+      pause_playback();
+      return;
+    }
+
+    pending_play_ref.current = true;
+    set_wants_playback(true);
+
+    try {
+      await enable_playback_audio_mode();
+    } catch {
+      // Playback can still proceed in the current audio session.
+    }
+
+    if (!pending_play_ref.current) {
+      return;
+    }
+
+    if (player_status.isLoaded) {
+      safe_audio_player_call(true, () => player.play());
+      pending_play_ref.current = false;
+    }
+  }
+
+  function handle_seek(fraction = 0) {
+    const duration = player_status.duration || take_duration || 0;
+
+    if (duration <= 0) {
+      return;
+    }
+
+    safe_audio_player_call(player_status.isLoaded, () => player.seekTo(fraction * duration));
+  }
+
+  async function discard_and_leave() {
+    await discard_recording();
+    navigation.goBack();
+  }
+
+  function handle_done_press() {
+    if (is_discarding_ref.current || Posts.is_attaching) {
+      return;
+    }
+
+    if (recording_phase === 'idle') {
+      navigation.goBack();
+      return;
+    }
+
+    Alert.alert(
+      'Cancel recording?',
+      'You have an unsaved recording. Cancel it and leave?',
+      [
+        {
+          style: 'cancel',
+          text: 'Keep',
+        },
+        {
+          onPress: discard_and_leave,
+          style: 'destructive',
+          text: 'Cancel',
+        },
+      ],
+    );
+  }
+
+  function open_edit_audio() {
+    const audio_url = `${take_uri || remote_url || ''}`.trim();
+
+    if (!post_uid || !audio_url) {
+      return;
+    }
+
+    pause_playback();
+    navigation.navigate('NarrateEdit', {
+      audio_url,
+      post_uid,
+    });
+  }
+
+  done_handler_ref.current = handle_done_press;
+  retake_handler_ref.current = start_recording;
+  edit_audio_handler_ref.current = open_edit_audio;
+  delete_handler_ref.current = confirm_delete_narration;
+
+  const is_active_recording = recording_phase === 'recording';
+  const recording_duration_ms = recording_phase === 'recording' || recording_phase === 'paused'
+    ? Math.max(
+      last_known_duration_ms_ref.current,
+      Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
+    )
+    : 0;
+  const recording_levels = use_recording_waveform_levels({
+    duration_millis: recording_duration_ms,
+    is_recording: is_active_recording,
+    metering: recorder_state.metering,
+  });
+
+  if (!post) {
+    return (
+      <View style={[styles.screen, styles.missingScreen, { backgroundColor: theme.colors.canvas }]}>
+        <Text style={[styles.missingText, { color: theme.colors.ink_soft }]}>
+          This post is no longer available.
+        </Text>
+      </View>
+    );
+  }
+
+  const display_duration_seconds = recording_phase === 'recording' || recording_phase === 'paused'
+    ? Math.max(last_known_duration_ms_ref.current / 1000, Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis / 1000 : 0)
+    : (player_status.duration || take_duration || 0);
+  const display_current_time = recording_phase === 'recording' || recording_phase === 'paused'
+    ? display_duration_seconds
+    : (player_status.currentTime || 0);
+
+  return (
+    <View style={[styles.screen, { backgroundColor: theme.colors.canvas }]}>
+      <NarratePostPreview
+        background_color={theme.colors.canvas}
+        content={post.content}
+        ink_color={theme.colors.ink}
+        ink_soft_color={theme.colors.ink_soft}
+        is_dark={theme.is_dark}
+        title={post.title}
+        top_inset={top_inset}
+      />
+      <View style={[styles.toolbarWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <NarrateToolbar
+          current_time={display_current_time}
+          duration_seconds={display_duration_seconds}
+          has_remote={remote_url.length > 0}
+          has_take={Boolean(take_uri)}
+          is_attaching={Posts.is_attaching}
+          is_playing={player_status.playing === true || wants_playback}
+          levels={recording_levels}
+          metering={recorder_state.metering}
+          on_discard={confirm_discard}
+          on_edit_audio={open_edit_audio}
+          on_finish={finish_take}
+          on_record_press={handle_record_press}
+          on_save={save_narration}
+          on_seek={handle_seek}
+          on_toggle_playback={handle_toggle_playback}
+          permission_status={permission_status}
+          recording_phase={recording_phase}
+          status_label={Posts.attach_phase === 'removing' ? 'Removing narration…' : 'Saving narration…'}
+          theme={theme}
+          waveform={take_waveform}
+        />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  missingScreen: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  missingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  preview: {
+    flex: 1,
+  },
+  screen: {
+    flex: 1,
+  },
+  toolbarWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  webview: {
+    flex: 1,
+  },
+});
+
+function NarrateEditMenu({ on_delete, on_edit_audio, on_retake, theme }) {
+  const should_use_liquid_glass = is_liquid_glass();
+
+  function handle_press_action({ nativeEvent }) {
+    if (nativeEvent.event === 'retake') {
+      on_retake?.();
+      return;
+    }
+
+    if (nativeEvent.event === 'edit_audio') {
+      on_edit_audio?.();
+      return;
+    }
+
+    if (nativeEvent.event === 'delete') {
+      on_delete?.();
+    }
+  }
+
+  return (
+    <MenuView
+      accessibilityLabel="Edit narration"
+      actions={[
+        { id: 'retake', title: 'Retake' },
+        { id: 'edit_audio', title: 'Edit Audio' },
+        { attributes: { destructive: true }, id: 'delete', title: 'Delete' },
+      ]}
+      onPressAction={handle_press_action}
+      themeVariant={theme.is_dark ? 'dark' : 'light'}
+    >
+      <Pressable
+        accessibilityHint="Opens a menu to edit or retake narration"
+        accessibilityLabel="Edit narration"
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          Platform.OS === 'android' ? header_menu_styles.androidTrigger : header_menu_styles.iosTrigger,
+          Platform.OS === 'ios'
+            ? {
+                backgroundColor: should_use_liquid_glass
+                  ? 'transparent'
+                  : with_color_opacity(theme.colors.paper, theme.is_dark ? 0.72 : 0.84),
+                borderColor: should_use_liquid_glass ? 'transparent' : theme.colors.line,
+              }
+            : null,
+          pressed ? header_menu_styles.pressed : null,
+        ]}
+      >
+        <Text
+          style={[
+            Platform.OS === 'android' ? header_menu_styles.androidLabel : header_menu_styles.iosLabel,
+            { color: theme.colors.accent_strong },
+          ]}
+        >
+          Edit
+        </Text>
+      </Pressable>
+    </MenuView>
+  );
+}
+
+const header_menu_styles = StyleSheet.create({
+  androidLabel: {
+    fontSize: 17,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  androidTrigger: {
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 4,
+  },
+  iosLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  iosTrigger: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 32,
+    minWidth: 58,
+    paddingHorizontal: 11,
+  },
+  pressed: {
+    opacity: 0.68,
+  },
+});
+
+const NarratePostPreview = React.memo(function NarratePostPreview({
+  background_color,
+  content,
+  ink_color,
+  ink_soft_color,
+  is_dark,
+  title,
+  top_inset = 0,
+}) {
+  const html = React.useMemo(() => (
+    build_narrate_html({
+      background_color,
+      content,
+      ink_color,
+      ink_soft_color,
+      is_dark,
+      title,
+    })
+  ), [background_color, content, ink_color, ink_soft_color, is_dark, title]);
+
+  return (
+    <View style={[styles.preview, top_inset > 0 ? { paddingTop: top_inset } : null]}>
+      <WebView
+        originWhitelist={['*']}
+        onShouldStartLoadWithRequest={handle_preview_navigation}
+        setSupportMultipleWindows={false}
+        source={{ html }}
+        style={[styles.webview, { backgroundColor: background_color }]}
+      />
+    </View>
+  );
+});
+
+export default observer(NarrateScreen);

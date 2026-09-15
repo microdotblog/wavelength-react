@@ -32,5 +32,7 @@ describe('episode_upload_size', () => {
   test('build_upload_size_limit_message includes the actual size and limit', () => {
     expect(build_upload_size_limit_message(82_300_000))
       .toBe('This episode is 82 MB. Micro.blog uploads must be 75 MB or smaller.');
+    expect(build_upload_size_limit_message(82_300_000, 'narration'))
+      .toBe('This narration is 82 MB. Micro.blog uploads must be 75 MB or smaller.');
   });
 });
