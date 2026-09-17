@@ -84,6 +84,12 @@ describe('build_ios_posts_filter_header_items', () => {
     expect(items[0].type).toBe('menu');
     expect(items[0].label).toBe('Podcasts');
     expect(items[0].menu.items.map(item => item.state)).toEqual(['off', 'off', 'on', 'off']);
+    expect(items[0].menu.items.map(item => item.icon)).toEqual([
+      { name: 'square.stack', type: 'sfSymbol' },
+      { name: 'text.alignleft', type: 'sfSymbol' },
+      { name: 'waveform', type: 'sfSymbol' },
+      { name: 'microphone', type: 'sfSymbol' },
+    ]);
   });
 });
 

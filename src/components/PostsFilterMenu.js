@@ -7,10 +7,10 @@ import Posts from '../stores/Posts';
 import { is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
 export const POST_FILTER_OPTIONS = [
-  { id: 'all', label: 'All' },
-  { id: 'posts', label: 'Posts' },
-  { id: 'podcasts', label: 'Podcasts' },
-  { id: 'narrated', label: 'Narrated' },
+  { icon: 'square.stack', id: 'all', label: 'All' },
+  { icon: 'text.alignleft', id: 'posts', label: 'Posts' },
+  { icon: 'waveform', id: 'podcasts', label: 'Podcasts' },
+  { icon: 'microphone', id: 'narrated', label: 'Narrated' },
 ];
 
 export function post_filter_label(filter = 'podcasts') {
@@ -45,6 +45,7 @@ export function build_ios_posts_filter_header_items({
     label: post_filter_label(selected_filter),
     menu: {
       items: POST_FILTER_OPTIONS.map(option => ({
+        icon: { name: option.icon, type: 'sfSymbol' },
         label: option.label,
         onPress: () => Posts.set_selected_filter(option.id),
         state: option.id === selected_filter ? 'on' : 'off',
@@ -68,11 +69,19 @@ function PostsFilterMenu({ theme }) {
     Posts.set_selected_filter(nativeEvent.event);
   }
 
-  const actions = POST_FILTER_OPTIONS.map(option => ({
-    id: option.id,
-    state: option.id === selected_id ? 'on' : 'off',
-    title: option.label,
-  }));
+  const actions = POST_FILTER_OPTIONS.map(option => {
+    const action = {
+      id: option.id,
+      state: option.id === selected_id ? 'on' : 'off',
+      title: option.label,
+    };
+
+    if (Platform.OS === 'ios') {
+      action.image = option.icon;
+    }
+
+    return action;
+  });
 
   const show_loading_indicator = !Posts.did_hydrate || Posts.is_loading;
 

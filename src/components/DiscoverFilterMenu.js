@@ -7,8 +7,8 @@ import Discover from '../stores/Discover';
 import { is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
 export const DISCOVER_FILTER_OPTIONS = [
-  { id: 'discover', label: 'Discover' },
-  { id: 'listen_later', label: 'Listen Later' },
+  { icon: 'sparkles', id: 'discover', label: 'Discover' },
+  { icon: 'bookmark', id: 'listen_later', label: 'Listen Later' },
 ];
 
 export function discover_filter_label(filter = 'discover') {
@@ -62,6 +62,7 @@ export function build_ios_discover_filter_header_items({
     label: discover_filter_label(selected_filter),
     menu: {
       items: DISCOVER_FILTER_OPTIONS.map(option => ({
+        icon: { name: option.icon, type: 'sfSymbol' },
         label: option.label,
         onPress: () => Discover.set_selected_filter(option.id),
         state: option.id === selected_filter ? 'on' : 'off',
@@ -85,11 +86,19 @@ function DiscoverFilterMenu({ theme }) {
     Discover.set_selected_filter(nativeEvent.event);
   }
 
-  const actions = DISCOVER_FILTER_OPTIONS.map(option => ({
-    id: option.id,
-    state: option.id === selected_id ? 'on' : 'off',
-    title: option.label,
-  }));
+  const actions = DISCOVER_FILTER_OPTIONS.map(option => {
+    const action = {
+      id: option.id,
+      state: option.id === selected_id ? 'on' : 'off',
+      title: option.label,
+    };
+
+    if (Platform.OS === 'ios') {
+      action.image = option.icon;
+    }
+
+    return action;
+  });
 
   const show_loading_indicator = discover_is_pending({
     did_hydrate: Discover.visible_did_hydrate(),

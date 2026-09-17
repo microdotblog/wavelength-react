@@ -1,9 +1,9 @@
 import { post_kind } from './micropub_posts';
 
 export const RECORDING_FILTER_OPTIONS = [
-  { id: 'all', label: 'All' },
-  { id: 'podcasts', label: 'Podcasts' },
-  { id: 'narrations', label: 'Narrations' },
+  { icon: 'square.stack', id: 'all', label: 'All' },
+  { icon: 'waveform', id: 'podcasts', label: 'Podcasts' },
+  { icon: 'microphone', id: 'narrations', label: 'Narrations' },
 ];
 
 const RECORDING_FILTER_IDS = RECORDING_FILTER_OPTIONS.map(option => option.id);

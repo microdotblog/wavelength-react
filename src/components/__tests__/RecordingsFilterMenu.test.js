@@ -95,6 +95,11 @@ describe('build_ios_recordings_filter_header_items', () => {
     expect(items.map(item => item.type)).toEqual(['menu', 'button']);
     expect(items[0].label).toBe('All');
     expect(items[0].menu.items.map(item => item.state)).toEqual(['on', 'off', 'off']);
+    expect(items[0].menu.items.map(item => item.icon)).toEqual([
+      { name: 'square.stack', type: 'sfSymbol' },
+      { name: 'waveform', type: 'sfSymbol' },
+      { name: 'microphone', type: 'sfSymbol' },
+    ]);
     expect(items[1].label).toBe('Record');
 
     items[1].onPress();

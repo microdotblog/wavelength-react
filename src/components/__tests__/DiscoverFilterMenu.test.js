@@ -100,6 +100,10 @@ describe('build_ios_discover_filter_header_items', () => {
       'Discover',
       'Listen Later',
     ]);
+    expect(items[0].menu.items.map(item => item.icon)).toEqual([
+      { name: 'sparkles', type: 'sfSymbol' },
+      { name: 'bookmark', type: 'sfSymbol' },
+    ]);
   });
 
   test('keeps the loading item until the selected list has hydrated', () => {

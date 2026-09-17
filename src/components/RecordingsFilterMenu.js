@@ -36,6 +36,7 @@ export function build_ios_recordings_filter_header_items({
     label: recording_filter_label(selected_filter),
     menu: {
       items: RECORDING_FILTER_OPTIONS.map(option => ({
+        icon: { name: option.icon, type: 'sfSymbol' },
         label: option.label,
         onPress: () => Episodes.set_selected_filter(option.id),
         state: option.id === selected_filter ? 'on' : 'off',
@@ -68,11 +69,19 @@ function RecordingsFilterMenu({ theme }) {
     Episodes.set_selected_filter(nativeEvent.event);
   }
 
-  const actions = RECORDING_FILTER_OPTIONS.map(option => ({
-    id: option.id,
-    state: option.id === selected_id ? 'on' : 'off',
-    title: option.label,
-  }));
+  const actions = RECORDING_FILTER_OPTIONS.map(option => {
+    const action = {
+      id: option.id,
+      state: option.id === selected_id ? 'on' : 'off',
+      title: option.label,
+    };
+
+    if (Platform.OS === 'ios') {
+      action.image = option.icon;
+    }
+
+    return action;
+  });
 
   const list_status = recordings_list_status({
     episodes_did_hydrate: Episodes.did_hydrate,
