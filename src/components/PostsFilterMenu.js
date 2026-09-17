@@ -72,12 +72,12 @@ function PostsFilterMenu({ theme }) {
   const actions = POST_FILTER_OPTIONS.map(option => {
     const action = {
       id: option.id,
-      state: option.id === selected_id ? 'on' : 'off',
       title: option.label,
     };
 
     if (Platform.OS === 'ios') {
       action.image = option.icon;
+      action.state = option.id === selected_id ? 'on' : 'off';
     }
 
     return action;

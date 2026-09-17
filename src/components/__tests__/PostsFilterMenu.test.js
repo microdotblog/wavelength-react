@@ -121,4 +121,18 @@ describe('PostsFilterMenu', () => {
     fireEvent.press(getByLabelText('Narrated'));
     expect(Posts.set_selected_filter).toHaveBeenCalledWith('narrated');
   });
+
+  test('does not mark Android actions as checkable', async () => {
+    const { Platform } = require('react-native');
+    Platform.OS = 'android';
+
+    const { getByLabelText } = await render(
+      React.createElement(PostsFilterMenu, { theme }),
+    );
+
+    expect(getByLabelText('Podcasts').props.accessibilityState.selected).toBe(false);
+    expect(getByLabelText('All').props.accessibilityState.selected).toBe(false);
+
+    Platform.OS = 'ios';
+  });
 });
