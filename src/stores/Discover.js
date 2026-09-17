@@ -404,7 +404,7 @@ const Discover = types
       if (self.selected_filter === 'listen_later') {
         return self.listen_later_posts.slice();
       } else {
-        return sort_discover_posts(self.posts);
+        return sort_discover_posts(self.posts).filter(is_playable_discover_post);
       }
     },
   }))

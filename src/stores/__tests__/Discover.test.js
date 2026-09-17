@@ -240,7 +240,7 @@ describe('Discover store', () => {
     expect(Discover.selected_filter).toBe('listen_later');
   });
 
-  test('visible_posts returns Discover newest first and Listen Later in feed order', () => {
+  test('visible_posts returns playable Discover posts newest first and Listen Later in feed order', () => {
     applySnapshot(Discover, {
       listen_later_posts: [
         {
@@ -258,14 +258,22 @@ describe('Discover store', () => {
       ],
       posts: [
         {
+          audio_url: 'https://cdn.micro.blog/older.m4a',
           id: '1',
           published_at: '2026-06-01T12:00:00Z',
           url: 'https://micro.blog/1',
         },
         {
+          audio_url: 'https://cdn.micro.blog/newer.m4a',
           id: '2',
           published_at: '2026-06-03T12:00:00Z',
           url: 'https://micro.blog/2',
+        },
+        {
+          audio_url: '',
+          id: '3',
+          published_at: '2026-06-04T12:00:00Z',
+          url: 'https://micro.blog/3',
         },
       ],
       selected_filter: 'discover',
