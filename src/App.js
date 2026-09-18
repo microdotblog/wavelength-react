@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Linking,
   Modal,
+  Pressable,
   StyleSheet,
   Text,
   useColorScheme,
@@ -29,7 +30,7 @@ function LegacyUpgradeModal({ theme, visible = false }) {
   return (
     <Modal
       animationType="fade"
-      onRequestClose={() => {}}
+      onRequestClose={() => Episodes.continue_without_legacy_upgrade()}
       presentationStyle="overFullScreen"
       statusBarTranslucent
       transparent
@@ -51,6 +52,15 @@ function LegacyUpgradeModal({ theme, visible = false }) {
           <Text style={[styles.upgradeTitle, { color: theme.colors.ink }]}>
             Upgrading previous Wavelength recordings...
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => Episodes.continue_without_legacy_upgrade()}
+            style={({ pressed }) => [styles.continueButton, { opacity: pressed ? 0.68 : 1 }]}
+          >
+            <Text style={[styles.continueButtonText, { color: theme.colors.accent_strong }]}>
+              Continue
+            </Text>
+          </Pressable>
         </View>
       </View>
     </Modal>
@@ -120,6 +130,16 @@ function App() {
 }
 
 const styles = StyleSheet.create({
+  continueButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 20,
+  },
+  continueButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
   loadingScreen: {
     flex: 1,
     alignItems: 'center',
