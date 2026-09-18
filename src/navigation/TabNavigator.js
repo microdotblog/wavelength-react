@@ -5,6 +5,7 @@ import { createNativeBottomTabNavigator } from '@react-navigation/bottom-tabs/un
 import DiscoverStack from './stacks/DiscoverStack';
 import PostsStack from './stacks/PostsStack';
 import RecordingsStack from './stacks/RecordingsStack';
+import { ios_record_tab_options, press_record_tab } from './record_tab';
 import { is_liquid_glass } from '../theme/wavelengthTheme';
 
 const RECORDINGS_ICON = require('../../assets/icons/tab_bar/recordings.png');
@@ -111,16 +112,9 @@ function TabNavigator({ theme }) {
         <Tab.Screen
           name="RecordAction"
           component={RecordActionScreen}
-          options={{
-            tabBarSystemItem: 'search',
-            tabBarLabel: 'Record',
-            tabBarIcon: { type: 'sfSymbol', name: 'mic.fill' },
-            tabBarSelectionEnabled: false,
-          }}
+          options={ios_record_tab_options()}
           listeners={({ navigation }) => ({
-            tabPress: () => {
-              navigation.getParent()?.navigate('Record');
-            },
+            tabPress: () => press_record_tab(navigation),
           })}
         />
       ) : null}

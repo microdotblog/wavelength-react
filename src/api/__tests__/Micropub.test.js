@@ -289,6 +289,20 @@ describe('Micropub update_micropub_post', () => {
     });
   });
 
+  test('includes the uploaded audio url as the Micropub audio property', async () => {
+    await update_micropub_post({
+      audio_url: 'https://micro.blog/read.m4a',
+      content: '<audio src="https://micro.blog/read.m4a" preload="metadata" style="display: none"></audio>\n<p>Hello</p>',
+      post_url: 'https://example.micro.blog/post/1',
+      title: 'Essay',
+      token: 'token',
+    });
+
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body).replace.audio).toEqual([
+      'https://micro.blog/read.m4a',
+    ]);
+  });
+
   test('includes empty summary so updates can clear it', async () => {
     await update_micropub_post({
       content: '<p>Updated notes</p>',

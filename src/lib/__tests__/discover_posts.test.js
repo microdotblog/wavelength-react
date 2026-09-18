@@ -59,12 +59,29 @@ describe('discover_posts', () => {
         id: '93223982',
         image_url: '',
         is_podcast: true,
+        is_saved: false,
         published_at: '2026-07-01T04:03:09+00:00',
         summary: '',
         title: "Sascha Martin's Ripping News, the Podcast: Teaser 3",
         url: 'https://johnarthurnichol.com/2026/07/01/sascha-martins-ripping-news-the.html',
       },
     ]);
+  });
+
+  test('normalize_discover_posts maps saved Listen Later state from is_favorite', () => {
+    expect(
+      normalize_discover_posts({
+        items: [
+          {
+            id: '1',
+            url: 'https://example.com/1',
+            _microblog: {
+              is_favorite: true,
+            },
+          },
+        ],
+      })[0].is_saved,
+    ).toBe(true);
   });
 
   test('is_playable_discover_post checks for audio_url', () => {

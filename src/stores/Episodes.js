@@ -30,6 +30,7 @@ import {
   is_over_upload_limit,
   sanitize_size_bytes,
 } from '../lib/episode_upload_size';
+import { is_recording_filter } from '../lib/recordings_filter';
 import Auth from './Auth';
 import Posts from './Posts';
 import Tokens from './Tokens';
@@ -129,6 +130,7 @@ const Episode = types
 const Episodes = types
   .model('Episodes', {
     episodes: types.array(Episode),
+    selected_filter: types.optional(types.string, 'all'),
   })
   .volatile(() => ({
     did_check_for_legacy: false,
@@ -138,6 +140,16 @@ const Episodes = types
     is_upgrading_legacy: false,
   }))
   .actions(self => ({
+    set_selected_filter(filter = 'all') {
+      const trimmed_filter = `${filter || ''}`.trim();
+
+      if (!is_recording_filter(trimmed_filter)) {
+        return;
+      }
+
+      self.selected_filter = trimmed_filter;
+    },
+
     apply_episode_snapshot(snapshot) {
       const existing = self.episodes.find(episode => episode.id === snapshot.id);
 

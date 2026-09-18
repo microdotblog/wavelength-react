@@ -1,10 +1,13 @@
 import React from 'react';
+import { MenuView } from '@react-native-menu/menu';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import PlatformSymbol from './PlatformSymbol';
 import { resolve_discover_avatar_url } from '../lib/discover_posts';
 import { with_color_opacity } from '../theme/wavelengthTheme';
+
+const DESTRUCTIVE_MENU_ICON_COLOR = '#ef4444';
 
 const FEED_AVATAR_SIZE = 26;
 const FEED_AVATAR_TRANSITION_MS = 180;
@@ -131,6 +134,68 @@ function get_source_avatar_initial(source = '') {
 
 export { DiscoverSourceAvatar };
 
+function ios_menu_action({ destructive = false, id, image, theme, title }) {
+  const action = { id, title };
+
+  if (Platform.OS === 'ios') {
+    action.image = image;
+    action.imageColor = destructive ? DESTRUCTIVE_MENU_ICON_COLOR : theme.colors.ink;
+  }
+
+  if (destructive) {
+    action.attributes = { destructive: true };
+  }
+
+  return action;
+}
+
+export function build_discover_row_actions({
+  is_playable = false,
+  is_playing = false,
+  is_saved = false,
+  theme,
+} = {}) {
+  const actions = [];
+
+  if (is_playable) {
+    actions.push(
+      ios_menu_action({
+        id: 'play',
+        image: is_playing ? 'pause.fill' : 'play.fill',
+        theme,
+        title: is_playing ? 'Pause' : 'Play',
+      }),
+    );
+  }
+
+  actions.push(
+    ios_menu_action({ id: 'open', image: 'safari', theme, title: 'Open' }),
+  );
+
+  if (is_saved) {
+    actions.push(
+      ios_menu_action({
+        destructive: true,
+        id: 'remove',
+        image: 'bookmark.slash',
+        theme,
+        title: 'Remove from Listen Later',
+      }),
+    );
+  } else {
+    actions.push(
+      ios_menu_action({
+        id: 'listen_later',
+        image: 'bookmark',
+        theme,
+        title: 'Listen Later',
+      }),
+    );
+  }
+
+  return actions;
+}
+
 export default function DiscoverPostRow({
   accessibility_label = '',
   avatar_url = '',
@@ -139,6 +204,8 @@ export default function DiscoverPostRow({
   is_buffering = false,
   is_playable = false,
   is_playing = false,
+  is_saved = false,
+  on_menu_action,
   on_play_press,
   onPress,
   secondary_source_label = '',
@@ -154,6 +221,67 @@ export default function DiscoverPostRow({
     ? with_color_opacity(theme.colors.accent, theme.is_dark ? 0.12 : 0.08)
     : theme.colors.paper;
 
+  function handle_press_action({ nativeEvent }) {
+    if (!on_menu_action) {
+      return;
+    }
+
+    on_menu_action(nativeEvent.event);
+  }
+
+  const row_copy = (
+    <View style={styles.rowContentWrap}>
+      <DiscoverSourceAvatar
+        avatar_url={avatar_url}
+        source={source_label}
+        theme={theme}
+      />
+      <View style={styles.rowContent}>
+        <Text
+          numberOfLines={2}
+          style={[
+            styles.rowTitle,
+            { color: theme.colors.ink },
+          ]}
+        >
+          {display_title}
+        </Text>
+        {summary ? (
+          <Text
+            numberOfLines={3}
+            style={[
+              styles.rowSummary,
+              { color: theme.colors.ink_soft },
+            ]}
+          >
+            {summary}
+          </Text>
+        ) : null}
+        {secondary_source_label ? (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.rowSourceLabel,
+              { color: theme.colors.ink_soft },
+            ]}
+          >
+            {secondary_source_label}
+          </Text>
+        ) : null}
+        {timestamp ? (
+          <Text
+            style={[
+              styles.timestamp,
+              { color: theme.colors.ink_soft },
+            ]}
+          >
+            {timestamp}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+
   return (
     <View
       style={[
@@ -165,64 +293,29 @@ export default function DiscoverPostRow({
       ]}
     >
       <Pressable
+        accessibilityHint="Long press for episode actions."
         accessibilityLabel={accessibility_label || `Open ${display_title}`}
         accessibilityRole="button"
+        onLongPress={() => {}}
         onPress={onPress}
         style={({ pressed }) => [
           styles.rowBody,
           pressed ? styles.pressed : null,
         ]}
       >
-        <View style={styles.rowContentWrap}>
-          <DiscoverSourceAvatar
-            avatar_url={avatar_url}
-            source={source_label}
-            theme={theme}
-          />
-          <View style={styles.rowContent}>
-            <Text
-              numberOfLines={2}
-              style={[
-                styles.rowTitle,
-                { color: theme.colors.ink },
-              ]}
-            >
-              {display_title}
-            </Text>
-            {summary ? (
-              <Text
-                numberOfLines={3}
-                style={[
-                  styles.rowSummary,
-                  { color: theme.colors.ink_soft },
-                ]}
-              >
-                {summary}
-              </Text>
-            ) : null}
-            {secondary_source_label ? (
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.rowSourceLabel,
-                  { color: theme.colors.ink_soft },
-                ]}
-              >
-                {secondary_source_label}
-              </Text>
-            ) : null}
-            {timestamp ? (
-              <Text
-                style={[
-                  styles.timestamp,
-                  { color: theme.colors.ink_soft },
-                ]}
-              >
-                {timestamp}
-              </Text>
-            ) : null}
-          </View>
-        </View>
+        <MenuView
+          actions={build_discover_row_actions({
+            is_playable,
+            is_playing,
+            is_saved,
+            theme,
+          })}
+          onPressAction={handle_press_action}
+          shouldOpenOnLongPress
+          themeVariant={theme.is_dark ? 'dark' : 'light'}
+        >
+          {row_copy}
+        </MenuView>
       </Pressable>
 
       {is_playable ? (

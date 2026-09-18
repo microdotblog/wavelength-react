@@ -6,7 +6,7 @@ jest.mock('expo-file-system', () => {
   return {
     Directory: jest.fn(),
     File: jest.fn(),
-    Paths: { document: 'file:///documents/' },
+    Paths: { cache: 'file:///cache/', document: 'file:///documents/' },
     UploadType,
   };
 });

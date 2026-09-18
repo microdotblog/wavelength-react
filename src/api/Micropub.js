@@ -200,6 +200,7 @@ export async function update_micropub_post({
   post_url = '',
   title = '',
   content = '',
+  audio_url = '',
   status = 'published',
   categories = [],
   summary = '',
@@ -226,6 +227,11 @@ export async function update_micropub_post({
     'post-status': [`${status || 'published'}`.trim() || 'published'],
     summary: [`${summary || ''}`.trim()],
   };
+  const trimmed_audio_url = `${audio_url || ''}`.trim();
+
+  if (trimmed_audio_url) {
+    replace.audio = [trimmed_audio_url];
+  }
 
   const body = {
     action: 'update',

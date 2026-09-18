@@ -61,7 +61,9 @@
           "enableDeviceDetection": false
         }
       ],
-      "./plugins/withAndroidReleaseSigning"
+      "./plugins/withAndroidReleaseSigning",
+      "./plugins/withIosPodDeploymentTarget",
+      "./plugins/withIosSceneLifecycle"
     ]
   }
 }

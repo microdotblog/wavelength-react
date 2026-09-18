@@ -239,6 +239,7 @@ function normalize_discover_post_item(item = null) {
     id,
     image_url,
     is_podcast: item?._microblog?.is_podcast === true,
+    is_saved: item?._microblog?.is_favorite === true || item?._microblog?.is_bookmark === true,
     published_at: `${item?.date_published || ''}`.trim(),
     summary: normalize_entry_text(item?.summary),
     title,

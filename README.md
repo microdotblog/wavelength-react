@@ -6,7 +6,7 @@ Wavelength is a React Native podcast studio built with Expo. Record, edit, and p
 
 - [Bun](https://bun.sh)
 - Node.js
-- **iOS:** Xcode and CocoaPods
+- **iOS:** Xcode, CocoaPods, and Bundler (`bundle install`)
 - **Android:** Android Studio with an emulator or device
 
 ## Getting started
@@ -15,6 +15,7 @@ Install dependencies:
 
 ```bash
 bun install
+bundle install
 ```
 
 The `ios/` and `android/` folders are not checked into git. Generate them before your first build:
