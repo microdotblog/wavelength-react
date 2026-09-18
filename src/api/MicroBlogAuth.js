@@ -27,6 +27,7 @@ export function build_micro_blog_auth_url({
     scope: MICRO_BLOG_SCOPE,
     state,
     wavelength: 1,
+    app: 1
   });
 
   return `${MICRO_BLOG_AUTH_URL}?${params.toString()}`;
