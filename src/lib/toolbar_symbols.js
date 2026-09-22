@@ -3,6 +3,10 @@ export const TOOLBAR_SYMBOLS = {
     android_label: 'B',
     ios: 'bold',
   },
+  bookmark: {
+    android_icon: 'bookmark',
+    ios: 'bookmark',
+  },
   checkmark: {
     android_label: '✓',
     ios: 'checkmark.circle.fill',
@@ -44,6 +48,10 @@ export const TOOLBAR_SYMBOLS = {
     android_image: require('../../assets/icons/toolbar/settings.png'),
     ios: 'gearshape',
     multicolor: true,
+  },
+  sparkles: {
+    android_icon: 'auto-awesome',
+    ios: 'sparkles',
   },
   trash: {
     android_icon: 'delete',

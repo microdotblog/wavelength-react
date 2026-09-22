@@ -1,9 +1,10 @@
 import React from 'react';
 import { MenuView } from '@react-native-menu/menu';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { observer } from 'mobx-react';
 
 import Discover from '../stores/Discover';
+import PlatformSymbol from './PlatformSymbol';
 import { is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
 export const DISCOVER_FILTER_OPTIONS = [
@@ -18,6 +19,16 @@ export function discover_filter_label(filter = 'discover') {
     return match.label;
   } else {
     return 'Discover';
+  }
+}
+
+export function discover_filter_icon(filter = 'discover') {
+  const match = DISCOVER_FILTER_OPTIONS.find(option => option.id === filter);
+
+  if (match) {
+    return match.icon;
+  } else {
+    return 'sparkles';
   }
 }
 
@@ -58,8 +69,8 @@ export function build_ios_discover_filter_header_items({
   }
 
   items.push({
-    accessibilityLabel: 'Filter Discover',
-    label: discover_filter_label(selected_filter),
+    accessibilityLabel: `Filter Discover, ${discover_filter_label(selected_filter)}`,
+    icon: { name: discover_filter_icon(selected_filter), type: 'sfSymbol' },
     menu: {
       items: DISCOVER_FILTER_OPTIONS.map(option => ({
         icon: { name: option.icon, type: 'sfSymbol' },
@@ -81,6 +92,7 @@ function DiscoverFilterMenu({ theme }) {
   const should_use_liquid_glass = is_liquid_glass();
   const selected_id = Discover.selected_filter;
   const selected_label = discover_filter_label(selected_id);
+  const selected_icon = discover_filter_icon(selected_id);
 
   function handle_press_action({ nativeEvent }) {
     Discover.set_selected_filter(nativeEvent.event);
@@ -139,14 +151,11 @@ function DiscoverFilterMenu({ theme }) {
             pressed ? styles.pressed : null,
           ]}
         >
-          <Text
-            style={[
-              Platform.OS === 'android' ? styles.androidLabel : styles.iosLabel,
-              { color: theme.colors.accent_strong },
-            ]}
-          >
-            {selected_label}
-          </Text>
+          <PlatformSymbol
+            color={theme.colors.accent_strong}
+            name={selected_icon}
+            size={20}
+          />
         </Pressable>
       </MenuView>
     </View>
@@ -154,20 +163,10 @@ function DiscoverFilterMenu({ theme }) {
 }
 
 const styles = StyleSheet.create({
-  androidLabel: {
-    fontSize: 17,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
   androidTrigger: {
     justifyContent: 'center',
     minHeight: 48,
     paddingHorizontal: 4,
-  },
-  iosLabel: {
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 18,
   },
   iosTrigger: {
     alignItems: 'center',
