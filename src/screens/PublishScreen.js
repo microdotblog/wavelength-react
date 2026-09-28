@@ -243,7 +243,6 @@ function PublishScreen({ navigation, route, theme }) {
 
         <HighlightingText
           accessibilityLabel="Show notes"
-          bottomOverlayHeight={180}
           editable={!Publishing.is_publishing}
           onReady={handle_editor_ready}
           onChangeText={({ nativeEvent: { text } }) => {
@@ -265,7 +264,6 @@ function PublishScreen({ navigation, route, theme }) {
             {
               backgroundColor: theme.colors.canvas,
               color: theme.colors.ink,
-              paddingBottom: 180,
             },
           ]}
           theme={theme}

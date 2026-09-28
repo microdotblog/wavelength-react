@@ -272,7 +272,6 @@ function PostEditScreen({ navigation, route, theme }) {
 
         <HighlightingText
           accessibilityLabel="Show notes"
-          bottomOverlayHeight={episode ? 180 : 120}
           editable={!Publishing.is_publishing}
           onReady={handle_editor_ready}
           onChangeText={({ nativeEvent: { text } }) => {
@@ -294,7 +293,6 @@ function PostEditScreen({ navigation, route, theme }) {
             {
               backgroundColor: theme.colors.canvas,
               color: theme.colors.ink,
-              paddingBottom: episode ? 180 : 120,
             },
           ]}
           theme={theme}
