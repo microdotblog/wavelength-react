@@ -1,5 +1,5 @@
 import React from 'react';
-import { Keyboard, Platform, StyleSheet, View } from 'react-native';
+import { Keyboard, PixelRatio, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { EditorKeyboardFrameContext } from '../EditorKeyboardAvoidingView';
@@ -17,6 +17,7 @@ export default class HighlightingText extends React.Component {
       editor_surface_ready: false,
       keyboard_scroll_request: 0,
       measured_editor_height: 0,
+      android_focus_proxy: Platform.OS === 'android' && !!props.autoFocus,
     };
     this.container = React.createRef();
     this.webview = React.createRef();
@@ -28,6 +29,7 @@ export default class HighlightingText extends React.Component {
     this.keyboard_show_listener = null;
     this.keyboard_hide_listener = null;
     this.pending_focus_options = null;
+    this.android_proxy_frame = null;
   }
 
   componentDidMount() {
@@ -71,6 +73,9 @@ export default class HighlightingText extends React.Component {
   componentWillUnmount() {
     this.keyboard_show_listener?.remove();
     this.keyboard_hide_listener?.remove();
+    if (this.android_proxy_frame) {
+      cancelAnimationFrame(this.android_proxy_frame);
+    }
   }
 
   normalized_value(props = this.props) {
@@ -79,6 +84,17 @@ export default class HighlightingText extends React.Component {
 
   flattened_style() {
     return StyleSheet.flatten(this.props.style) || {};
+  }
+
+  scaled_font_size(font_size) {
+    if (this.props.allowFontScaling === false) {
+      return font_size;
+    }
+
+    const font_scale = PixelRatio.getFontScale();
+    const max_multiplier = this.props.maxFontSizeMultiplier;
+    const multiplier = max_multiplier > 0 ? Math.min(font_scale, max_multiplier) : font_scale;
+    return font_size * multiplier;
   }
 
   theme_colors() {
@@ -108,7 +124,7 @@ export default class HighlightingText extends React.Component {
       codeBackgroundColor: theme_colors.code_background_color,
       colorScheme: this.props.theme?.is_dark ? 'dark' : 'light',
       editable: this.props.editable !== false,
-      fontSize: style.fontSize || 18,
+      fontSize: this.scaled_font_size(style.fontSize || 18),
       paddingBottom: style.paddingBottom != null ? style.paddingBottom : padding,
       paddingLeft: style.paddingLeft != null ? style.paddingLeft : padding,
       paddingRight: style.paddingRight != null ? style.paddingRight : padding,
@@ -355,6 +371,9 @@ export default class HighlightingText extends React.Component {
     }
 
     this.last_config = JSON.stringify(config);
+    if (payload.focus) {
+      this.webview.current?.requestFocus?.();
+    }
     this.inject_javascript(`window.MicroBlogReactEditor.updateFromReact(${JSON.stringify(payload)})`);
   }
 
@@ -380,6 +399,13 @@ export default class HighlightingText extends React.Component {
         this.focus(this.pending_focus_options);
       } else {
         this.props.onReady?.();
+      }
+
+      if (this.state.android_focus_proxy) {
+        this.focus({ cursorToEnd: true });
+        this.android_proxy_frame = requestAnimationFrame(() => {
+          this.setState({ android_focus_proxy: false });
+        });
       }
 
       return;
@@ -431,6 +457,19 @@ export default class HighlightingText extends React.Component {
         ref={this.container}
         style={this.webview_style()}
       >
+        {this.state.android_focus_proxy ? (
+          <TextInput
+            autoCorrect={false}
+            autoFocus
+            caretHidden
+            importantForAccessibility="no-hide-descendants"
+            importantForAutofill="no"
+            pointerEvents="none"
+            showSoftInputOnFocus
+            spellCheck={false}
+            style={styles.android_focus_proxy}
+          />
+        ) : null}
         <WebView
           automaticallyAdjustContentInsets={false}
           bounces={false}
@@ -468,5 +507,13 @@ export default class HighlightingText extends React.Component {
 const styles = StyleSheet.create({
   webview: {
     flex: 1,
+  },
+  android_focus_proxy: {
+    height: 1,
+    left: 0,
+    opacity: 0,
+    position: 'absolute',
+    top: 0,
+    width: 1,
   },
 });
