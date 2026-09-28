@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "blog.micro.wavelength",
-      "buildNumber": "108",
+      "buildNumber": "109",
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "microblog"
