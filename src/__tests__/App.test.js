@@ -13,8 +13,10 @@ jest.mock('react-native', () => ({
     getInitialURL: jest.fn(async () => null),
   },
   Modal: 'Modal',
+  Pressable: 'Pressable',
   StyleSheet: {
     create: styles => styles,
+    flatten: style => Object.assign({}, ...[style].flat().filter(Boolean)),
   },
   Text: 'Text',
   View: 'View',
@@ -61,6 +63,7 @@ jest.mock('../theme/wavelengthTheme', () => ({
     is_dark: false,
     colors: {
       accent: '#ff8800',
+      accent_strong: '#cc6600',
       canvas: '#fffaf0',
       ink: '#24180d',
       line: '#eee',
@@ -70,6 +73,7 @@ jest.mock('../theme/wavelengthTheme', () => ({
 }));
 
 jest.mock('../stores/Episodes', () => ({
+  continue_without_legacy_upgrade: jest.fn(),
   is_upgrading_legacy: false,
 }));
 
@@ -80,14 +84,15 @@ jest.mock('../stores/Auth', () => ({
   handle_open_url: (...args) => mock_handle_open_url(...args),
   hydrate: jest.fn(async () => {}),
   is_hydrating: false,
-  is_signed_in: () => false,
+  is_signed_in: jest.fn(() => false),
   is_signing_in: true,
 }));
 
 const React = require('react');
-const { render } = require('@testing-library/react-native');
+const { fireEvent, render } = require('@testing-library/react-native');
 const App = require('../App').default;
 const Auth = require('../stores/Auth');
+const Episodes = require('../stores/Episodes');
 
 describe('App auth callback URLs', () => {
   beforeEach(async () => {
@@ -96,6 +101,7 @@ describe('App auth callback URLs', () => {
     Auth.can_handle_open_url.mockReset();
     Auth.can_handle_open_url.mockReturnValue(true);
     Auth.is_signing_in = true;
+    Auth.is_signed_in.mockReturnValue(false);
 
     await render(React.createElement(App));
   });
@@ -107,5 +113,18 @@ describe('App auth callback URLs', () => {
     url_event_handler({ url: callback_url });
 
     expect(mock_handle_open_url).toHaveBeenCalledWith(callback_url);
+  });
+});
+
+describe('App legacy upgrade', () => {
+  test('Continue delegates to the store to stop waiting for the upgrade', async () => {
+    Auth.is_signed_in.mockReturnValue(true);
+    Episodes.is_upgrading_legacy = true;
+
+    const { getByText } = await render(React.createElement(App));
+
+    await fireEvent.press(getByText('Continue'));
+
+    expect(Episodes.continue_without_legacy_upgrade).toHaveBeenCalledTimes(1);
   });
 });
