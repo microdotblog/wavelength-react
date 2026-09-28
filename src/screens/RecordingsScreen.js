@@ -14,6 +14,8 @@ import { observer } from 'mobx-react';
 
 import {
   discover_playback_content_padding,
+  PLAYBACK_DOCK_GAP,
+  PLAYBACK_DOCK_HEIGHT,
   use_discover_playback_dock,
 } from '../components/DiscoverPlaybackProvider';
 import EpisodeRow from '../components/EpisodeRow';
@@ -23,6 +25,7 @@ import RecordingsFilterMenu, {
   build_ios_recordings_filter_header_items,
 } from '../components/RecordingsFilterMenu';
 import SegmentSwipeRow from '../components/SegmentSwipeRow';
+import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
 import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
 import { post_display_summary } from '../lib/micropub_posts';
 import {
@@ -74,6 +77,10 @@ function RecordingsScreen({ navigation, theme }) {
     has_active_playback,
     tab_bar_height,
   });
+  const top_inset = use_stack_top_inset();
+  const empty_bottom_inset = tab_bar_height + (
+    has_active_playback ? PLAYBACK_DOCK_HEIGHT + PLAYBACK_DOCK_GAP : 0
+  );
   const [is_duplicating_episode, set_is_duplicating_episode] = React.useState(false);
   const show_header_record_button = Platform.OS === 'ios' && !is_liquid_glass();
 
@@ -308,15 +315,24 @@ function RecordingsScreen({ navigation, theme }) {
     }
   }
 
-  function render_empty_state() {
-    if (list_status.is_loading || list_status.error_message) {
-      return null;
-    }
+  const show_empty_state = items.length === 0
+    && !list_status.is_loading
+    && !list_status.error_message;
 
+  if (show_empty_state) {
     const empty_copy = recordings_empty_copy(selected_filter);
 
     return (
-      <View style={styles.emptyContent}>
+      <View
+        style={[
+          styles.emptyContent,
+          {
+            backgroundColor: theme.colors.canvas,
+            paddingBottom: empty_bottom_inset,
+            paddingTop: top_inset,
+          },
+        ]}
+      >
         <View style={styles.emptyCopy}>
           <Text style={[styles.emptyTitle, { color: theme.colors.ink }]}>
             {empty_copy.title}
@@ -341,12 +357,10 @@ function RecordingsScreen({ navigation, theme }) {
     <FlatList
       contentContainerStyle={[
         styles.content,
-        items.length === 0 ? styles.emptyList : null,
         { paddingBottom: list_bottom_padding },
       ]}
       contentInsetAdjustmentBehavior="automatic"
       data={items}
-      ListEmptyComponent={render_empty_state}
       ListHeaderComponent={
         list_status.error_message ? (
           <Text style={[styles.error, { color: theme.colors.ink_soft }]}>
@@ -416,9 +430,6 @@ const styles = StyleSheet.create({
   emptyCopy: {
     alignItems: 'center',
     gap: 10,
-  },
-  emptyList: {
-    flexGrow: 1,
   },
   error: {
     fontSize: 15,

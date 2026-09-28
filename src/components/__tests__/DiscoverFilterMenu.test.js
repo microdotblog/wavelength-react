@@ -40,6 +40,15 @@ jest.mock('@react-native-menu/menu', () => ({
   },
 }));
 
+jest.mock('../PlatformSymbol', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+
+  return function PlatformSymbol({ name }) {
+    return React.createElement(Text, null, name);
+  };
+});
+
 jest.mock('../../theme/wavelengthTheme', () => ({
   is_liquid_glass: () => false,
   with_color_opacity: color => color,
@@ -94,7 +103,8 @@ describe('build_ios_discover_filter_header_items', () => {
 
     expect(items).toHaveLength(1);
     expect(items[0].type).toBe('menu');
-    expect(items[0].label).toBe('Discover');
+    expect(items[0].icon).toEqual({ name: 'sparkles', type: 'sfSymbol' });
+    expect(items[0].accessibilityLabel).toBe('Filter Discover, Discover');
     expect(items[0].menu.items.map(item => item.state)).toEqual(['on', 'off']);
     expect(items[0].menu.items.map(item => item.label)).toEqual([
       'Discover',
@@ -116,7 +126,8 @@ describe('build_ios_discover_filter_header_items', () => {
 
     expect(items[0].type).toBe('custom');
     expect(items[0].accessibilityLabel).toBe('Loading Listen Later');
-    expect(items[1].label).toBe('Listen Later');
+    expect(items[1].icon).toEqual({ name: 'bookmark', type: 'sfSymbol' });
+    expect(items[1].accessibilityLabel).toBe('Filter Discover, Listen Later');
   });
 });
 
@@ -142,7 +153,7 @@ describe('DiscoverFilterMenu', () => {
       React.createElement(DiscoverFilterMenu, { theme }),
     );
 
-    expect(getByText('Discover')).toBeTruthy();
+    expect(getByText('sparkles')).toBeTruthy();
     expect(getByLabelText('Discover').props.accessibilityState.selected).toBe(true);
 
     fireEvent.press(getByLabelText('Listen Later'));
