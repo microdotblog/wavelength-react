@@ -219,6 +219,7 @@ describe('Episodes store', () => {
 
       finish_conversion(converted_clip);
       await refresh;
+      await jest.advanceTimersByTimeAsync(0);
 
       expect(read_migrated_episode).toHaveBeenCalledWith(
         '2024-03-13 12:34:56',
@@ -252,6 +253,7 @@ describe('Episodes store', () => {
       list_legacy_episodes.mockRejectedValueOnce(new Error('Could not read old folders.'));
 
       await legacy_store.refresh();
+      await jest.advanceTimersByTimeAsync(0);
 
       expect(legacy_store.get_episode('episode-1')?.title).toBe('Morning microcast');
       expect(legacy_store.did_hydrate).toBe(true);
@@ -269,7 +271,7 @@ describe('Episodes store', () => {
       ['checking an existing migration', read_migrated_episode],
       ['converting audio', normalize_imported_audio],
       ['saving converted audio', save_migrated_episode],
-    ])('continues after 30 seconds when %s hangs', async (_, stalled_operation) => {
+    ])('closes the dialog after 30 seconds when %s hangs', async (_, stalled_operation) => {
       stalled_operation.mockReturnValueOnce(new Promise(() => {}));
 
       const refresh = legacy_store.refresh();
@@ -281,14 +283,58 @@ describe('Episodes store', () => {
       expect(legacy_store.did_hydrate).toBe(true);
       expect(legacy_store.is_loading).toBe(false);
       expect(legacy_store.is_upgrading_legacy).toBe(false);
+      expect(legacy_store.legacy_upgrade).not.toBeNull();
       expect(delete_legacy_episode).not.toHaveBeenCalled();
-      expect(console.warn).toHaveBeenCalledWith('Legacy recording upgrade timed out.');
       expect(jest.getTimerCount()).toBe(0);
 
       await legacy_store.refresh();
 
       expect(list_episodes).toHaveBeenCalledTimes(2);
       expect(list_legacy_episodes).toHaveBeenCalledTimes(1);
+    });
+
+    test('a slow conversion finishes and appears after the dialog closes', async () => {
+      let finish_conversion;
+      normalize_imported_audio.mockReturnValueOnce(new Promise(resolve => {
+        finish_conversion = resolve;
+      }));
+
+      await legacy_store.refresh();
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(legacy_store.is_loading).toBe(false);
+      expect(legacy_store.is_upgrading_legacy).toBe(true);
+
+      await jest.advanceTimersByTimeAsync(30_000);
+
+      expect(legacy_store.is_upgrading_legacy).toBe(false);
+      expect(save_migrated_episode).not.toHaveBeenCalled();
+
+      finish_conversion(converted_clip);
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(save_migrated_episode).toHaveBeenCalledWith(legacy_episode, [converted_clip]);
+      expect(delete_legacy_episode).toHaveBeenCalledWith(legacy_episode.id);
+      expect(legacy_store.get_episode(migrated_episode.id)?.title).toBe('Legacy recording');
+      expect(legacy_store.is_upgrading_legacy).toBe(false);
+      expect(legacy_store.legacy_upgrade).toBeNull();
+    });
+
+    test('a slow scan does not reopen the dialog after it was dismissed', async () => {
+      let finish_scan;
+      list_legacy_episodes.mockReturnValueOnce(new Promise(resolve => {
+        finish_scan = resolve;
+      }));
+
+      await legacy_store.refresh();
+      await jest.advanceTimersByTimeAsync(30_000);
+
+      finish_scan([legacy_episode]);
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(legacy_store.is_upgrading_legacy).toBe(false);
+      expect(legacy_store.get_episode(migrated_episode.id)?.title).toBe('Legacy recording');
+      expect(delete_legacy_episode).toHaveBeenCalledWith(legacy_episode.id);
     });
 
     test('Continue stops waiting and discards a late conversion without deleting originals', async () => {
@@ -330,7 +376,7 @@ describe('Episodes store', () => {
       expect(jest.getTimerCount()).toBe(0);
     });
 
-    test('a save finishing after timeout keeps the original and does not change the loaded list', async () => {
+    test('a save finishing after the dialog closes completes the migration', async () => {
       let finish_save;
       save_migrated_episode.mockReturnValueOnce(new Promise(resolve => {
         finish_save = resolve;
@@ -344,8 +390,8 @@ describe('Episodes store', () => {
       finish_save(migrated_episode);
       await jest.advanceTimersByTimeAsync(0);
 
-      expect(delete_legacy_episode).not.toHaveBeenCalled();
-      expect(legacy_store.get_episode(migrated_episode.id)).toBeNull();
+      expect(delete_legacy_episode).toHaveBeenCalledWith(legacy_episode.id);
+      expect(legacy_store.get_episode(migrated_episode.id)?.title).toBe('Legacy recording');
       expect(legacy_store.get_episode('episode-1')?.title).toBe('Morning microcast');
       expect(legacy_store.is_upgrading_legacy).toBe(false);
     });

@@ -181,7 +181,8 @@ const Episodes = types
         }
 
         self.did_hydrate = true;
-        yield self.upgrade_legacy_recordings();
+        // Native conversion must not keep the recordings screen loading.
+        self.upgrade_legacy_recordings();
       } finally {
         self.is_loading = false;
       }
@@ -194,7 +195,7 @@ const Episodes = types
 
       self.did_check_for_legacy = true;
 
-      const upgrade = { is_cancelled: false, cancel: null };
+      const upgrade = { is_cancelled: false, is_modal_dismissed: false, cancel: null };
       const cancelled = new Promise(resolve => {
         upgrade.cancel = () => {
           upgrade.is_cancelled = true;
@@ -204,15 +205,14 @@ const Episodes = types
       self.legacy_upgrade = upgrade;
 
       const timeout = setTimeout(() => {
-        console.warn('Legacy recording upgrade timed out.');
-        self.continue_without_legacy_upgrade();
+        self.dismiss_legacy_upgrade_modal();
       }, LEGACY_UPGRADE_TIMEOUT_MILLIS);
 
       try {
         const legacy_episodes = yield Promise.race([list_legacy_episodes(), cancelled]);
 
         if (!upgrade.is_cancelled && legacy_episodes.length > 0) {
-          self.is_upgrading_legacy = true;
+          self.is_upgrading_legacy = !upgrade.is_modal_dismissed;
 
           for (const legacy_episode of legacy_episodes) {
             try {
@@ -243,12 +243,20 @@ const Episodes = types
       }
     }),
 
+    dismiss_legacy_upgrade_modal() {
+      if (self.legacy_upgrade) {
+        self.legacy_upgrade.is_modal_dismissed = true;
+      }
+
+      self.is_upgrading_legacy = false;
+    },
+
     continue_without_legacy_upgrade() {
       if (self.legacy_upgrade) {
         self.legacy_upgrade.cancel();
       }
 
-      self.is_upgrading_legacy = false;
+      self.dismiss_legacy_upgrade_modal();
     },
 
     refresh_episode: flow(function* (episode_id = '') {
