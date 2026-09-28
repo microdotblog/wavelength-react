@@ -9,7 +9,7 @@ import { is_liquid_glass, with_color_opacity } from '../theme/wavelengthTheme';
 
 export const DISCOVER_FILTER_OPTIONS = [
   { icon: 'sparkles', id: 'discover', label: 'Discover' },
-  { icon: 'bookmark', id: 'listen_later', label: 'Listen Later' },
+  { icon: 'star', id: 'listen_later', label: 'Listen Later' },
 ];
 
 export function discover_filter_label(filter = 'discover') {

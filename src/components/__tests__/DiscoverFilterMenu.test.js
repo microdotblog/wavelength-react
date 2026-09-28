@@ -112,7 +112,7 @@ describe('build_ios_discover_filter_header_items', () => {
     ]);
     expect(items[0].menu.items.map(item => item.icon)).toEqual([
       { name: 'sparkles', type: 'sfSymbol' },
-      { name: 'bookmark', type: 'sfSymbol' },
+      { name: 'star', type: 'sfSymbol' },
     ]);
   });
 
@@ -126,7 +126,7 @@ describe('build_ios_discover_filter_header_items', () => {
 
     expect(items[0].type).toBe('custom');
     expect(items[0].accessibilityLabel).toBe('Loading Listen Later');
-    expect(items[1].icon).toEqual({ name: 'bookmark', type: 'sfSymbol' });
+    expect(items[1].icon).toEqual({ name: 'star', type: 'sfSymbol' });
     expect(items[1].accessibilityLabel).toBe('Filter Discover, Listen Later');
   });
 });

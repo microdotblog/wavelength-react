@@ -48,13 +48,14 @@ const theme = {
 
 describe('build_discover_row_actions', () => {
   test('offers play, open, and listen later on Discover', () => {
-    expect(
-      build_discover_row_actions({
-        is_playable: true,
-        is_saved: false,
-        theme,
-      }).map(action => action.id),
-    ).toEqual(['play', 'open', 'listen_later']);
+    const actions = build_discover_row_actions({
+      is_playable: true,
+      is_saved: false,
+      theme,
+    });
+
+    expect(actions.map(action => action.id)).toEqual(['play', 'open', 'listen_later']);
+    expect(actions[2].image).toBe('star');
   });
 
   test('labels play as pause when the episode is already playing', () => {
@@ -89,6 +90,7 @@ describe('build_discover_row_actions', () => {
     });
 
     expect(actions.map(action => action.id)).toEqual(['play', 'open', 'remove']);
+    expect(actions[2].image).toBe('star.fill');
     expect(actions[2].attributes).toEqual({ destructive: true });
   });
 });

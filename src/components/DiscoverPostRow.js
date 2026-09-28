@@ -177,7 +177,7 @@ export function build_discover_row_actions({
       ios_menu_action({
         destructive: true,
         id: 'remove',
-        image: 'bookmark.slash',
+        image: 'star.fill',
         theme,
         title: 'Remove from Listen Later',
       }),
@@ -186,7 +186,7 @@ export function build_discover_row_actions({
     actions.push(
       ios_menu_action({
         id: 'listen_later',
-        image: 'bookmark',
+        image: 'star',
         theme,
         title: 'Listen Later',
       }),
