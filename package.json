@@ -76,5 +76,8 @@
     "transformIgnorePatterns": [
       "node_modules/(?!(mobx-state-tree|mobx|@testing-library/react-native)/)"
     ]
+  },
+  "patchedDependencies": {
+    "expo-audio@56.0.13": "patches/expo-audio@56.0.13.patch"
   }
 }

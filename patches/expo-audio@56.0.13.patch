@@ -1,0 +1,30 @@
+diff --git a/ios/AudioModule.swift b/ios/AudioModule.swift
+index 12d7de085ed45e97d3be5c05b8bfa0f15e4251b8..8fbca543418f0d1e0c16102cff092274997c8ad2 100644
+--- a/ios/AudioModule.swift
++++ b/ios/AudioModule.swift
+@@ -843,20 +843,11 @@ public class AudioModule: Module {
+ 
+   private func checkPermissions() throws {
+     #if os(iOS)
+-    if #available(iOS 17.0, *) {
+-      switch AVAudioApplication.shared.recordPermission {
+-      case .denied, .undetermined:
+-        throw AudioPermissionsException()
+-      default:
+-        break
+-      }
+-    } else {
+-      switch AVAudioSession.sharedInstance().recordPermission {
+-      case .denied, .undetermined:
+-        throw AudioPermissionsException()
+-      default:
+-        break
+-      }
++    switch AVAudioSession.sharedInstance().recordPermission {
++    case .denied, .undetermined:
++      throw AudioPermissionsException()
++    default:
++      break
+     }
+     #endif
+   }
