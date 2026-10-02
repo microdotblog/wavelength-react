@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HeaderProfileButton from '../../components/HeaderProfileButton';
 import PostsScreen from '../../screens/PostsScreen';
 import { build_stack_screen_options } from '../screenOptions';
-import { SidebarVisibleContext } from '../TabletLayout';
+import { SidebarVisibleContext } from '../SidebarContext';
 import { header_left_element } from '../../theme/wavelengthTheme';
 
 const Stack = createNativeStackNavigator();

@@ -5,7 +5,7 @@ import { createNativeBottomTabNavigator } from '@react-navigation/bottom-tabs/un
 import DiscoverStack from './stacks/DiscoverStack';
 import PostsStack from './stacks/PostsStack';
 import RecordingsStack from './stacks/RecordingsStack';
-import TabletLayout from './TabletLayout';
+import { SidebarVisibleContext } from './SidebarContext';
 import { ios_record_tab_options, press_record_tab } from './record_tab';
 import { is_liquid_glass } from '../theme/wavelengthTheme';
 
@@ -14,7 +14,18 @@ const POSTS_ICON = require('../../assets/icons/tab_bar/posts.png');
 const DISCOVER_ICON = require('../../assets/icons/tab_bar/discover.png');
 
 const Tab = createNativeBottomTabNavigator();
-const tablet_layout = props => <TabletLayout {...props} />;
+const tablet_layout = props => <TabContentLayout {...props} />;
+
+export function TabContentLayout({ children, descriptors, state }) {
+  const sidebar_visible = React.useContext(SidebarVisibleContext);
+
+  // The native tab host does not follow sidebar-driven selection inside the split view.
+  if (sidebar_visible) {
+    return descriptors[state.routes[state.index].key].render();
+  }
+
+  return children;
+}
 
 const TAB_ICONS = {
   RecordingsStack: {
@@ -64,6 +75,8 @@ function TabNavigator({ theme }) {
         ...(Platform.OS === 'ios'
           ? {
               lazy: !is_tablet,
+              // The split view supplies the sidebar; keep compact navigation as tabs.
+              tabBarControllerMode: is_tablet ? 'tabBar' : undefined,
               tabBarMinimizeBehavior: 'none',
             }
           : {

@@ -16,15 +16,21 @@ import RecordScreen from '../screens/RecordScreen';
 import SettingsNavigator from './SettingsNavigator';
 import SplitScreen from '../screens/SplitScreen';
 import TabNavigator from './TabNavigator';
+import TabletLayout from './TabletLayout';
 import { build_stack_screen_options } from './screenOptions';
 import { header_left_element } from '../theme/wavelengthTheme';
 
 const Stack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
+const tablet_layout = props => <TabletLayout {...props} />;
 
-function SignedInNavigator({ theme }) {
+function ContentNavigator({ theme }) {
+  const is_tablet = Platform.OS === 'ios' && Platform.isPad;
+
   return (
     <Stack.Navigator
       initialRouteName="MainTabs"
+      layout={is_tablet ? tablet_layout : undefined}
       screenOptions={build_stack_screen_options(theme)}
     >
       <Stack.Screen
@@ -46,20 +52,6 @@ function SignedInNavigator({ theme }) {
               />
             ) : null}
           </View>
-        )}
-      </Stack.Screen>
-      <Stack.Screen
-        name="Account"
-        options={{
-          headerShown: false,
-          presentation: 'modal',
-        }}
-      >
-        {screen_props => (
-          <SettingsNavigator
-            {...screen_props}
-            theme={theme}
-          />
         )}
       </Stack.Screen>
       <Stack.Screen
@@ -187,6 +179,19 @@ function SignedInNavigator({ theme }) {
         )}
       </Stack.Screen>
     </Stack.Navigator>
+  );
+}
+
+function SignedInNavigator({ theme }) {
+  return (
+    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Screen name="Studio">
+        {() => <ContentNavigator theme={theme} />}
+      </RootStack.Screen>
+      <RootStack.Screen name="Account" options={{ presentation: 'modal' }}>
+        {screen_props => <SettingsNavigator {...screen_props} theme={theme} />}
+      </RootStack.Screen>
+    </RootStack.Navigator>
   );
 }
 

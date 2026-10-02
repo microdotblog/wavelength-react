@@ -31,6 +31,7 @@ import {
   resolve_phase_after_recording_status,
 } from '../lib/recording_phase_sync';
 import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
+import { use_sidebar_navigation_guard } from '../navigation/SidebarContext';
 import { with_color_opacity } from '../theme/wavelengthTheme';
 
 const MINIMUM_RECORDING_SECONDS = 1;
@@ -57,6 +58,7 @@ function RecordScreen({ navigation, route, theme }) {
   const recording_phase_ref = React.useRef(recording_phase);
   const is_saving_ref = React.useRef(is_saving);
   const is_discarding_ref = React.useRef(is_discarding);
+  const is_starting_ref = React.useRef(false);
   const last_known_duration_ms_ref = React.useRef(0);
   const has_observed_active_take_ref = React.useRef(false);
   const recording_status_listener_ref = React.useRef(null);
@@ -66,6 +68,14 @@ function RecordScreen({ navigation, route, theme }) {
   recording_phase_ref.current = recording_phase;
   is_saving_ref.current = is_saving;
   is_discarding_ref.current = is_discarding;
+
+  use_sidebar_navigation_guard(route.key, () => {
+    if (recording_phase_ref.current !== 'idle' || is_starting_ref.current || is_saving_ref.current || is_discarding_ref.current) {
+      return { title: 'Recording in progress', message: 'Save or discard this recording before switching screens.' };
+    }
+
+    return null;
+  });
 
   recording_status_listener_ref.current = (status) => {
     const previous_phase = recording_phase_ref.current;
@@ -238,26 +248,28 @@ function RecordScreen({ navigation, route, theme }) {
   }, [is_discarding, navigation, recording_phase, theme]);
 
   async function start_recording() {
-    if (permission_status !== 'granted' || is_saving || is_discarding_ref.current) {
+    if (permission_status !== 'granted' || is_saving || is_discarding_ref.current || is_starting_ref.current) {
       return;
     }
 
     captured_samples_ref.current = [];
     last_known_duration_ms_ref.current = 0;
     has_observed_active_take_ref.current = false;
+    is_starting_ref.current = true;
 
     try {
       await audio_recorder.prepareToRecordAsync(RECORDING_OPTIONS);
       audio_recorder.record();
+      recording_phase_ref.current = 'recording';
+      set_recording_phase('recording');
     } catch (error) {
       Alert.alert(
         'Recording failed',
         'Wavelength could not start recording. Check that a microphone is available, then try again.',
       );
-      return;
+    } finally {
+      is_starting_ref.current = false;
     }
-
-    set_recording_phase('recording');
   }
 
   start_recording_ref.current = start_recording;

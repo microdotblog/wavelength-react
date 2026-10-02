@@ -104,6 +104,25 @@ describe('Publishing store', () => {
     expect(Publishing.text_selection_end).toBe(9);
   });
 
+  test('tracks post and option changes while ignoring selection and fetched choices', async () => {
+    Publishing.prep_editor('episode-1');
+    expect(Publishing.has_editor_changes()).toBe(false);
+    Publishing.set_text_selection({ end: 5, start: 2 });
+    await Publishing.load_editor_options();
+    expect(Publishing.has_editor_changes()).toBe(false);
+
+    Publishing.set_post_content('Unsaved notes');
+    expect(Publishing.has_editor_changes()).toBe(true);
+    Publishing.set_post_content('');
+    expect(Publishing.has_editor_changes()).toBe(false);
+    Publishing.handle_post_category_select('microcast');
+    expect(Publishing.has_editor_changes()).toBe(true);
+    Publishing.handle_post_category_select('microcast');
+    expect(Publishing.has_editor_changes()).toBe(false);
+    Publishing.set_summary('Unsaved summary');
+    expect(Publishing.has_editor_changes()).toBe(true);
+  });
+
   test('handle_post_status_select updates draft status and button label', () => {
     Publishing.handle_post_status_select('draft');
 
@@ -145,6 +164,7 @@ describe('Publishing store', () => {
       post_url: 'https://example.micro.blog/post/1',
     });
     expect(Posts.refresh).toHaveBeenCalled();
+    expect(Publishing.has_editor_changes()).toBe(false);
   });
 
   test('publish_episode blocks empty content and summary before export', async () => {
@@ -228,6 +248,24 @@ describe('Publishing store', () => {
     expect(Publishing.post_categories).toEqual(['microcast']);
     expect(Publishing.summary).toBe('Episode summary');
     expect(Publishing.editor_episode_id).toBe('episode-1');
+    expect(Publishing.has_editor_changes()).toBe(false);
+  });
+
+  test('ignores a post source response after leaving its editor', async () => {
+    let finish_request;
+    fetch_micropub_post_source.mockImplementationOnce(() => new Promise(resolve => {
+      finish_request = resolve;
+    }));
+    Publishing.prep_post_edit({ content: 'Cached notes', url: 'https://example.micro.blog/post/1' });
+    const request = Publishing.load_post_source();
+    Publishing.reset_editor();
+    Publishing.prep_editor('episode-2');
+    finish_request({ content: 'Old post source', categories: ['old'] });
+    await request;
+
+    expect(Publishing.post_content).toBe('');
+    expect(Publishing.post_categories).toEqual([]);
+    expect(Publishing.has_editor_changes()).toBe(false);
   });
 
   test('publish_episode skips publish metadata when saving a draft', async () => {
@@ -252,6 +290,7 @@ describe('Publishing store', () => {
     expect(Publishing.phase).toBe('idle');
     expect(Publishing.error_message).toBe('We could not prepare this episode for publishing.');
     expect(create_episode_post).not.toHaveBeenCalled();
+    expect(Publishing.has_editor_changes()).toBe(true);
   });
 
   test('publish_episode blocks oversized exported audio before upload', async () => {
@@ -286,6 +325,7 @@ describe('Publishing store', () => {
       title: 'Morning show',
     }));
     expect(Posts.refresh).toHaveBeenCalled();
+    expect(Publishing.has_editor_changes()).toBe(false);
   });
 
   test('update_post blocks empty content and summary', async () => {

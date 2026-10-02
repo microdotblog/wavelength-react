@@ -35,6 +35,19 @@ const SyndicateOption = types.model('SyndicateOption', {
   uid: types.string,
 });
 
+function editor_snapshot(editor) {
+  return JSON.stringify({
+    categories: editor.post_categories.slice().sort(),
+    content: editor.post_content,
+    new_category_text: editor.new_category_text,
+    show_title: editor.show_title,
+    status: editor.post_status,
+    summary: editor.summary,
+    syndicates: editor.post_syndicates.slice().sort(),
+    title: editor.post_title,
+  });
+}
+
 const Publishing = types
   .model('Publishing', {
     available_categories: types.optional(types.array(types.string), []),
@@ -55,12 +68,17 @@ const Publishing = types
     text_selection_start: types.optional(types.number, 0),
   })
   .volatile(() => ({
+    editor_baseline: null,
     editor_episode_id: null,
     is_publishing: false,
     last_post_url: '',
     phase: 'idle',
   }))
   .actions(self => ({
+    mark_editor_clean() {
+      self.editor_baseline = editor_snapshot(self);
+    },
+
     clear_error() {
       self.error_message = null;
     },
@@ -90,6 +108,7 @@ const Publishing = types
       self.summary = '';
       self.text_selection_end = 0;
       self.text_selection_start = 0;
+      self.mark_editor_clean();
     },
 
     prep_post_edit(post = {}, { episode_id = null } = {}) {
@@ -115,6 +134,7 @@ const Publishing = types
       self.text_selection_end = 0;
       self.text_selection_start = 0;
       self.editor_episode_id = linked_episode?.id || null;
+      self.mark_editor_clean();
     },
 
     relink_editor_episode() {
@@ -146,7 +166,7 @@ const Publishing = types
       const destination = `${Auth.default_site || ''}`.trim();
       const source = yield fetch_micropub_post_source({ destination, post_url, token });
 
-      if (!source) {
+      if (!source || self.post_url !== post_url || !self.is_editing_post) {
         return;
       }
 
@@ -170,12 +190,16 @@ const Publishing = types
       self.summary = source.summary || '';
       self.show_title = self.show_title || self.post_title.length > 0;
       self.relink_editor_episode();
+      self.mark_editor_clean();
     }),
 
     prep_editor(episode_id = '') {
       const episode = Episodes.get_episode(episode_id);
 
       self.editor_episode_id = `${episode_id || ''}`.trim() || null;
+      self.is_editing_post = false;
+      self.post_uid = null;
+      self.post_url = null;
       self.post_title = episode?.title || '';
       self.post_content = '';
       self.post_status = 'published';
@@ -186,6 +210,7 @@ const Publishing = types
       self.summary = '';
       self.text_selection_end = 0;
       self.text_selection_start = 0;
+      self.mark_editor_clean();
     },
 
     load_editor_options: flow(function* () {
@@ -359,6 +384,7 @@ const Publishing = types
           yield Posts.refresh();
         }
 
+        self.mark_editor_clean();
         return post_url;
       } catch (error) {
         self.set_error(error?.message || 'We could not publish the episode. Please try again.');
@@ -415,6 +441,7 @@ const Publishing = types
         });
         yield Posts.refresh();
 
+        self.mark_editor_clean();
         return true;
       } catch (error) {
         self.set_error(error?.message || 'We could not update the post. Please try again.');
@@ -426,6 +453,10 @@ const Publishing = types
     }),
   }))
   .views(self => ({
+    has_editor_changes() {
+      return self.editor_baseline !== null && editor_snapshot(self) !== self.editor_baseline;
+    },
+
     post_button_label() {
       if (self.is_editing_post) {
         return 'Update';

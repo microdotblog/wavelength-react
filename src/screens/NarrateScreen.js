@@ -22,6 +22,7 @@ import NarrateToolbar, {
 } from '../components/NarrateToolbar';
 import { use_recording_waveform_levels } from '../hooks/use_recording_waveform_levels';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
+import { use_sidebar_navigation_guard } from '../navigation/SidebarContext';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { build_narrate_html, is_narrate_preview_document_url } from '../lib/narrate_html';
 import { read_narration_audio_url } from '../lib/narration';
@@ -104,6 +105,7 @@ function NarrateScreen({ navigation, route, theme }) {
   const delete_handler_ref = React.useRef(null);
   const recording_phase_ref = React.useRef(recording_phase);
   const is_discarding_ref = React.useRef(false);
+  const is_starting_ref = React.useRef(false);
   const last_known_duration_ms_ref = React.useRef(0);
   const has_observed_active_take_ref = React.useRef(false);
   const pending_play_ref = React.useRef(false);
@@ -112,6 +114,14 @@ function NarrateScreen({ navigation, route, theme }) {
 
   recording_phase_ref.current = recording_phase;
   take_uri_ref.current = take_uri;
+
+  use_sidebar_navigation_guard(route.key, () => {
+    if (recording_phase_ref.current !== 'idle' || is_starting_ref.current || is_discarding_ref.current || Posts.is_attaching) {
+      return { title: 'Recording in progress', message: 'Save or discard this narration before switching screens.' };
+    }
+
+    return null;
+  });
 
   const remote_url = read_narration_audio_url(post?.content || '');
   const playback_uri = take_uri || (recording_phase === 'idle' ? remote_url : '') || null;
@@ -389,7 +399,7 @@ function NarrateScreen({ navigation, route, theme }) {
   }
 
   async function start_recording() {
-    if (permission_status !== 'granted' || Posts.is_attaching || is_discarding_ref.current) {
+    if (permission_status !== 'granted' || Posts.is_attaching || is_discarding_ref.current || is_starting_ref.current) {
       return;
     }
 
@@ -401,20 +411,22 @@ function NarrateScreen({ navigation, route, theme }) {
     set_take_uri(null);
     set_take_waveform([]);
     set_take_duration(0);
+    is_starting_ref.current = true;
 
     try {
       await enable_recording_audio_mode();
       await audio_recorder.prepareToRecordAsync(RECORDING_OPTIONS);
       audio_recorder.record();
+      recording_phase_ref.current = 'recording';
+      set_recording_phase('recording');
     } catch {
       Alert.alert(
         'Recording failed',
         'Wavelength could not start recording. Check that a microphone is available, then try again.',
       );
-      return;
+    } finally {
+      is_starting_ref.current = false;
     }
-
-    set_recording_phase('recording');
   }
 
   function pause_recording() {

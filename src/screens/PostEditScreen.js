@@ -19,6 +19,7 @@ import Posts from '../stores/Posts';
 import Publishing from '../stores/Publishing';
 import { use_episode_playback } from '../hooks/use_episode_playback';
 import { use_stack_top_inset } from '../hooks/use_stack_top_inset';
+import { use_sidebar_navigation_guard } from '../navigation/SidebarContext';
 import { show_toast } from '../lib/toast';
 import { header_right_element } from '../theme/wavelengthTheme';
 
@@ -55,6 +56,18 @@ function PostEditScreen({ navigation, route, theme }) {
   const [editor_is_visible, set_editor_is_visible] = React.useState(false);
 
   pause_playback_ref.current = playback.pause;
+
+  use_sidebar_navigation_guard(route.key, () => {
+    if (Publishing.is_publishing) {
+      return { title: 'Posting in progress', message: 'Wait for the post to finish before switching screens.' };
+    }
+
+    if (Publishing.has_editor_changes()) {
+      return { can_discard: true, message: 'Your post changes have not been saved.' };
+    }
+
+    return null;
+  });
 
   function focus_editor() {
     if (!is_mounted_ref.current) {
