@@ -63,6 +63,7 @@
       ],
       "./plugins/withAndroidReleaseSigning",
       "./plugins/withIosPodDeploymentTarget",
+      "./plugins/withIosSplitView",
       "./plugins/withIosSceneLifecycle"
     ]
   }

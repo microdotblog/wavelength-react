@@ -78,6 +78,7 @@
     ]
   },
   "patchedDependencies": {
-    "expo-audio@56.0.13": "patches/expo-audio@56.0.13.patch"
+    "expo-audio@56.0.13": "patches/expo-audio@56.0.13.patch",
+    "react-native-screens@4.26.2": "patches/react-native-screens@4.26.2.patch"
   }
 }

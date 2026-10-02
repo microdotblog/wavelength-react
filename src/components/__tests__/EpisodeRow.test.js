@@ -35,6 +35,7 @@ jest.mock('../PlatformSymbol', () => {
 
 const React = require('react');
 const { render } = require('@testing-library/react-native');
+const { format_post_date } = require('../../lib/micropub_posts');
 const EpisodeRow = require('../EpisodeRow').default;
 
 const theme = {
@@ -70,7 +71,7 @@ describe('EpisodeRow', () => {
       }),
     );
 
-    expect(draft.getByText(/1 Jun 2026/)).toBeTruthy();
+    expect(draft.getByText(format_post_date('2026-06-01T12:00:00Z'))).toBeTruthy();
     expect(draft.queryByText('Podcast')).toBeNull();
     expect(draft.queryByText('waveform')).toBeNull();
 
@@ -84,7 +85,7 @@ describe('EpisodeRow', () => {
       }),
     );
 
-    expect(published.getByText(/3 Sept? 2026/)).toBeTruthy();
+    expect(published.getByText(format_post_date('2026-09-03T18:56:00Z'))).toBeTruthy();
     expect(published.getByText('Published')).toBeTruthy();
   });
 

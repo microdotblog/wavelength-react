@@ -1,10 +1,11 @@
 import React from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import { createNativeBottomTabNavigator } from '@react-navigation/bottom-tabs/unstable';
 
 import DiscoverStack from './stacks/DiscoverStack';
 import PostsStack from './stacks/PostsStack';
 import RecordingsStack from './stacks/RecordingsStack';
+import TabletLayout, { is_wide_tablet_window } from './TabletLayout';
 import { ios_record_tab_options, press_record_tab } from './record_tab';
 import { is_liquid_glass } from '../theme/wavelengthTheme';
 
@@ -13,6 +14,7 @@ const POSTS_ICON = require('../../assets/icons/tab_bar/posts.png');
 const DISCOVER_ICON = require('../../assets/icons/tab_bar/discover.png');
 
 const Tab = createNativeBottomTabNavigator();
+const tablet_layout = props => <TabletLayout {...props} />;
 
 const TAB_ICONS = {
   RecordingsStack: {
@@ -49,16 +51,24 @@ function RecordActionScreen() {
 }
 
 function TabNavigator({ theme }) {
+  const { width, height } = useWindowDimensions();
+  const is_tablet = Platform.OS === 'ios' && Platform.isPad;
+  const show_sidebar = is_tablet && is_wide_tablet_window(width, height);
   const show_record_action = Platform.OS === 'ios' && is_liquid_glass();
 
   return (
     <Tab.Navigator
       initialRouteName="RecordingsStack"
+      layout={is_tablet ? tablet_layout : undefined}
       screenOptions={{
         tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.ink_soft,
         ...(Platform.OS === 'ios'
-          ? { tabBarMinimizeBehavior: 'none' }
+          ? {
+              lazy: !is_tablet,
+              tabBarMinimizeBehavior: 'none',
+              tabBarStyle: show_sidebar ? { display: 'none' } : undefined,
+            }
           : {
               tabBarStyle: {
                 backgroundColor: theme.colors.canvas,

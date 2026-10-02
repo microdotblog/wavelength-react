@@ -1,0 +1,36 @@
+diff --git a/ios/gamma/split/RNSSplitAppearanceApplicator.swift b/ios/gamma/split/RNSSplitAppearanceApplicator.swift
+index 36493d519f81ae1aee8620591969ce41f10a31a6..793f6e579970de6a1669ba9e9875b5831b51a357 100644
+--- a/ios/gamma/split/RNSSplitAppearanceApplicator.swift
++++ b/ios/gamma/split/RNSSplitAppearanceApplicator.swift
+@@ -73,6 +73,14 @@ class RNSSplitAppearanceApplicator {
+     splitHostController.primaryEdge = splitHost.primaryEdge
+     splitHostController.showsSecondaryOnlyButton = splitHost.showSecondaryToggleButton
+ 
++    // Wavelength supplies navigation stacks inside the columns. Hide the
++    // split wrapper bars so only those stacks provide visible headers.
++    if splitHost.displayModeButtonVisibility == .never && !splitHost.showSecondaryToggleButton {
++      for case let navigationController as UINavigationController in splitHostController.viewControllers {
++        navigationController.setNavigationBarHidden(true, animated: false)
++      }
++    }
++
+     // Step 2.1 - validating column constraints
+     validateColumnConstraints(
+       minWidth: splitHost.minimumPrimaryColumnWidth,
+diff --git a/ios/gamma/split/RNSSplitHostComponentView.mm b/ios/gamma/split/RNSSplitHostComponentView.mm
+index 3c1b9d5b88c868f976cbedddc7fb3fbc57ddfe9e..cf9c703060a1eb9ad54205a2ebf2a6de8b2d5175 100644
+--- a/ios/gamma/split/RNSSplitHostComponentView.mm
++++ b/ios/gamma/split/RNSSplitHostComponentView.mm
+@@ -117,6 +117,12 @@ - (void)setupController
+     int numberOfColumns = [self getNumberOfColumns];
+ 
+     _controller = [[RNSSplitHostController alloc] initWithSplitHostComponentView:self numberOfColumns:numberOfColumns];
++    // A detached navigation screen can finish mounting before reaching a window.
++    // Replay its children and appearance now so the columns are initialized.
++    [_controller setNeedsUpdateOfChildViewControllers];
++    [self requestSplitHostControllerForAppearanceUpdate];
++    [_controller reactMountingTransactionDidMount];
++    _hasModifiedReactSubviewsInCurrentTransaction = false;
+   }
+ }
+ 
