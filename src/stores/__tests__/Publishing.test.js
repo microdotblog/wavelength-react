@@ -268,6 +268,53 @@ describe('Publishing store', () => {
     expect(Publishing.has_editor_changes()).toBe(false);
   });
 
+  test('ignores an older source response after reopening the same post', async () => {
+    let finish_request;
+    fetch_micropub_post_source.mockImplementationOnce(() => new Promise(resolve => {
+      finish_request = resolve;
+    }));
+    const post = { content: 'Cached notes', url: 'https://example.micro.blog/post/1' };
+    Publishing.prep_post_edit(post);
+    const request = Publishing.load_post_source();
+    Publishing.reset_editor();
+    Publishing.prep_post_edit(post);
+    await Publishing.load_post_source();
+    Publishing.set_post_content('Unsaved notes from the new editing session');
+
+    finish_request({ content: 'Old post source', categories: ['old'] });
+    await request;
+
+    expect(Publishing.post_content).toBe('Unsaved notes from the new editing session');
+    expect(Publishing.post_categories).toEqual(['microcast']);
+    expect(Publishing.has_editor_changes()).toBe(true);
+  });
+
+  test.each(['empty response', 'request error'])('blocks updates after a source load fails with %s', async failure => {
+    if (failure === 'request error') {
+      fetch_micropub_post_source.mockRejectedValueOnce(new Error('Network error'));
+    } else {
+      fetch_micropub_post_source.mockResolvedValueOnce(null);
+    }
+    Publishing.prep_post_edit({
+      content: 'Cached notes',
+      summary: 'Keep this summary',
+      url: 'https://example.micro.blog/post/1',
+    });
+    if (failure === 'request error') {
+      await expect(Publishing.load_post_source()).rejects.toThrow('Network error');
+    } else {
+      await Publishing.load_post_source();
+    }
+    Publishing.set_post_content('Updated notes');
+
+    expect(await Publishing.update_post()).toBe(false);
+    expect(update_micropub_post).not.toHaveBeenCalled();
+    expect(Publishing.error_message).toBe('Post details could not be loaded. Reopen this post and try again.');
+    expect(Publishing.post_content).toBe('Updated notes');
+    expect(Publishing.summary).toBe('Keep this summary');
+    expect(Publishing.has_editor_changes()).toBe(true);
+  });
+
   test('publish_episode skips publish metadata when saving a draft', async () => {
     Publishing.handle_post_status_select('draft');
     Publishing.set_post_content('Draft show notes.');
@@ -314,6 +361,8 @@ describe('Publishing store', () => {
       uid: '12345',
       url: 'https://example.micro.blog/post/1',
     });
+    await Publishing.load_post_source();
+    Publishing.set_post_title('Morning show');
     Publishing.set_post_content('<p>Updated notes</p>');
 
     const updated = await Publishing.update_post();
@@ -323,6 +372,8 @@ describe('Publishing store', () => {
       content: '<p>Updated notes</p>',
       post_url: 'https://example.micro.blog/post/1',
       title: 'Morning show',
+      categories: ['microcast'],
+      summary: 'Episode summary',
     }));
     expect(Posts.refresh).toHaveBeenCalled();
     expect(Publishing.has_editor_changes()).toBe(false);
@@ -336,6 +387,7 @@ describe('Publishing store', () => {
       uid: '12345',
       url: 'https://example.micro.blog/post/1',
     });
+    await Publishing.load_post_source();
     Publishing.set_post_content('   ');
     Publishing.set_summary('');
 

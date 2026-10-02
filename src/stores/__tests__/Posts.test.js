@@ -29,6 +29,7 @@ const {
   remove_narration_from_post,
 } = require('../../lib/attach_narration');
 const Posts = require('../Posts').default;
+const Auth = require('../Auth').default;
 
 const SAMPLE_POSTS = [
   {
@@ -59,6 +60,7 @@ const SAMPLE_POSTS = [
 
 describe('Posts store', () => {
   beforeEach(() => {
+    Auth.default_site = 'https://test.micro.blog';
     applySnapshot(Posts, {
       posts: SAMPLE_POSTS,
       selected_filter: 'all',
@@ -101,6 +103,45 @@ describe('Posts store', () => {
 
     expect(Posts.is_loading).toBe(false);
     expect(Posts.did_hydrate).toBe(true);
+  });
+
+  test.each(['old first', 'new first'])('refresh keeps the new blog when requests finish %s', async order => {
+    let finish_old;
+    let finish_new;
+    fetch_micropub_posts
+      .mockImplementationOnce(() => new Promise(resolve => { finish_old = resolve; }))
+      .mockImplementationOnce(() => new Promise(resolve => { finish_new = resolve; }));
+
+    const old_request = Posts.refresh();
+    Auth.default_site = 'https://other.micro.blog';
+    const new_request = Posts.refresh();
+    const new_posts = {
+      items: [{ properties: { uid: ['4'], url: ['https://other.micro.blog/4'], content: ['New blog post'] } }],
+    };
+    const old_posts = {
+      items: [{ properties: { uid: ['1'], url: ['https://test.micro.blog/1'], content: ['Old blog post'] } }],
+    };
+
+    expect(fetch_micropub_posts).toHaveBeenCalledTimes(2);
+    expect(fetch_micropub_posts).toHaveBeenLastCalledWith({ destination: Auth.default_site, token: 'token' });
+    expect(Posts.posts.length).toBe(0);
+
+    if (order === 'old first') {
+      finish_old(old_posts);
+      await old_request;
+      expect(Posts.is_loading).toBe(true);
+      expect(Posts.posts.length).toBe(0);
+      finish_new(new_posts);
+      await new_request;
+    } else {
+      finish_new(new_posts);
+      await new_request;
+      finish_old(old_posts);
+      await old_request;
+    }
+
+    expect(Posts.posts.map(post => post.url)).toEqual(['https://other.micro.blog/4']);
+    expect(Posts.is_loading).toBe(false);
   });
 
   test('defaults to the podcasts filter', () => {

@@ -189,6 +189,61 @@ describe('NarrationDraft store', () => {
     expect(NarrationDraft.pending_take).toBeNull();
   });
 
+  test('import_clip appends normalized audio and cleans up the temporary file', async () => {
+    NarrationDraft.apply_draft_snapshot(DRAFT_SNAPSHOT);
+    normalize_imported_audio.mockResolvedValue({
+      duration_seconds: 4,
+      uri: 'file:///tmp/imported.m4a',
+      waveform: [0.1],
+    });
+    append_clip_to_narration.mockResolvedValue({
+      ...DRAFT_SNAPSHOT,
+      clips: ['segment-1.m4a', 'segment-2.m4a'],
+    });
+
+    expect(await NarrationDraft.import_clip('file:///cache/picked.mp3')).toBe('3');
+    expect(append_clip_to_narration).toHaveBeenCalledWith('3', 'file:///tmp/imported.m4a', 4, [0.1]);
+    expect(NarrationDraft.clips.slice()).toEqual(['segment-1.m4a', 'segment-2.m4a']);
+    expect(NarrationDraft.is_dirty).toBe(true);
+    expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/imported.m4a');
+  });
+
+  test('an import cannot append to another draft after normalization finishes', async () => {
+    let finish_normalizing;
+    normalize_imported_audio.mockImplementationOnce(() => new Promise(resolve => {
+      finish_normalizing = resolve;
+    }));
+    NarrationDraft.apply_draft_snapshot(DRAFT_SNAPSHOT);
+    const importing = NarrationDraft.import_clip('file:///cache/picked.mp3');
+    await NarrationDraft.discard();
+    NarrationDraft.apply_draft_snapshot({ ...DRAFT_SNAPSHOT, post_uid: '4' });
+
+    finish_normalizing({ uri: 'file:///tmp/imported.m4a', duration_seconds: 4, waveform: [] });
+    expect(await importing).toBeNull();
+    expect(append_clip_to_narration).not.toHaveBeenCalled();
+    expect(NarrationDraft.post_uid).toBe('4');
+    expect(NarrationDraft.is_dirty).toBe(false);
+    expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/imported.m4a');
+  });
+
+  test('an import cannot replace another draft after appending finishes', async () => {
+    let finish_appending;
+    normalize_imported_audio.mockResolvedValue({ uri: 'file:///tmp/imported.m4a', duration_seconds: 4, waveform: [] });
+    append_clip_to_narration.mockImplementationOnce(() => new Promise(resolve => {
+      finish_appending = resolve;
+    }));
+    NarrationDraft.apply_draft_snapshot(DRAFT_SNAPSHOT);
+    const importing = NarrationDraft.import_clip('file:///cache/picked.mp3');
+    await Promise.resolve();
+    await NarrationDraft.discard();
+    NarrationDraft.apply_draft_snapshot({ ...DRAFT_SNAPSHOT, post_uid: '4' });
+
+    finish_appending(DRAFT_SNAPSHOT);
+    expect(await importing).toBeNull();
+    expect(NarrationDraft.post_uid).toBe('4');
+    expect(NarrationDraft.is_dirty).toBe(false);
+  });
+
   test('commit_local refuses an empty draft', async () => {
     await expect(NarrationDraft.commit_local()).rejects.toThrow(
       'This narration has no audio to save.',

@@ -34,6 +34,8 @@ const Posts = types
     error_message: null,
     is_attaching: false,
     is_loading: false,
+    loading_destination: null,
+    refresh_generation: 0,
   }))
   .actions(self => ({
     clear_error() {
@@ -55,31 +57,45 @@ const Posts = types
     },
 
     refresh: flow(function* () {
-      if (self.is_loading) {
+      const destination = `${Auth.default_site || ''}`.trim();
+
+      if (self.is_loading && self.loading_destination === destination) {
         return;
       }
 
+      const generation = self.refresh_generation + 1;
+      self.refresh_generation = generation;
       const token = Tokens.get_user_token();
 
       if (!token) {
         applySnapshot(self.posts, []);
         self.did_hydrate = true;
+        self.is_loading = false;
         return;
       }
 
-      const destination = `${Auth.default_site || ''}`.trim();
+      if (self.loading_destination !== destination) {
+        applySnapshot(self.posts, []);
+      }
 
+      self.loading_destination = destination;
       self.is_loading = true;
       self.error_message = null;
 
       try {
         const payload = yield fetch_micropub_posts({ destination, token });
-        applySnapshot(self.posts, normalize_micropub_posts(payload));
+        if (self.refresh_generation === generation && `${Auth.default_site || ''}`.trim() === destination) {
+          applySnapshot(self.posts, normalize_micropub_posts(payload));
+        }
       } catch (error) {
-        self.set_error(error?.message || 'We could not load your posts.');
+        if (self.refresh_generation === generation && `${Auth.default_site || ''}`.trim() === destination) {
+          self.set_error(error?.message || 'We could not load your posts.');
+        }
       } finally {
-        self.did_hydrate = true;
-        self.is_loading = false;
+        if (self.refresh_generation === generation) {
+          self.did_hydrate = true;
+          self.is_loading = false;
+        }
       }
     }),
 

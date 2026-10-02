@@ -19,6 +19,7 @@ import PlaybackControlButton from '../components/PlaybackControlButton';
 import PlaybackWaveform from '../components/PlaybackWaveform';
 import SegmentList from '../components/SegmentList';
 import { use_episode_playback } from '../hooks/use_episode_playback';
+import { use_sidebar_navigation_guard } from '../navigation/SidebarContext';
 import { build_upload_size_limit_message } from '../lib/episode_upload_size';
 import {
   resolve_active_clip_index,
@@ -51,6 +52,14 @@ function NarrateEditScreen({ navigation, route, theme }) {
   const playback_pause_ref = React.useRef(null);
 
   playback_pause_ref.current = playback.pause;
+
+  use_sidebar_navigation_guard(route.key, () => {
+    if (is_importing_audio || NarrationDraft.is_saving) {
+      return { title: 'Audio editing in progress', message: 'Wait for the audio to finish before switching screens.' };
+    }
+
+    return null;
+  });
 
   React.useEffect(() => {
     let cancelled = false;
@@ -85,7 +94,7 @@ function NarrateEditScreen({ navigation, route, theme }) {
 
   React.useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event) => {
-      if (NarrationDraft.is_saving) {
+      if (is_importing_audio || NarrationDraft.is_saving) {
         event.preventDefault();
         return;
       }
@@ -117,10 +126,10 @@ function NarrateEditScreen({ navigation, route, theme }) {
     });
 
     return unsubscribe;
-  }, [navigation, NarrationDraft.is_dirty, NarrationDraft.is_saving]);
+  }, [is_importing_audio, navigation, NarrationDraft.is_dirty, NarrationDraft.is_saving]);
 
   async function handle_save() {
-    if (NarrationDraft.is_saving || NarrationDraft.is_loading) {
+    if (is_importing_audio || NarrationDraft.is_saving || NarrationDraft.is_loading) {
       return;
     }
 
@@ -145,6 +154,7 @@ function NarrateEditScreen({ navigation, route, theme }) {
 
   const can_save = !NarrationDraft.is_loading
     && !NarrationDraft.is_saving
+    && !is_importing_audio
     && NarrationDraft.is_dirty
     && NarrationDraft.clips.length > 0
     && !NarrationDraft.is_over_upload_limit();
@@ -152,7 +162,7 @@ function NarrateEditScreen({ navigation, route, theme }) {
   React.useLayoutEffect(() => {
     if (Platform.OS === 'ios') {
       navigation.setOptions({
-        gestureEnabled: !NarrationDraft.is_saving && !NarrationDraft.is_loading,
+        gestureEnabled: !is_importing_audio && !NarrationDraft.is_saving && !NarrationDraft.is_loading,
         headerLargeTitle: false,
         headerRight: undefined,
         title: 'Edit Narration',
@@ -171,7 +181,7 @@ function NarrateEditScreen({ navigation, route, theme }) {
     }
 
     navigation.setOptions({
-      gestureEnabled: !NarrationDraft.is_saving && !NarrationDraft.is_loading,
+      gestureEnabled: !is_importing_audio && !NarrationDraft.is_saving && !NarrationDraft.is_loading,
       headerLargeTitle: false,
       title: 'Edit Narration',
       unstable_headerRightItems: undefined,
@@ -187,6 +197,7 @@ function NarrateEditScreen({ navigation, route, theme }) {
     });
   }, [
     can_save,
+    is_importing_audio,
     navigation,
     theme,
     NarrationDraft.is_dirty,

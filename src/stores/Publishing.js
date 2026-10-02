@@ -68,8 +68,10 @@ const Publishing = types
     text_selection_start: types.optional(types.number, 0),
   })
   .volatile(() => ({
+    did_load_post_source: false,
     editor_baseline: null,
     editor_episode_id: null,
+    editor_generation: 0,
     is_publishing: false,
     last_post_url: '',
     phase: 'idle',
@@ -94,6 +96,8 @@ const Publishing = types
     },
 
     reset_editor() {
+      self.editor_generation += 1;
+      self.did_load_post_source = false;
       self.editor_episode_id = null;
       self.is_editing_post = false;
       self.new_category_text = '';
@@ -120,6 +124,8 @@ const Publishing = types
         ? Episodes.get_episode(trimmed_episode_id)
         : Episodes.get_episode_for_post({ post_id: trimmed_uid, post_url: trimmed_url });
 
+      self.editor_generation += 1;
+      self.did_load_post_source = false;
       self.is_editing_post = true;
       self.post_uid = trimmed_uid || null;
       self.post_url = trimmed_url || null;
@@ -130,7 +136,7 @@ const Publishing = types
       self.post_syndicates = [];
       self.new_category_text = '';
       self.show_title = trimmed_title.length > 0;
-      self.summary = '';
+      self.summary = `${post?.summary || ''}`;
       self.text_selection_end = 0;
       self.text_selection_start = 0;
       self.editor_episode_id = linked_episode?.id || null;
@@ -151,6 +157,7 @@ const Publishing = types
     },
 
     load_post_source: flow(function* () {
+      const generation = self.editor_generation;
       const post_url = `${self.post_url || ''}`.trim();
 
       if (!post_url) {
@@ -166,7 +173,7 @@ const Publishing = types
       const destination = `${Auth.default_site || ''}`.trim();
       const source = yield fetch_micropub_post_source({ destination, post_url, token });
 
-      if (!source || self.post_url !== post_url || !self.is_editing_post) {
+      if (!source || self.editor_generation !== generation) {
         return;
       }
 
@@ -190,12 +197,15 @@ const Publishing = types
       self.summary = source.summary || '';
       self.show_title = self.show_title || self.post_title.length > 0;
       self.relink_editor_episode();
+      self.did_load_post_source = true;
       self.mark_editor_clean();
     }),
 
     prep_editor(episode_id = '') {
       const episode = Episodes.get_episode(episode_id);
 
+      self.editor_generation += 1;
+      self.did_load_post_source = false;
       self.editor_episode_id = `${episode_id || ''}`.trim() || null;
       self.is_editing_post = false;
       self.post_uid = null;
@@ -398,6 +408,11 @@ const Publishing = types
 
     update_post: flow(function* () {
       if (self.is_publishing || !self.is_editing_post) {
+        return false;
+      }
+
+      if (!self.did_load_post_source) {
+        self.set_error('Post details could not be loaded. Reopen this post and try again.');
         return false;
       }
 

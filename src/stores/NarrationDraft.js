@@ -217,18 +217,29 @@ const NarrationDraft = types
     }),
 
     import_clip: flow(function* (source_uri = '') {
+      const generation = self.open_generation;
+      const post_uid = self.post_uid;
       let normalized_uri = '';
 
       try {
         const normalized = yield normalize_imported_audio(source_uri);
         normalized_uri = normalized.uri;
 
+        if (self.open_generation !== generation) {
+          return null;
+        }
+
         const snapshot = yield append_clip_to_narration(
-          self.post_uid,
+          post_uid,
           normalized.uri,
           normalized.duration_seconds,
           normalized.waveform,
         );
+
+        if (self.open_generation !== generation) {
+          return null;
+        }
+
         self.apply_draft_snapshot(snapshot);
         self.is_dirty = true;
 
