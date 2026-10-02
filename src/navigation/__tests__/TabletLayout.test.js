@@ -16,6 +16,7 @@ jest.mock('react-native', () => ({
 jest.mock('react-native-screens', () => ({
   ScreenStack: 'ScreenStack',
   ScreenStackHeaderLeftView: 'ScreenStackHeaderLeftView',
+  ScreenStackHeaderRightView: 'ScreenStackHeaderRightView',
   ScreenStackItem: 'ScreenStackItem',
 }));
 
@@ -50,16 +51,20 @@ const navigation = {
 };
 const routes = ['RecordingsStack', 'PostsStack', 'DiscoverStack', 'RecordAction']
   .map(name => ({ key: name, name }));
+const descriptors = Object.fromEntries(routes.map(route => [
+  route.key,
+  { render: () => <Content name={route.name} /> },
+]));
 
-function Content() {
+function Content({ name }) {
   const sidebar_visible = React.useContext(SidebarVisibleContext);
-  return <Text testID="content">{sidebar_visible ? 'wide' : 'narrow'}</Text>;
+  return <Text testID="content">{`${name}: ${sidebar_visible ? 'wide' : 'narrow'}`}</Text>;
 }
 
 function layout(index = 0) {
   return (
-    <TabletLayout navigation={navigation} state={{ index, routes }}>
-      <Content />
+    <TabletLayout descriptors={descriptors} navigation={navigation} state={{ index, routes }}>
+      <Content name="Native tabs" />
     </TabletLayout>
   );
 }
@@ -83,30 +88,35 @@ test('uses the sidebar for wide iPad windows and preserves the current section',
   expect(host.props.preferredDisplayMode).toBe('oneBesideSecondary');
   expect(find_hosts(host, 'SplitColumn')).toHaveLength(2);
   expect(screen.getByText('Posts').parent.props.accessibilityState.selected).toBe(true);
+  expect(screen.getByTestId('content').props.children).toBe('PostsStack: wide');
   expect(screen.queryByText('RecordAction')).toBeNull();
 
   await fireEvent.press(screen.getByText('Discover').parent);
   expect(navigation.navigate).toHaveBeenCalledWith('DiscoverStack');
-
-  await fireEvent.press(screen.getByLabelText('New recording'));
-  expect(parent_navigation.navigate).toHaveBeenCalledWith('Record');
+  await screen.rerender(layout(2));
+  expect(screen.getByTestId('content').props.children).toBe('DiscoverStack: wide');
 
   const header = find_hosts(host, 'ScreenStackItem')[0].props.headerConfig;
-  header.children.props.children.props.onPress();
+  const [profile, record] = React.Children.toArray(header.children.props.children);
+  expect(profile.type).toBe('ScreenStackHeaderLeftView');
+  expect(record.type).toBe('ScreenStackHeaderRightView');
+  expect(record.props.children.props.accessibilityLabel).toBe('New recording');
+  record.props.children.props.onPress();
+  expect(parent_navigation.navigate).toHaveBeenCalledWith('Record');
+
+  profile.props.children.props.onPress();
   expect(parent_navigation.navigate).toHaveBeenCalledWith('Account');
 });
 
-test('keeps the content mounted when the window becomes narrow', async () => {
+test('shows native tabs when the window becomes narrow', async () => {
   const screen = await render(layout());
-  const content = screen.getByTestId('content');
 
-  expect(content.props.children).toBe('wide');
+  expect(screen.getByTestId('content').props.children).toBe('RecordingsStack: wide');
   mock_dimensions = { width: 744, height: 1133 };
   await screen.rerender(layout());
 
   expect(screen.root.props.preferredDisplayMode).toBe('secondaryOnly');
-  expect(screen.getByTestId('content')).toBe(content);
-  expect(content.props.children).toBe('narrow');
+  expect(screen.getByTestId('content').props.children).toBe('Native tabs: narrow');
   expect(is_wide_tablet_window(768, 700)).toBe(true);
   expect(is_wide_tablet_window(767, 700)).toBe(false);
 });
