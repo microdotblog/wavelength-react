@@ -64,7 +64,15 @@
       "./plugins/withAndroidReleaseSigning",
       "./plugins/withIosPodDeploymentTarget",
       "./plugins/withIosSplitView",
-      "./plugins/withIosSceneLifecycle"
+      "./plugins/withIosSceneLifecycle",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "blog.micro.wavelength.ExpoWidgetsTarget",
+          "groupIdentifier": "group.blog.micro.wavelength",
+          "frequentUpdates": false
+        }
+      ]
     ]
   }
 }

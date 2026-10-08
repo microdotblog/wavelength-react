@@ -26,6 +26,11 @@ import { format_clock } from '../lib/format_duration';
 import { normalize_metering } from '../lib/normalize_metering';
 import { enable_recording_audio_mode } from '../lib/recording_audio_mode';
 import {
+  end_recording_live_activity,
+  sync_recording_live_activity,
+} from '../lib/recording_live_activity';
+import { RECORDING_LIVE_ACTIVITY_HOUR_MS } from '../lib/recording_live_activity_props';
+import {
   is_review_recording_phase,
   resolve_phase_after_recorder_state,
   resolve_phase_after_recording_status,
@@ -55,12 +60,14 @@ function RecordScreen({ navigation, route, theme }) {
   const captured_samples_ref = React.useRef([]);
   const done_handler_ref = React.useRef(null);
   const start_recording_ref = React.useRef(null);
+  const previous_recording_phase_ref = React.useRef('idle');
   const recording_phase_ref = React.useRef(recording_phase);
   const is_saving_ref = React.useRef(is_saving);
   const is_discarding_ref = React.useRef(is_discarding);
   const is_starting_ref = React.useRef(false);
   const last_known_duration_ms_ref = React.useRef(0);
   const has_observed_active_take_ref = React.useRef(false);
+  const has_synced_hour_format_ref = React.useRef(false);
   const recording_status_listener_ref = React.useRef(null);
   const actions_opacity = useSharedValue(0);
   const actions_translate = useSharedValue(8);
@@ -195,6 +202,73 @@ function RecordScreen({ navigation, route, theme }) {
       set_recording_phase(next_phase);
     }
   }, [is_discarding, is_saving, recorder_state.canRecord, recorder_state.isRecording, recording_phase]);
+
+  function sample_recording_duration_ms({ treat_as_fresh = false } = {}) {
+    if (treat_as_fresh) {
+      return 0;
+    }
+
+    return Math.max(
+      Number.isFinite(audio_recorder.currentTime) ? audio_recorder.currentTime * 1000 : 0,
+      Number.isFinite(recorder_state.durationMillis) ? recorder_state.durationMillis : 0,
+    );
+  }
+
+  React.useEffect(() => {
+    const previous_phase = previous_recording_phase_ref.current;
+    previous_recording_phase_ref.current = recording_phase;
+
+    if (recording_phase === 'recording' || recording_phase === 'paused') {
+      if (previous_phase === 'idle') {
+        has_synced_hour_format_ref.current = false;
+      }
+
+      // Starting a fresh take after idle must not reuse a stale polled duration.
+      // Island timer counts itself via SwiftUI after this sync.
+      sync_recording_live_activity({
+        duration_ms: sample_recording_duration_ms({
+          treat_as_fresh: previous_phase === 'idle',
+        }),
+        phase: recording_phase,
+      });
+      return;
+    }
+
+    has_synced_hour_format_ref.current = false;
+    end_recording_live_activity();
+    // duration is intentionally sampled only when the phase changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording_phase]);
+
+  React.useEffect(() => {
+    // When elapsed crosses 1h, widen the SwiftUI timer window to H:MM:SS once.
+    if (recording_phase !== 'recording' && recording_phase !== 'paused') {
+      return;
+    }
+
+    if (has_synced_hour_format_ref.current) {
+      return;
+    }
+
+    const duration_ms = sample_recording_duration_ms();
+
+    if (duration_ms < RECORDING_LIVE_ACTIVITY_HOUR_MS) {
+      return;
+    }
+
+    has_synced_hour_format_ref.current = true;
+    sync_recording_live_activity({
+      duration_ms,
+      phase: recording_phase,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recorder_state.durationMillis, recording_phase]);
+
+  React.useEffect(() => {
+    return () => {
+      end_recording_live_activity();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!recorder_state.isRecording || !Number.isFinite(recorder_state.metering)) {

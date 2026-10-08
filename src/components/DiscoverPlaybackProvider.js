@@ -7,6 +7,10 @@ import DiscoverPlaybackToolbar from './DiscoverPlaybackToolbar';
 import { use_discover_playback } from '../hooks/use_discover_playback';
 import { use_tab_bar_bottom_offset } from '../hooks/use_tab_bar_bottom_offset';
 import {
+  end_discover_playback_live_activity,
+  sync_discover_playback_live_activity,
+} from '../lib/discover_playback_live_activity';
+import {
   is_playable_discover_post,
   resolve_discover_playback_artwork_url,
 } from '../lib/discover_posts';
@@ -86,6 +90,46 @@ const DiscoverPlaybackProviderInner = observer(function DiscoverPlaybackProvider
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
   }, [has_active_playback]);
 
+  function remaining_ms_for_time(current_time = 0) {
+    return Math.max(0, (playback.duration_seconds - current_time) * 1000);
+  }
+
+  function sync_live_activity_for_playback(current_time = playback.current_time) {
+    if (!active_post || !playback.playing) {
+      end_discover_playback_live_activity();
+      return;
+    }
+
+    sync_discover_playback_live_activity({
+      artist_name: active_post.author_name || '',
+      artwork_url: playback_artwork_url,
+      post_id: active_post.id,
+      remaining_ms: remaining_ms_for_time(current_time),
+      title: active_post.title || '',
+    });
+  }
+
+  React.useEffect(() => {
+    // Only while actively playing. Pause/close/end dismisses the activity.
+    // Duration is included so we refresh once the player reports a real length.
+    // current_time is intentionally omitted — SwiftUI counts remaining itself.
+    sync_live_activity_for_playback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    active_post?.author_name,
+    active_post?.id,
+    active_post?.title,
+    playback.duration_seconds,
+    playback.playing,
+    playback_artwork_url,
+  ]);
+
+  React.useEffect(() => {
+    return () => {
+      end_discover_playback_live_activity();
+    };
+  }, []);
+
   function open_post(post) {
     const post_url = `${post?.url || ''}`.trim();
 
@@ -121,7 +165,12 @@ const DiscoverPlaybackProviderInner = observer(function DiscoverPlaybackProvider
   }
 
   function handle_seek(fraction = 0) {
-    playback.seek(seek_seconds_from_fraction(fraction, playback.duration_seconds));
+    const target_seconds = seek_seconds_from_fraction(fraction, playback.duration_seconds);
+    playback.seek(target_seconds);
+
+    if (playback.playing && active_post) {
+      sync_live_activity_for_playback(target_seconds);
+    }
   }
 
   function handle_close_playback() {
