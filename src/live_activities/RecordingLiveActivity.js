@@ -9,13 +9,11 @@ import { createLiveActivity } from 'expo-widgets';
 function RecordingLiveActivityLayout(props, environment) {
   'widget';
 
-  const is_dark = environment.colorScheme === 'dark';
   const is_dimmed = !!environment.isLuminanceReduced;
 
-  // Lock Screen banner follows the system color scheme.
   const accent_color = '#ff8800';
-  const banner_ink = is_dark ? '#FFFFFF' : '#24180d';
-  const banner_soft = is_dark ? '#D9C0A8' : '#756657';
+  const banner_ink = { type: 'hierarchical', style: 'primary' };
+  const banner_soft = { type: 'hierarchical', style: 'secondary' };
 
   // Dynamic Island is always on a black capsule — never use light-mode ink there.
   const island_ink = is_dimmed ? '#B0B0B0' : '#FFFFFF';

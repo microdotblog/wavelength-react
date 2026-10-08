@@ -18,12 +18,11 @@ import { createLiveActivity } from 'expo-widgets';
 function DiscoverPlaybackLiveActivityLayout(props, environment) {
   'widget';
 
-  const is_dark = environment.colorScheme === 'dark';
   const is_dimmed = !!environment.isLuminanceReduced;
 
   const accent_color = '#ff8800';
-  const banner_ink = is_dark ? '#FFFFFF' : '#24180d';
-  const banner_soft = is_dark ? '#D9C0A8' : '#756657';
+  const banner_ink = { type: 'hierarchical', style: 'primary' };
+  const banner_soft = { type: 'hierarchical', style: 'secondary' };
   const island_ink = is_dimmed ? '#B0B0B0' : '#FFFFFF';
   const island_soft = is_dimmed ? '#8A8A8A' : '#C8C8C8';
   const play_color = is_dimmed ? '#FFFFFF' : accent_color;
