@@ -1,3 +1,5 @@
+jest.mock('react-native', () => ({ Platform: { OS: 'android' } }));
+
 jest.mock('../../lib/EpisodeStorage', () => ({
   get_episode_clip_uri: jest.fn((draft, clip_name) => `${draft.folder_uri}${clip_name}`),
 }));
@@ -32,6 +34,7 @@ const {
   replace_narration_clips,
 } = require('../../lib/narration_storage');
 const NarrationDraft = require('../NarrationDraft').default;
+const { Platform } = require('react-native');
 
 const DRAFT_SNAPSHOT = {
   clip_meta: [
@@ -52,6 +55,7 @@ const DRAFT_SNAPSHOT = {
 
 describe('NarrationDraft store', () => {
   beforeEach(async () => {
+    Platform.OS = 'android';
     await NarrationDraft.discard();
     NarrationDraft.consume_pending_take();
     download_remote_audio.mockReset();
@@ -249,6 +253,16 @@ describe('NarrationDraft store', () => {
       'This narration has no audio to save.',
     );
     expect(copy_narration_take).not.toHaveBeenCalled();
+  });
+
+  test('allows large lossless iOS drafts to be saved before compression for upload', async () => {
+    Platform.OS = 'ios';
+    NarrationDraft.apply_draft_snapshot({
+      ...DRAFT_SNAPSHOT,
+      clip_meta: [{ ...DRAFT_SNAPSHOT.clip_meta[0], size_bytes: 100_000_000 }],
+    });
+    expect(NarrationDraft.is_over_upload_limit()).toBe(false);
+    await expect(NarrationDraft.commit_local()).resolves.toMatchObject({ duration_seconds: 12 });
   });
 
   test('update_clips refuses to drop the last segment', async () => {

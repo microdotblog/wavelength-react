@@ -4,7 +4,7 @@ import CoreMedia
 import ExpoModulesCore
 import LAME
 
-private let outputBitrateKbps: Int32 = 128
+private let outputBitrateKbps: Int32 = 192
 private let outputSampleRate: Int32 = 44_100
 private let adtsFramesPerBatch = 256
 private let adtsSampleRates: [Double] = [
@@ -97,6 +97,28 @@ public class WavelengthMP3Module: Module {
       let outputUrl = try self.fileUrl(from: outputUri)
 
       try self.exportMp3(inputUrl: inputUrl, outputUrl: outputUrl)
+
+      return outputUrl.absoluteString
+    }
+
+    AsyncFunction("exportAlacAsync") { (inputUri: String, outputUri: String, startTimeMs: Double, endTimeMs: Double) -> String in
+      let inputUrl = try self.fileUrl(from: inputUri)
+      let outputUrl = try self.fileUrl(from: outputUri)
+      let timeRange = CMTimeRange(
+        start: CMTime(seconds: startTimeMs / 1_000, preferredTimescale: outputSampleRate),
+        end: CMTime(seconds: endTimeMs / 1_000, preferredTimescale: outputSampleRate)
+      )
+
+      try self.exportAlac(inputUrls: [inputUrl], outputUrl: outputUrl, timeRange: timeRange)
+
+      return outputUrl.absoluteString
+    }
+
+    AsyncFunction("mergeAlacAsync") { (inputUris: [String], outputUri: String) -> String in
+      let inputUrls = try inputUris.map { try self.fileUrl(from: $0) }
+      let outputUrl = try self.fileUrl(from: outputUri)
+
+      try self.exportAlac(inputUrls: inputUrls, outputUrl: outputUrl)
 
       return outputUrl.absoluteString
     }
@@ -248,7 +270,7 @@ public class WavelengthMP3Module: Module {
   }
 
   private func makeAacMagicCookie(for frame: AdtsFrame) -> [UInt8] {
-    let bitrate = UInt32(outputBitrateKbps) * 1_000
+    let bitrate: UInt32 = 128_000
     let audioSpecificConfig = [
       UInt8((frame.audioObjectType << 3) | (frame.frequencyIndex >> 1)),
       UInt8(((frame.frequencyIndex & 1) << 7) | (frame.channelCount << 3)),
@@ -297,6 +319,107 @@ public class WavelengthMP3Module: Module {
     guard writeStatus == noErr, packetCount == UInt32(descriptions.count) else {
       throw M4aExportError.writeFailed
     }
+  }
+
+  // Decode each input to the recording format, then write lossless ALAC.
+  // This also lets older AAC clips and new ALAC clips share one episode.
+  private func exportAlac(inputUrls: [URL], outputUrl: URL, timeRange: CMTimeRange? = nil) throws {
+    guard !inputUrls.isEmpty, !inputUrls.contains(outputUrl) else {
+      throw M4aExportError.cannotReadInput
+    }
+
+    try? FileManager.default.removeItem(at: outputUrl)
+    var didComplete = false
+
+    defer {
+      if !didComplete {
+        try? FileManager.default.removeItem(at: outputUrl)
+      }
+    }
+
+    let file = try AVAudioFile(
+      forWriting: outputUrl,
+      settings: [
+        AVFormatIDKey: kAudioFormatAppleLossless,
+        AVSampleRateKey: outputSampleRate,
+        AVNumberOfChannelsKey: 2,
+        AVEncoderBitDepthHintKey: 16,
+      ],
+      commonFormat: .pcmFormatInt16,
+      interleaved: true
+    )
+    var totalFrames = 0
+
+    for inputUrl in inputUrls {
+      let asset = AVURLAsset(url: inputUrl)
+      guard let track = asset.tracks(withMediaType: .audio).first else {
+        throw Mp3ExportError.missingAudioTrack
+      }
+
+      let trackOutput = AVAssetReaderTrackOutput(track: track, outputSettings: [
+        AVFormatIDKey: kAudioFormatLinearPCM,
+        AVLinearPCMBitDepthKey: 16,
+        AVLinearPCMIsBigEndianKey: false,
+        AVLinearPCMIsFloatKey: false,
+        AVLinearPCMIsNonInterleaved: false,
+        AVNumberOfChannelsKey: 2,
+        AVSampleRateKey: outputSampleRate,
+      ])
+      let reader = try AVAssetReader(asset: asset)
+      defer { reader.cancelReading() }
+
+      if let timeRange {
+        reader.timeRange = timeRange
+      }
+
+      guard reader.canAdd(trackOutput) else {
+        throw M4aExportError.cannotReadInput
+      }
+      reader.add(trackOutput)
+
+      guard reader.startReading() else {
+        throw reader.error ?? M4aExportError.cannotReadInput
+      }
+
+      while let sampleBuffer = trackOutput.copyNextSampleBuffer() {
+        let frameCount = CMSampleBufferGetNumSamples(sampleBuffer)
+        if frameCount == 0 {
+          continue
+        }
+
+        guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer),
+              let pcmBuffer = AVAudioPCMBuffer(
+                pcmFormat: file.processingFormat,
+                frameCapacity: AVAudioFrameCount(frameCount)
+              ) else {
+          throw M4aExportError.cannotReadInput
+        }
+
+        pcmBuffer.frameLength = AVAudioFrameCount(frameCount)
+        let audioBuffer = pcmBuffer.mutableAudioBufferList.pointee.mBuffers
+        let byteCount = CMBlockBufferGetDataLength(blockBuffer)
+        guard byteCount == Int(audioBuffer.mDataByteSize), let data = audioBuffer.mData else {
+          throw M4aExportError.cannotReadInput
+        }
+
+        let status = CMBlockBufferCopyDataBytes(blockBuffer, atOffset: 0, dataLength: byteCount, destination: data)
+        guard status == kCMBlockBufferNoErr else {
+          throw M4aExportError.cannotReadInput
+        }
+
+        try file.write(from: pcmBuffer)
+        totalFrames += frameCount
+      }
+
+      guard reader.status == .completed else {
+        throw reader.error ?? M4aExportError.cannotReadInput
+      }
+    }
+
+    guard totalFrames > 0 else {
+      throw M4aExportError.cannotReadInput
+    }
+    didComplete = true
   }
 
   private func exportMp3(inputUrl: URL, outputUrl: URL) throws {

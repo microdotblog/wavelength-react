@@ -1,7 +1,6 @@
 import React from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  RecordingPresets,
   requestRecordingPermissionsAsync,
   useAudioRecorder,
   useAudioRecorderState,
@@ -24,7 +23,7 @@ import RecordingWaveform from '../components/RecordingWaveform';
 import { downsample_waveform, WAVEFORM_SAMPLE_COUNT } from '../lib/downsample_waveform';
 import { format_clock } from '../lib/format_duration';
 import { normalize_metering } from '../lib/normalize_metering';
-import { enable_recording_audio_mode } from '../lib/recording_audio_mode';
+import { enable_recording_audio_mode, get_recording_options } from '../lib/recording_audio_mode';
 import {
   is_review_recording_phase,
   resolve_phase_after_recorder_state,
@@ -38,10 +37,7 @@ const MINIMUM_RECORDING_SECONDS = 1;
 const RECORDER_POLL_MS = 50;
 const ACTIONS_FADE_MS = 220;
 const RECORDING_KEEP_AWAKE_TAG = 'wavelength-recording';
-const RECORDING_OPTIONS = {
-  ...RecordingPresets.HIGH_QUALITY,
-  isMeteringEnabled: true,
-};
+const RECORDING_OPTIONS = get_recording_options();
 
 function RecordScreen({ navigation, route, theme }) {
   const episode_id = route.params?.episode_id;

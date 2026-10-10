@@ -1,4 +1,5 @@
-import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
+import { File, Paths } from 'expo-file-system';
 import { concatAudioFiles } from 'react-native-audio-api';
 import { extractPreviewBars, trimAudio } from '@siteed/audio-studio';
 
@@ -77,8 +78,30 @@ async function convert_audio_to_m4a(source_uri = '') {
   }
 }
 
+async function trim_project_audio(file_uri, output_name, start_millis, end_millis) {
+  if (Platform.OS === 'ios') {
+    const output_uri = new File(Paths.cache, `${output_name}.m4a`).uri;
+    const uri = await WavelengthMP3Module.exportAlacAsync(file_uri, output_uri, start_millis, end_millis);
+
+    if (!uri) {
+      throw new Error('That audio file could not be converted.');
+    }
+
+    return { uri, durationMs: end_millis - start_millis };
+  }
+
+  return trimAudio({
+    endTimeMs: end_millis,
+    fileUri: file_uri,
+    mode: 'single',
+    outputFileName: output_name,
+    outputFormat: CANONICAL_AAC_OUTPUT_FORMAT,
+    startTimeMs: start_millis,
+  });
+}
+
 // Decode the selected file once to find its complete duration and waveform,
-// then transcode it to the same AAC-in-M4A settings used by new recordings.
+// then write the project format: ALAC on iOS, AAC on Android.
 export async function normalize_imported_audio(source_uri = '') {
   const trimmed_uri = `${source_uri || ''}`.trim();
 
@@ -100,14 +123,7 @@ export async function normalize_imported_audio(source_uri = '') {
     throw new Error('That file does not contain any audio.');
   }
 
-  const normalized = await trimAudio({
-    endTimeMs: duration_millis,
-    fileUri: trimmed_uri,
-    mode: 'single',
-    outputFileName: `import-${Date.now()}`,
-    outputFormat: CANONICAL_AAC_OUTPUT_FORMAT,
-    startTimeMs: 0,
-  });
+  const normalized = await trim_project_audio(trimmed_uri, `import-${Date.now()}`, 0, duration_millis);
   const normalized_uri = `${normalized?.uri || ''}`.trim();
   const normalized_duration = Number.isFinite(normalized?.durationMs)
     ? Math.max(normalized.durationMs, 0)
@@ -134,8 +150,8 @@ export async function normalize_imported_audio(source_uri = '') {
   }
 }
 
-// Stitch every clip into a single AAC file the publish flow can upload. Concat
-// remuxes same-format segments without re-encoding, so it stays lossless.
+// iOS writes ALAC, including when mixing older AAC clips with new recordings.
+// Android remuxes its compatible AAC clips without re-encoding.
 export async function merge_episode_clips(episode = null) {
   const clips = Array.isArray(episode?.clips) ? episode.clips : [];
 
@@ -152,11 +168,15 @@ export async function merge_episode_clips(episode = null) {
 
   const input_uris = clips.map(clip_name => get_episode_clip_uri(episode, clip_name));
 
+  if (Platform.OS === 'ios') {
+    return WavelengthMP3Module.mergeAlacAsync(input_uris, exported_uri);
+  }
+
   return concatAudioFiles(input_uris, exported_uri);
 }
 
-// Publishing keeps the editable AAC source intact and performs one final
-// decode/encode pass to a 128 kbps mono MP3.
+// Publishing keeps the editable source intact and performs one final
+// decode/encode pass to a 192 kbps mono MP3.
 export async function export_episode_mp3(source_uri = '') {
   const trimmed_uri = `${source_uri || ''}`.trim();
 
@@ -176,7 +196,7 @@ export async function export_episode_mp3(source_uri = '') {
   return exported_uri;
 }
 
-// Cut one clip into two canonical AAC-in-M4A files. The caller moves the
+// Cut one clip into two project-format M4A files. The caller moves the
 // results into the episode folder and rewrites the clip order.
 export async function split_clip_at(source_uri = '', split_seconds = 0, duration_seconds = 0) {
   const trimmed_uri = `${source_uri || ''}`.trim();
@@ -199,23 +219,8 @@ export async function split_clip_at(source_uri = '', split_seconds = 0, duration
   let second_uri = '';
 
   try {
-    first = await trimAudio({
-      endTimeMs: split_millis,
-      fileUri: trimmed_uri,
-      mode: 'single',
-      outputFileName: `split-${stamp}-1`,
-      outputFormat: CANONICAL_AAC_OUTPUT_FORMAT,
-      startTimeMs: 0,
-    });
-
-    second = await trimAudio({
-      endTimeMs: duration_millis,
-      fileUri: trimmed_uri,
-      mode: 'single',
-      outputFileName: `split-${stamp}-2`,
-      outputFormat: CANONICAL_AAC_OUTPUT_FORMAT,
-      startTimeMs: split_millis,
-    });
+    first = await trim_project_audio(trimmed_uri, `split-${stamp}-1`, 0, split_millis);
+    second = await trim_project_audio(trimmed_uri, `split-${stamp}-2`, split_millis, duration_millis);
 
     first_uri = await convert_audio_to_m4a(first.uri);
     second_uri = await convert_audio_to_m4a(second.uri);

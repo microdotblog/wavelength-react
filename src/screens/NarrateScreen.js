@@ -2,7 +2,6 @@ import React from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
 import {
-  RecordingPresets,
   requestRecordingPermissionsAsync,
   useAudioPlayer,
   useAudioPlayerStatus,
@@ -30,7 +29,7 @@ import { should_resume_narration_playback } from '../lib/narration_playback';
 import { post_display_title } from '../lib/micropub_posts';
 import { normalize_metering } from '../lib/normalize_metering';
 import { enable_playback_audio_mode } from '../lib/playback_audio_mode';
-import { enable_recording_audio_mode } from '../lib/recording_audio_mode';
+import { enable_recording_audio_mode, get_recording_options } from '../lib/recording_audio_mode';
 import {
   resolve_phase_after_recorder_state,
   resolve_phase_after_recording_status,
@@ -46,10 +45,7 @@ const MINIMUM_RECORDING_SECONDS = 1;
 const RECORDER_POLL_MS = 50;
 const PLAYER_STATUS_MS = 100;
 const RECORDING_KEEP_AWAKE_TAG = 'wavelength-narration';
-const RECORDING_OPTIONS = {
-  ...RecordingPresets.HIGH_QUALITY,
-  isMeteringEnabled: true,
-};
+const RECORDING_OPTIONS = get_recording_options();
 
 function map_recorder_phase(phase = 'idle') {
   if (phase === 'stopped') {

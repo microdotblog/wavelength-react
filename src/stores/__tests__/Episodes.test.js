@@ -1,3 +1,5 @@
+jest.mock('react-native', () => ({ Platform: { OS: 'android' } }));
+
 jest.mock('../Auth', () => ({
   __esModule: true,
   default: {
@@ -74,6 +76,7 @@ jest.mock('../../lib/episode_audio', () => ({
 }));
 
 const { applySnapshot, getType } = require('mobx-state-tree');
+const { Platform } = require('react-native');
 const { delete_micropub_post } = require('../../api/Micropub');
 const {
   append_clip_to_episode,
@@ -126,6 +129,7 @@ const EPISODE_BY_URL = {
 
 describe('Episodes store', () => {
   beforeEach(() => {
+    Platform.OS = 'android';
     applySnapshot(Episodes, {
       episodes: [EPISODE_BY_ID, EPISODE_BY_URL],
     });
@@ -452,6 +456,11 @@ describe('Episodes store', () => {
       expect(episode.total_audio_size_bytes()).toBe(80_000_000);
       expect(episode.formatted_audio_size()).toBe('80 MB');
       expect(episode.is_over_upload_limit()).toBe(true);
+    });
+
+    test('does not block iOS publishing based on lossless project size', () => {
+      Platform.OS = 'ios';
+      expect(Episodes.get_episode('episode-2').is_over_upload_limit()).toBe(false);
     });
   });
 
