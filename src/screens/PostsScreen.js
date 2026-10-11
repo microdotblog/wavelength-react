@@ -84,7 +84,7 @@ function PostsScreen({ navigation, theme }) {
   );
 
   React.useLayoutEffect(() => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'ios' && !Platform.isPad) {
       navigation.setOptions({
         headerRight: undefined,
         unstable_headerRightItems: () => build_ios_posts_filter_header_items({
@@ -107,7 +107,7 @@ function PostsScreen({ navigation, theme }) {
       unstable_headerRightItems: undefined,
       ...header_right_element(() => (
         <PostsFilterMenu theme={theme} />
-      )),
+      ), { hidesSharedBackground: Platform.isPad }),
     });
   }, [
     navigation,

@@ -61,7 +61,7 @@ export function build_ios_posts_filter_header_items({
 }
 
 function PostsFilterMenu({ theme }) {
-  const should_use_liquid_glass = is_liquid_glass();
+  const should_use_liquid_glass = is_liquid_glass() && !Platform.isPad;
   const selected_id = Posts.selected_filter;
   const selected_label = post_filter_label(selected_id);
 
@@ -86,7 +86,7 @@ function PostsFilterMenu({ theme }) {
   const show_loading_indicator = !Posts.did_hydrate || Posts.is_loading;
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, Platform.isPad ? styles.tabletRow : null]}>
       {show_loading_indicator ? (
         <ActivityIndicator
           accessibilityLabel="Loading posts"
@@ -115,6 +115,7 @@ function PostsFilterMenu({ theme }) {
                   borderColor: should_use_liquid_glass ? 'transparent' : theme.colors.line,
                 }
               : null,
+            Platform.isPad ? [styles.tabletTrigger, { borderColor: theme.colors.paper }] : null,
             pressed ? styles.pressed : null,
           ]}
         >
@@ -122,6 +123,7 @@ function PostsFilterMenu({ theme }) {
             style={[
               Platform.OS === 'android' ? styles.androidLabel : styles.iosLabel,
               { color: theme.colors.accent_strong },
+              Platform.isPad ? [styles.tabletLabel, { color: theme.colors.ink }] : null,
             ]}
           >
             {selected_label}
@@ -133,6 +135,18 @@ function PostsFilterMenu({ theme }) {
 }
 
 const styles = StyleSheet.create({
+  tabletRow: {
+    paddingRight: 6,
+  },
+  tabletTrigger: {
+    minHeight: 44,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+  },
+  tabletLabel: {
+    fontSize: 17,
+    fontWeight: '400',
+  },
   androidLabel: {
     fontSize: 17,
     fontWeight: '500',

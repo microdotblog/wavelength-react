@@ -72,7 +72,7 @@ function DiscoverScreen({ navigation, theme }) {
   }, [Discover.selected_filter]);
 
   React.useLayoutEffect(() => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'ios' && !Platform.isPad) {
       navigation.setOptions({
         headerRight: undefined,
         unstable_headerRightItems: () => build_ios_discover_filter_header_items({
@@ -95,7 +95,7 @@ function DiscoverScreen({ navigation, theme }) {
       unstable_headerRightItems: undefined,
       ...header_right_element(() => (
         <DiscoverFilterMenu theme={theme} />
-      )),
+      ), { hidesSharedBackground: Platform.isPad }),
     });
   }, [
     did_hydrate,

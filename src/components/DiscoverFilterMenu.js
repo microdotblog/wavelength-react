@@ -85,15 +85,11 @@ export function build_ios_discover_filter_header_items({
     type: 'menu',
   });
 
-  if (Platform.isPad) {
-    items.push({ type: 'spacing', spacing: 8 });
-  }
-
   return items;
 }
 
 function DiscoverFilterMenu({ theme }) {
-  const should_use_liquid_glass = is_liquid_glass();
+  const should_use_liquid_glass = is_liquid_glass() && !Platform.isPad;
   const selected_id = Discover.selected_filter;
   const selected_label = discover_filter_label(selected_id);
   const selected_icon = discover_filter_icon(selected_id);
@@ -123,7 +119,7 @@ function DiscoverFilterMenu({ theme }) {
   const loading_label = discover_loading_label(selected_id);
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, Platform.isPad ? styles.tabletRow : null]}>
       {show_loading_indicator ? (
         <ActivityIndicator
           accessibilityLabel={loading_label}
@@ -152,11 +148,12 @@ function DiscoverFilterMenu({ theme }) {
                   borderColor: should_use_liquid_glass ? 'transparent' : theme.colors.line,
                 }
               : null,
+            Platform.isPad ? [styles.tabletTrigger, { borderColor: theme.colors.paper }] : null,
             pressed ? styles.pressed : null,
           ]}
         >
           <PlatformSymbol
-            color={theme.colors.accent_strong}
+            color={Platform.isPad ? theme.colors.ink : theme.colors.accent_strong}
             name={selected_icon}
             size={20}
           />
@@ -167,6 +164,14 @@ function DiscoverFilterMenu({ theme }) {
 }
 
 const styles = StyleSheet.create({
+  tabletRow: {
+    paddingRight: 2,
+  },
+  tabletTrigger: {
+    minHeight: 44,
+    minWidth: 44,
+    borderRadius: 22,
+  },
   androidTrigger: {
     justifyContent: 'center',
     minHeight: 48,
