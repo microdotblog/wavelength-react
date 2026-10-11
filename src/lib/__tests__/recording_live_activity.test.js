@@ -137,4 +137,63 @@ describe('recording_live_activity', () => {
 
     expect(mock_instance.end).toHaveBeenCalledWith('immediate');
   });
+
+  test('keeps a newer activity when an older update fails late', async () => {
+    let reject_update;
+    const first_instance = {
+      end: jest.fn(async () => {}),
+      update: jest.fn(
+        () =>
+          new Promise((resolve, reject) => {
+            reject_update = reject;
+          }),
+      ),
+    };
+    const second_instance = {
+      end: jest.fn(async () => {}),
+      update: jest.fn(async () => {}),
+    };
+    mock_factory.start
+      .mockReturnValueOnce(first_instance)
+      .mockReturnValueOnce(second_instance);
+
+    await sync_recording_live_activity({
+      duration_ms: 1000,
+      phase: 'recording',
+    });
+    const stale_update = sync_recording_live_activity({
+      duration_ms: 2000,
+      phase: 'paused',
+    });
+    await end_recording_live_activity();
+    await sync_recording_live_activity({
+      duration_ms: 0,
+      phase: 'recording',
+    });
+
+    mock_factory.getInstances.mockReturnValue([first_instance, second_instance]);
+    reject_update(new Error('update failed'));
+    await stale_update;
+
+    expect(second_instance.end).not.toHaveBeenCalled();
+
+    await sync_recording_live_activity({
+      duration_ms: 3000,
+      phase: 'recording',
+    });
+
+    expect(mock_factory.start).toHaveBeenCalledTimes(2);
+    expect(second_instance.update).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: 'recording' }),
+    );
+  });
+
+  test('ends leftover activities when none is tracked', async () => {
+    const leftover = { end: jest.fn(async () => {}) };
+    mock_factory.getInstances.mockReturnValue([leftover]);
+
+    await end_recording_live_activity();
+
+    expect(leftover.end).toHaveBeenCalledWith('immediate');
+  });
 });

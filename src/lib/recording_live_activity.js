@@ -42,9 +42,7 @@ async function end_instance(instance) {
 
   try {
     await instance.end('immediate');
-  } catch (error) {
-    // Already dismissed or unavailable.
-  }
+  } catch {}
 }
 
 export async function sync_recording_live_activity({
@@ -71,31 +69,44 @@ export async function sync_recording_live_activity({
     phase,
   });
   const token = next_operation_token();
+  const current = activity_instance;
 
+  if (current) {
+    await update_instance(current, props);
+  } else {
+    await start_instance(factory, props, token);
+  }
+}
+
+async function update_instance(instance, props) {
   try {
-    if (!activity_instance) {
-      await end_orphaned_instances(factory);
+    await instance.update(props);
+  } catch (error) {
+    if (activity_instance === instance) {
+      activity_instance = null;
+    }
 
-      if (token !== operation_token) {
-        return;
-      }
+    await end_instance(instance);
+  }
+}
 
-      const started = factory.start(props, RECORDING_LIVE_ACTIVITY_URL);
+async function start_instance(factory, props, token) {
+  try {
+    await end_orphaned_instances(factory);
 
-      if (token !== operation_token) {
-        await end_instance(started);
-        return;
-      }
-
-      activity_instance = started;
+    if (token !== operation_token) {
       return;
     }
 
-    await activity_instance.update(props);
+    const started = factory.start(props, RECORDING_LIVE_ACTIVITY_URL);
+
+    if (token !== operation_token) {
+      await end_instance(started);
+      return;
+    }
+
+    activity_instance = started;
   } catch (error) {
-    const failed = activity_instance;
-    activity_instance = null;
-    await end_instance(failed);
     await end_orphaned_instances(factory).catch(() => {});
   }
 }
@@ -119,9 +130,7 @@ export async function end_recording_live_activity() {
   try {
     const factory = get_recording_live_activity_factory();
     await end_orphaned_instances(factory);
-  } catch (error) {
-    // No active activity to clean up.
-  }
+  } catch {}
 }
 
 export function reset_recording_live_activity_for_tests() {
