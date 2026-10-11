@@ -77,6 +77,10 @@ jest.mock('../stores/Episodes', () => ({
   is_upgrading_legacy: false,
 }));
 
+jest.mock('../lib/recording_live_activity', () => ({
+  end_recording_live_activity: jest.fn(async () => {}),
+}));
+
 const mock_handle_open_url = jest.fn();
 
 jest.mock('../stores/Auth', () => ({
@@ -93,6 +97,7 @@ const { fireEvent, render } = require('@testing-library/react-native');
 const App = require('../App').default;
 const Auth = require('../stores/Auth');
 const Episodes = require('../stores/Episodes');
+const { end_recording_live_activity } = require('../lib/recording_live_activity');
 
 describe('App auth callback URLs', () => {
   beforeEach(async () => {
@@ -113,6 +118,16 @@ describe('App auth callback URLs', () => {
     url_event_handler({ url: callback_url });
 
     expect(mock_handle_open_url).toHaveBeenCalledWith(callback_url);
+  });
+});
+
+describe('App launch', () => {
+  test('ends any leftover recording Live Activity', async () => {
+    end_recording_live_activity.mockClear();
+
+    await render(React.createElement(App));
+
+    expect(end_recording_live_activity).toHaveBeenCalledTimes(1);
   });
 });
 

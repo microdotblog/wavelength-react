@@ -18,6 +18,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
+import { end_recording_live_activity } from './lib/recording_live_activity';
 import SignedInNavigator from './navigation/SignedInNavigator';
 import WelcomeScreen from './screens/WelcomeScreen';
 import Auth from './stores/Auth';
@@ -81,6 +82,8 @@ function App() {
 
   React.useEffect(() => {
     let is_cancelled = false;
+
+    end_recording_live_activity();
 
     Auth.hydrate().finally(() => {
       if (!is_cancelled) {
