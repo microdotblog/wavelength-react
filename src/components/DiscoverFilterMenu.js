@@ -85,6 +85,10 @@ export function build_ios_discover_filter_header_items({
     type: 'menu',
   });
 
+  if (Platform.isPad) {
+    items.push({ type: 'spacing', spacing: 8 });
+  }
+
   return items;
 }
 

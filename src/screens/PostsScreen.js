@@ -29,7 +29,7 @@ import { show_toast } from '../lib/toast';
 import Posts from '../stores/Posts';
 import { header_right_element } from '../theme/wavelengthTheme';
 
-function empty_copy_for_filter(filter = 'podcasts', destination_label = 'your Micro.blog') {
+function empty_copy_for_filter(filter = 'all', destination_label = 'your Micro.blog') {
   if (filter === 'posts') {
     return {
       body: 'Posts without audio will show up here.',

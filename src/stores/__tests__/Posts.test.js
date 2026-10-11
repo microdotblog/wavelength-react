@@ -144,10 +144,10 @@ describe('Posts store', () => {
     expect(Posts.is_loading).toBe(false);
   });
 
-  test('defaults to the podcasts filter', () => {
+  test('defaults to all posts', () => {
     applySnapshot(Posts, { posts: SAMPLE_POSTS });
-    expect(Posts.selected_filter).toBe('podcasts');
-    expect(Posts.filtered_posts().map(post => post.uid)).toEqual(['2']);
+    expect(Posts.selected_filter).toBe('all');
+    expect(Posts.filtered_posts().map(post => post.uid)).toEqual(['3', '2', '1']);
   });
 
   test('filtered_posts respects selected_filter', () => {

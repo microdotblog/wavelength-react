@@ -13,20 +13,20 @@ export const POST_FILTER_OPTIONS = [
   { icon: 'microphone', id: 'narrated', label: 'Narrated' },
 ];
 
-export function post_filter_label(filter = 'podcasts') {
+export function post_filter_label(filter = 'all') {
   const match = POST_FILTER_OPTIONS.find(option => option.id === filter);
 
   if (match) {
     return match.label;
   }
 
-  return 'Podcasts';
+  return 'All';
 }
 
 export function build_ios_posts_filter_header_items({
   did_hydrate = false,
   is_loading = false,
-  selected_filter = 'podcasts',
+  selected_filter = 'all',
   spinner = null,
 } = {}) {
   const items = [];
