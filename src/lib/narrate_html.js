@@ -1,4 +1,22 @@
+import MarkdownIt from 'markdown-it';
+
 import { strip_audio_tags } from './narration';
+
+const markdown = new MarkdownIt({ html: true });
+
+function narration_body(content) {
+  // Keep entities encoded because this plain text is displayed inside a WebView.
+  return markdown.render(strip_audio_tags(content))
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style|audio|video)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|blockquote|pre|ul|ol)\s*>/gi, '\n\n')
+    .replace(/<\/(li|tr)\s*>/gi, '\n')
+    .replace(/<\/(td|th)\s*>/gi, ' ')
+    .replace(/<(?:"[^"]*"|'[^']*'|[^'">])*>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function escape_html(value = '') {
   return `${value || ''}`
@@ -26,7 +44,7 @@ export function build_narrate_html({
   is_dark = false,
   title = '',
 } = {}) {
-  const body = strip_audio_tags(content);
+  const body = narration_body(content);
   const safe_title = escape_html(`${title || ''}`.trim());
   const title_html = safe_title ? `<h1>${safe_title}</h1>` : '';
   const safe_background = escape_html(background_color);
@@ -58,8 +76,8 @@ export function build_narrate_html({
       line-height: 1.25;
       margin: 0 0 16px;
     }
-    .post :first-child {
-      margin-top: 0;
+    .post {
+      white-space: pre-wrap;
     }
     img, video {
       max-width: 100%;
