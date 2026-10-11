@@ -233,4 +233,38 @@ describe('recording_live_activity', () => {
       expect.objectContaining({ phase: 'recording' }),
     );
   });
+
+  test('restarts the activity when a queued update follows a failed one', async () => {
+    let reject_pause_update;
+    mock_instance.update.mockImplementationOnce(
+      () =>
+        new Promise((resolve, reject) => {
+          reject_pause_update = reject;
+        }),
+    );
+
+    await sync_recording_live_activity({
+      duration_ms: 1000,
+      phase: 'recording',
+    });
+    const pause_sync = sync_recording_live_activity({
+      duration_ms: 2000,
+      phase: 'paused',
+    });
+    await Promise.resolve();
+    const resume_sync = sync_recording_live_activity({
+      duration_ms: 2000,
+      phase: 'recording',
+    });
+
+    reject_pause_update(new Error('update failed'));
+    await Promise.all([pause_sync, resume_sync]);
+
+    expect(mock_instance.end).toHaveBeenCalledWith('immediate');
+    expect(mock_factory.start).toHaveBeenCalledTimes(2);
+    expect(mock_factory.start).toHaveBeenLastCalledWith(
+      expect.objectContaining({ phase: 'recording' }),
+      'wavelength://record',
+    );
+  });
 });

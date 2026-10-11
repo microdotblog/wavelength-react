@@ -73,19 +73,28 @@ export async function sync_recording_live_activity({
   const current = activity_instance;
 
   if (current) {
-    await update_instance(current, props, token);
+    await update_instance(factory, current, props, token);
   } else {
     await start_instance(factory, props, token);
   }
 }
 
-function update_instance(instance, props, token) {
-  update_queue = update_queue.then(() => apply_update(instance, props, token));
+function update_instance(factory, instance, props, token) {
+  update_queue = update_queue.then(() => apply_update(factory, instance, props, token));
   return update_queue;
 }
 
-async function apply_update(instance, props, token) {
-  if (token !== operation_token || activity_instance !== instance) {
+async function apply_update(factory, instance, props, token) {
+  if (token !== operation_token) {
+    return;
+  }
+
+  if (activity_instance === null) {
+    await start_instance(factory, props, token);
+    return;
+  }
+
+  if (activity_instance !== instance) {
     return;
   }
 
