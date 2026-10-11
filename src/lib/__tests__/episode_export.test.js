@@ -51,33 +51,33 @@ function seed_file(uri, contents = 'audio') {
 }
 
 describe('sanitize_export_filename', () => {
-  test('falls back to Episode.m4a for empty or whitespace titles', () => {
-    expect(sanitize_export_filename('')).toBe('Episode.m4a');
-    expect(sanitize_export_filename('   ')).toBe('Episode.m4a');
+  test('falls back to Episode.mp3 for empty or whitespace titles', () => {
+    expect(sanitize_export_filename('')).toBe('Episode.mp3');
+    expect(sanitize_export_filename('   ')).toBe('Episode.mp3');
   });
 
   test('strips slashes and reserved characters', () => {
-    expect(sanitize_export_filename('News / Notes: "live"?')).toBe('News Notes live.m4a');
+    expect(sanitize_export_filename('News / Notes: "live"?')).toBe('News Notes live.mp3');
   });
 
   test('preserves unicode titles', () => {
-    expect(sanitize_export_filename('Café 录音')).toBe('Café 录音.m4a');
+    expect(sanitize_export_filename('Café 录音')).toBe('Café 录音.mp3');
   });
 
   test('collapses whitespace and trims dots', () => {
-    expect(sanitize_export_filename('  Morning  show.  ')).toBe('Morning show.m4a');
+    expect(sanitize_export_filename('  Morning  show.  ')).toBe('Morning show.mp3');
   });
 
   test('caps long titles', () => {
     const filename = sanitize_export_filename('A'.repeat(120));
 
-    expect(filename.endsWith('.m4a')).toBe(true);
+    expect(filename.endsWith('.mp3')).toBe(true);
     expect(filename.length).toBe(84);
   });
 });
 
 describe('prepare_episode_share_file', () => {
-  const source_uri = 'file:///episodes/ep-1/exported.m4a';
+  const source_uri = 'file:///episodes/ep-1/exported.mp3';
 
   beforeEach(() => {
     mock_files.clear();
@@ -90,36 +90,36 @@ describe('prepare_episode_share_file', () => {
     const payload = await prepare_episode_share_file(source_uri, 'Morning Show');
 
     expect(payload).toEqual({
-      UTI: 'public.mpeg-4-audio',
+      UTI: 'public.mp3',
       dialogTitle: 'Morning Show',
-      mimeType: 'audio/mp4',
-      uri: 'file:///cache/Morning Show.m4a',
+      mimeType: 'audio/mpeg',
+      uri: 'file:///cache/Morning Show.mp3',
     });
-    expect(mock_files.get('file:///cache/Morning Show.m4a')).toBe('audio');
+    expect(mock_files.get('file:///cache/Morning Show.mp3')).toBe('audio');
     expect(File.mock.instances[0].copy).toHaveBeenCalledWith(
-      expect.objectContaining({ uri: 'file:///cache/Morning Show.m4a' }),
+      expect.objectContaining({ uri: 'file:///cache/Morning Show.mp3' }),
       { overwrite: true },
     );
   });
 
-  test('uses Episode.m4a and Episode as the share title when the episode name is empty', async () => {
+  test('uses Episode.mp3 and Episode as the share title when the episode name is empty', async () => {
     seed_file(source_uri);
 
     await expect(prepare_episode_share_file(source_uri, '   ')).resolves.toEqual({
-      UTI: 'public.mpeg-4-audio',
+      UTI: 'public.mp3',
       dialogTitle: 'Episode',
-      mimeType: 'audio/mp4',
-      uri: 'file:///cache/Episode.m4a',
+      mimeType: 'audio/mpeg',
+      uri: 'file:///cache/Episode.mp3',
     });
   });
 
   test('overwrites an existing cache file with the same name', async () => {
     seed_file(source_uri, 'fresh');
-    seed_file('file:///cache/Morning Show.m4a', 'stale');
+    seed_file('file:///cache/Morning Show.mp3', 'stale');
 
     const payload = await prepare_episode_share_file(source_uri, 'Morning Show');
 
-    expect(payload.uri).toBe('file:///cache/Morning Show.m4a');
+    expect(payload.uri).toBe('file:///cache/Morning Show.mp3');
     expect(mock_files.get(payload.uri)).toBe('fresh');
   });
 
@@ -135,7 +135,7 @@ describe('prepare_episode_share_file', () => {
 });
 
 describe('share_episode_audio', () => {
-  const source_uri = 'file:///episodes/ep-1/exported.m4a';
+  const source_uri = 'file:///episodes/ep-1/exported.mp3';
 
   beforeEach(() => {
     mock_files.clear();
@@ -151,11 +151,11 @@ describe('share_episode_audio', () => {
     await share_episode_audio(source_uri, 'Morning Show');
 
     expect(Sharing.shareAsync).toHaveBeenCalledWith(
-      'file:///cache/Morning Show.m4a',
+      'file:///cache/Morning Show.mp3',
       {
-        UTI: 'public.mpeg-4-audio',
+        UTI: 'public.mp3',
         dialogTitle: 'Morning Show',
-        mimeType: 'audio/mp4',
+        mimeType: 'audio/mpeg',
       },
     );
   });

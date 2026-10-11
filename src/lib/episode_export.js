@@ -1,8 +1,8 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-const AUDIO_MIME_TYPE = 'audio/mp4';
-const AUDIO_UTI = 'public.mpeg-4-audio';
+const AUDIO_MIME_TYPE = 'audio/mpeg';
+const AUDIO_UTI = 'public.mp3';
 const FALLBACK_STEM = 'Episode';
 const ILLEGAL_FILENAME_PATTERN = /[/\\:*?"<>|\x00]/g;
 const MAX_FILENAME_STEM = 80;
@@ -23,7 +23,7 @@ export function sanitize_export_filename(title = '') {
     stem = FALLBACK_STEM;
   }
 
-  return `${stem}.m4a`;
+  return `${stem}.mp3`;
 }
 
 export async function prepare_episode_share_file(source_uri = '', title = '') {
