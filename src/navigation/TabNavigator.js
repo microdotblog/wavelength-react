@@ -74,7 +74,8 @@ function TabNavigator({ theme }) {
         tabBarInactiveTintColor: theme.colors.ink_soft,
         ...(Platform.OS === 'ios'
           ? {
-              lazy: !is_tablet,
+              // Mount stacks before selection to avoid blank native tabs on iPhone.
+              lazy: false,
               // The split view supplies the sidebar; keep compact navigation as tabs.
               tabBarControllerMode: is_tablet ? 'tabBar' : undefined,
               tabBarMinimizeBehavior: 'none',
