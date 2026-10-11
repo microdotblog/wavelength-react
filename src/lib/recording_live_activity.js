@@ -6,6 +6,7 @@ const RECORDING_LIVE_ACTIVITY_URL = 'wavelength://record';
 
 let activity_instance = null;
 let operation_token = 0;
+let update_queue = Promise.resolve();
 
 function next_operation_token() {
   operation_token += 1;
@@ -72,13 +73,22 @@ export async function sync_recording_live_activity({
   const current = activity_instance;
 
   if (current) {
-    await update_instance(current, props);
+    await update_instance(current, props, token);
   } else {
     await start_instance(factory, props, token);
   }
 }
 
-async function update_instance(instance, props) {
+function update_instance(instance, props, token) {
+  update_queue = update_queue.then(() => apply_update(instance, props, token));
+  return update_queue;
+}
+
+async function apply_update(instance, props, token) {
+  if (token !== operation_token || activity_instance !== instance) {
+    return;
+  }
+
   try {
     await instance.update(props);
   } catch (error) {
@@ -106,6 +116,7 @@ async function start_instance(factory, props, token) {
     }
 
     activity_instance = started;
+    update_queue = Promise.resolve();
   } catch (error) {
     await end_orphaned_instances(factory).catch(() => {});
   }
@@ -136,4 +147,5 @@ export async function end_recording_live_activity() {
 export function reset_recording_live_activity_for_tests() {
   activity_instance = null;
   operation_token = 0;
+  update_queue = Promise.resolve();
 }

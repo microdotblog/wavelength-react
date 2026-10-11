@@ -165,6 +165,8 @@ describe('recording_live_activity', () => {
       duration_ms: 2000,
       phase: 'paused',
     });
+    await Promise.resolve();
+    expect(first_instance.update).toHaveBeenCalledTimes(1);
     await end_recording_live_activity();
     await sync_recording_live_activity({
       duration_ms: 0,
@@ -195,5 +197,40 @@ describe('recording_live_activity', () => {
     await end_recording_live_activity();
 
     expect(leftover.end).toHaveBeenCalledWith('immediate');
+  });
+
+  test('applies a later phase after a slower earlier update settles', async () => {
+    let resolve_pause_update;
+    mock_instance.update.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolve_pause_update = resolve;
+        }),
+    );
+
+    await sync_recording_live_activity({
+      duration_ms: 1000,
+      phase: 'recording',
+    });
+    const pause_sync = sync_recording_live_activity({
+      duration_ms: 2000,
+      phase: 'paused',
+    });
+    await Promise.resolve();
+    const resume_sync = sync_recording_live_activity({
+      duration_ms: 2000,
+      phase: 'recording',
+    });
+    await Promise.resolve();
+
+    expect(mock_instance.update).toHaveBeenCalledTimes(1);
+
+    resolve_pause_update();
+    await Promise.all([pause_sync, resume_sync]);
+
+    expect(mock_instance.update).toHaveBeenCalledTimes(2);
+    expect(mock_instance.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ phase: 'recording' }),
+    );
   });
 });
