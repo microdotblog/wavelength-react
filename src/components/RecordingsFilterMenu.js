@@ -61,7 +61,7 @@ export function build_ios_recordings_filter_header_items({
 }
 
 function RecordingsFilterMenu({ theme }) {
-  const should_use_liquid_glass = is_liquid_glass();
+  const should_use_liquid_glass = is_liquid_glass() && !Platform.isPad;
   const selected_id = Episodes.selected_filter;
   const selected_label = recording_filter_label(selected_id);
 
@@ -94,7 +94,7 @@ function RecordingsFilterMenu({ theme }) {
   const show_loading_indicator = list_status.is_loading;
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, Platform.isPad ? styles.tabletRow : null]}>
       {show_loading_indicator ? (
         <ActivityIndicator
           accessibilityLabel="Loading recordings"
@@ -123,6 +123,7 @@ function RecordingsFilterMenu({ theme }) {
                   borderColor: should_use_liquid_glass ? 'transparent' : theme.colors.line,
                 }
               : null,
+            Platform.isPad ? [styles.tabletTrigger, { borderColor: theme.colors.paper }] : null,
             pressed ? styles.pressed : null,
           ]}
         >
@@ -130,6 +131,7 @@ function RecordingsFilterMenu({ theme }) {
             style={[
               Platform.OS === 'android' ? styles.androidLabel : styles.iosLabel,
               { color: theme.colors.accent_strong },
+              Platform.isPad ? [styles.tabletLabel, { color: theme.colors.ink }] : null,
             ]}
           >
             {selected_label}
@@ -141,6 +143,18 @@ function RecordingsFilterMenu({ theme }) {
 }
 
 const styles = StyleSheet.create({
+  tabletRow: {
+    paddingRight: 6,
+  },
+  tabletTrigger: {
+    minHeight: 44,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+  },
+  tabletLabel: {
+    fontSize: 17,
+    fontWeight: '400',
+  },
   androidLabel: {
     fontSize: 17,
     fontWeight: '500',

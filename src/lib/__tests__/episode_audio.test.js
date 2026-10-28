@@ -1,8 +1,12 @@
+jest.mock('react-native', () => ({ Platform: { OS: 'android' } }));
+
 jest.mock('expo-file-system', () => ({
-  File: jest.fn(() => ({
+  File: jest.fn((...parts) => ({
     delete: jest.fn(),
     exists: false,
+    uri: parts.join('/'),
   })),
+  Paths: { cache: 'file:///tmp' },
 }));
 
 jest.mock('../EpisodeStorage', () => ({
@@ -24,10 +28,13 @@ jest.mock('../../../modules/wavelength-mp3/src/WavelengthMP3Module', () => ({
   default: {
     exportM4aAsync: jest.fn(),
     exportMp3Async: jest.fn(),
+    exportAlacAsync: jest.fn(),
+    mergeAlacAsync: jest.fn(),
   },
 }));
 
 const { extractPreviewBars, trimAudio } = require('@siteed/audio-studio');
+const { Platform } = require('react-native');
 const { concatAudioFiles } = require('react-native-audio-api');
 const WavelengthMP3Module = require('../../../modules/wavelength-mp3/src/WavelengthMP3Module').default;
 const {
@@ -40,6 +47,10 @@ const {
   normalize_imported_audio,
   split_clip_at,
 } = require('../episode_audio');
+
+beforeEach(() => {
+  Platform.OS = 'android';
+});
 
 describe('export_episode_mp3', () => {
   beforeEach(() => {
@@ -243,5 +254,53 @@ describe('split_clip_at', () => {
     await expect(split_clip_at('', 3, 10))
       .rejects
       .toThrow('A source clip is required to split.');
+  });
+});
+
+describe('iOS lossless project audio', () => {
+  beforeEach(() => {
+    Platform.OS = 'ios';
+    jest.clearAllMocks();
+    WavelengthMP3Module.exportAlacAsync.mockReset();
+    WavelengthMP3Module.exportAlacAsync.mockImplementation(async (_input, output) => output);
+    WavelengthMP3Module.mergeAlacAsync.mockReset();
+    extractPreviewBars.mockResolvedValue({ durationMs: 10000, bars: [{ amplitude: 0.5 }] });
+  });
+
+  test('imports to ALAC without an intermediate AAC encode', async () => {
+    const result = await normalize_imported_audio('file:///original.aac');
+
+    expect(result).toMatchObject({ duration_seconds: 10, waveform: [0.5] });
+    expect(WavelengthMP3Module.exportAlacAsync).toHaveBeenCalledWith(
+      'file:///original.aac', expect.stringMatching(/import-.*\.m4a$/), 0, 10000,
+    );
+    expect(trimAudio).not.toHaveBeenCalled();
+    expect(WavelengthMP3Module.exportM4aAsync).not.toHaveBeenCalled();
+  });
+
+  test('splits directly to ALAC with adjacent time ranges', async () => {
+    const result = await split_clip_at('file:///original.m4a', 3, 10);
+
+    expect(result).toMatchObject({ first_seconds: 3, second_seconds: 7 });
+    expect(WavelengthMP3Module.exportAlacAsync).toHaveBeenNthCalledWith(
+      1, 'file:///original.m4a', expect.stringMatching(/split-.*-1\.m4a$/), 0, 3000,
+    );
+    expect(WavelengthMP3Module.exportAlacAsync).toHaveBeenNthCalledWith(
+      2, 'file:///original.m4a', expect.stringMatching(/split-.*-2\.m4a$/), 3000, 10000,
+    );
+    expect(trimAudio).not.toHaveBeenCalled();
+  });
+
+  test('merges old AAC and new ALAC clips through the native lossless writer', async () => {
+    const episode = { clips: ['old.m4a', 'new.m4a'] };
+    get_episode_clip_uri.mockImplementation((_episode, name) => `file:///project/${name}`);
+    get_exported_clip_uri.mockReturnValue('file:///project/exported.m4a');
+    WavelengthMP3Module.mergeAlacAsync.mockResolvedValue('file:///project/exported.m4a');
+
+    expect(await merge_episode_clips(episode)).toBe('file:///project/exported.m4a');
+    expect(WavelengthMP3Module.mergeAlacAsync).toHaveBeenCalledWith(
+      ['file:///project/old.m4a', 'file:///project/new.m4a'], 'file:///project/exported.m4a',
+    );
+    expect(concatAudioFiles).not.toHaveBeenCalled();
   });
 });

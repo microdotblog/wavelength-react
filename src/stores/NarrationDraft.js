@@ -1,4 +1,5 @@
 import { applySnapshot, flow, types } from 'mobx-state-tree';
+import { Platform } from 'react-native';
 
 import { get_episode_clip_uri } from '../lib/EpisodeStorage';
 import {
@@ -80,7 +81,8 @@ const NarrationDraft = types
     },
 
     is_over_upload_limit() {
-      return is_over_upload_limit(self.total_audio_size_bytes());
+      // Check the compressed upload on iOS, rather than the lossless draft.
+      return Platform.OS !== 'ios' && is_over_upload_limit(self.total_audio_size_bytes());
     },
 
     is_open_for(post_uid = '') {

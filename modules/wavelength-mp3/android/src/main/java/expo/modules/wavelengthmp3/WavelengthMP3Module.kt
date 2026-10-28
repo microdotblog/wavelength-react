@@ -14,7 +14,7 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-private const val BITRATE_KBPS = 128
+private const val BITRATE_KBPS = 192
 private const val CODEC_TIMEOUT_MICROS = 10_000L
 private const val DEFAULT_SAMPLE_RATE = 44_100
 

@@ -1,3 +1,10 @@
+jest.mock('react-native', () => ({ Platform: { OS: 'android' } }));
+jest.mock('../EpisodeStorage', () => ({ read_file_size_bytes: jest.fn(() => 1000) }));
+jest.mock('../episode_audio', () => ({
+  delete_audio_file: jest.fn(),
+  export_episode_mp3: jest.fn(async () => 'file:///tmp/take.mp3'),
+}));
+
 jest.mock('../../api/Micropub', () => ({
   fetch_micropub_post_source: jest.fn(),
   update_micropub_post: jest.fn(),
@@ -13,9 +20,16 @@ const {
   attach_narration_to_post,
   remove_narration_from_post,
 } = require('../attach_narration');
+const { Platform } = require('react-native');
+const { read_file_size_bytes } = require('../EpisodeStorage');
+const { delete_audio_file, export_episode_mp3 } = require('../episode_audio');
 
 describe('attach_narration_to_post', () => {
   beforeEach(() => {
+    Platform.OS = 'android';
+    delete_audio_file.mockClear();
+    export_episode_mp3.mockClear();
+    read_file_size_bytes.mockReset().mockReturnValue(1000);
     upload_episode_audio.mockReset();
     fetch_micropub_post_source.mockReset();
     update_micropub_post.mockReset();
@@ -100,6 +114,31 @@ describe('attach_narration_to_post', () => {
     })).rejects.toThrow('We could not load this post to add narration.');
 
     expect(update_micropub_post).not.toHaveBeenCalled();
+  });
+
+  test('exports iOS narration to MP3 and removes only the temporary upload', async () => {
+    Platform.OS = 'ios';
+    upload_episode_audio.mockResolvedValue('https://micro.blog/read.mp3');
+    fetch_micropub_post_source.mockResolvedValue({ content: 'Hello' });
+
+    await attach_narration_to_post({ file_uri: 'file:///tmp/take.m4a', file_name: 'narration.m4a' });
+
+    expect(export_episode_mp3).toHaveBeenCalledWith('file:///tmp/take.m4a');
+    expect(upload_episode_audio).toHaveBeenCalledWith(expect.objectContaining({
+      file_uri: 'file:///tmp/take.mp3', file_name: 'narration.mp3',
+    }));
+    expect(delete_audio_file).toHaveBeenCalledTimes(1);
+    expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/take.mp3');
+  });
+
+  test('checks the compressed narration upload size and cleans up on failure', async () => {
+    Platform.OS = 'ios';
+    read_file_size_bytes.mockReturnValue(80_000_000);
+
+    await expect(attach_narration_to_post({ file_uri: 'file:///tmp/take.m4a' }))
+      .rejects.toThrow('This narration is 80 MB.');
+    expect(upload_episode_audio).not.toHaveBeenCalled();
+    expect(delete_audio_file).toHaveBeenCalledWith('file:///tmp/take.mp3');
   });
 });
 

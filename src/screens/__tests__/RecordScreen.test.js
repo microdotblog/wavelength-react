@@ -68,6 +68,7 @@ jest.mock('../../navigation/SidebarContext', () => ({
 
 jest.mock('../../lib/recording_audio_mode', () => ({
   enable_recording_audio_mode: jest.fn(async () => {}),
+  get_recording_options: jest.fn(() => ({})),
 }));
 
 jest.mock('../../lib/recording_live_activity', () => ({

@@ -96,7 +96,7 @@ function RecordingsScreen({ navigation, theme }) {
   );
 
   React.useLayoutEffect(() => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'ios' && !Platform.isPad) {
       navigation.setOptions({
         headerRight: undefined,
         unstable_headerRightItems: () => build_ios_recordings_filter_header_items({
@@ -121,7 +121,7 @@ function RecordingsScreen({ navigation, theme }) {
       unstable_headerRightItems: undefined,
       ...header_right_element(() => (
         <RecordingsFilterMenu theme={theme} />
-      )),
+      ), { hidesSharedBackground: Platform.isPad }),
     });
   }, [
     navigation,

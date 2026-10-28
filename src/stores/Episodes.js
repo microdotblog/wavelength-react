@@ -1,4 +1,5 @@
 import { applySnapshot, flow, getSnapshot, types } from 'mobx-state-tree';
+import { Platform } from 'react-native';
 
 import { delete_micropub_post } from '../api/Micropub';
 import {
@@ -139,7 +140,8 @@ const Episode = types
     },
 
     is_over_upload_limit() {
-      return is_over_upload_limit(self.total_audio_size_bytes());
+      // iOS project files are lossless; Publishing checks the actual MP3 size.
+      return Platform.OS !== 'ios' && is_over_upload_limit(self.total_audio_size_bytes());
     },
   }));
 

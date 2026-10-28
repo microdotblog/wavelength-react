@@ -400,13 +400,13 @@ function EditScreen({ navigation, route, theme }) {
     set_is_exporting_episode(true);
 
     try {
-      const merged_uri = await Episodes.export_merged_audio(episode_id);
+      const exported_uri = await Episodes.export_published_audio(episode_id);
 
-      if (!merged_uri) {
+      if (!exported_uri) {
         throw new Error('Could not export episode.');
       }
 
-      await share_episode_audio(merged_uri, episode.title);
+      await share_episode_audio(exported_uri, episode.title);
     } catch (error) {
       show_toast(error?.message || 'Could not export episode.');
     } finally {

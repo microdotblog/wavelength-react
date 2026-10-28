@@ -35,6 +35,7 @@
     "expo-system-ui": "~56.0.5",
     "expo-web-browser": "~56.0.6",
     "expo-widgets": "~56.0.25",
+    "markdown-it": "^14.1.0",
     "mobx": "^6.16.1",
     "mobx-react": "^9.2.2",
     "mobx-state-tree": "^7.2.0",

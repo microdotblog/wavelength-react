@@ -26,7 +26,7 @@ const Post = types.model('Post', {
 const Posts = types
   .model('Posts', {
     posts: types.array(Post),
-    selected_filter: types.optional(types.string, 'podcasts'),
+    selected_filter: types.optional(types.string, 'all'),
   })
   .volatile(() => ({
     attach_phase: 'idle',

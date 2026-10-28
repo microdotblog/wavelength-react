@@ -29,7 +29,7 @@ import { show_toast } from '../lib/toast';
 import Posts from '../stores/Posts';
 import { header_right_element } from '../theme/wavelengthTheme';
 
-function empty_copy_for_filter(filter = 'podcasts', destination_label = 'your Micro.blog') {
+function empty_copy_for_filter(filter = 'all', destination_label = 'your Micro.blog') {
   if (filter === 'posts') {
     return {
       body: 'Posts without audio will show up here.',
@@ -84,7 +84,7 @@ function PostsScreen({ navigation, theme }) {
   );
 
   React.useLayoutEffect(() => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'ios' && !Platform.isPad) {
       navigation.setOptions({
         headerRight: undefined,
         unstable_headerRightItems: () => build_ios_posts_filter_header_items({
@@ -107,7 +107,7 @@ function PostsScreen({ navigation, theme }) {
       unstable_headerRightItems: undefined,
       ...header_right_element(() => (
         <PostsFilterMenu theme={theme} />
-      )),
+      ), { hidesSharedBackground: Platform.isPad }),
     });
   }, [
     navigation,

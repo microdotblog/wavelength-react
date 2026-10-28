@@ -1,4 +1,8 @@
 jest.mock('expo-audio', () => ({
+  IOSOutputFormat: { APPLELOSSLESS: 'alac' },
+  RecordingPresets: {
+    HIGH_QUALITY: { bitRate: 128000, sampleRate: 44100, numberOfChannels: 2, ios: { outputFormat: 'aac ' } },
+  },
   requestNotificationPermissionsAsync: jest.fn(async () => ({ granted: true })),
   setAudioModeAsync: jest.fn(async () => {}),
 }));
@@ -12,7 +16,7 @@ const {
   setAudioModeAsync,
 } = require('expo-audio');
 const { Platform } = require('react-native');
-const { enable_recording_audio_mode } = require('../recording_audio_mode');
+const { enable_recording_audio_mode, get_recording_options } = require('../recording_audio_mode');
 
 describe('enable_recording_audio_mode', () => {
   beforeEach(() => {
@@ -29,6 +33,15 @@ describe('enable_recording_audio_mode', () => {
       allowsRecording: true,
       playsInSilentMode: true,
     });
+  });
+
+  test('records ALAC on iOS without changing the Android preset', () => {
+    expect(get_recording_options()).toMatchObject({
+      sampleRate: 44100, numberOfChannels: 2, isMeteringEnabled: true,
+      ios: { bitDepthHint: 16, outputFormat: 'alac' },
+    });
+    Platform.OS = 'android';
+    expect(get_recording_options().ios.outputFormat).toBe('aac ');
   });
 
   test('requests notification permission on Android before enabling recording mode', async () => {
